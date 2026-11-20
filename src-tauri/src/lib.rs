@@ -71,9 +71,11 @@ async fn discover_hosts() -> Result<Vec<DiscoveredHost>, String>
 #[tauri::command]
 async fn pair_host(moonlight_command: Vec<String>, host: String, pin: String) -> Result<(), String>
 {
-    tauri::async_runtime::spawn_blocking(move || MoonlightPairing::pair(&moonlight_command, &host, &pin))
+    let result = tauri::async_runtime::spawn_blocking(move || MoonlightPairing::pair(&moonlight_command, &host, &pin))
         .await
-        .map_err(|error| error.to_string())?
+        .map_err(|error| error.to_string())?;
+    println!("[pair] {:?}", result);
+    result
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

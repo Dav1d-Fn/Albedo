@@ -87,8 +87,10 @@ impl GameListSource
 
         if !output.status.success()
         {
+            // Moonlight logs driver noise first; the actual reason is the last line.
             let error_text = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("moonlight list fehlgeschlagen: {}", error_text.trim()));
+            let last_line = error_text.lines().rev().find(|line| !line.trim().is_empty()).unwrap_or("").trim();
+            return Err(format!("moonlight list fehlgeschlagen: {}", last_line));
         }
 
         Ok(String::from_utf8_lossy(&output.stdout)
