@@ -16,7 +16,7 @@ export function HomeScreen(props: { app: LauncherApp })
   {
     loading: "Lade Spieleliste …",
     online: "Online · " + state.games.length + " Spiele · Sunshine bereit",
-    error: "Nicht erreichbar · Y lädt neu",
+    error: app.settings.host ? "Nicht erreichbar · Y lädt neu" : "Nicht eingerichtet · A drücken",
   }[state.hostState];
   const dotClass = { loading: "wake", online: "on", error: "err" }[state.hostState];
   const coverWidthWithGap = 176;
@@ -34,7 +34,7 @@ export function HomeScreen(props: { app: LauncherApp })
         <button className={"chip" + topFocus(0)} onClick={() => app.activateTop(0)} aria-label={"Host-PC: " + hostSubtitle}>
           <span className={"dot " + dotClass} />
           <span className="chip-txt">
-            <span className="chip-name">{app.settings.host}</span>
+            <span className="chip-name">{app.hostDisplayName()}</span>
             <span className="chip-sub">{hostSubtitle}</span>
           </span>
           {state.hostState === "error" && <span className="glyph sm">Y</span>}

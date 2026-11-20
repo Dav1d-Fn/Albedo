@@ -49,6 +49,13 @@ export function HintBar(props: { app: LauncherApp })
       hints.push({ glyph: "B", label: "Zu den Modi", button: "B" });
     }
   }
+  else if (state.screen === "connection")
+  {
+    const onPairRow = state.connectionZone === "rows" && state.connectionRow === 0;
+    hints.push({ glyph: "A", label: state.connectionZone === "hosts" ? "Verwenden" : onPairRow ? "Koppeln" : "Umschalten", button: "A" });
+    hints.push({ glyph: "Y", label: "Neu suchen", button: "Y" });
+    hints.push({ glyph: "B", label: "Fertig", button: "B" });
+  }
   else if (state.screen === "connect")
   {
     hints.push({ glyph: "B", label: "Abbrechen", button: "B" });

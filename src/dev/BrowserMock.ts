@@ -31,6 +31,10 @@ export class BrowserMock
           return false;
         case "fetch_games":
           return BrowserMock.sampleGames;
+        case "discover_hosts":
+          return [{ name: "fedora", address: "192.168.178.36" }];
+        case "pair_host":
+          return new Promise((resolve) => window.setTimeout(resolve, 4000));
         case "start_stream":
           window.setTimeout(() => emit("stream-ended", { exitCode: 0, errorTail: "" }), 3000);
           return "moonlight stream (browser mock)";

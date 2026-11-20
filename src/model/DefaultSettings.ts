@@ -3,11 +3,16 @@ import { Settings } from "./Types";
 /** Settings used on first start, and to fill in keys missing from an older settings file. */
 export class DefaultSettings
 {
+  public static readonly flatpakMoonlight = ["flatpak", "run", "com.moonlight_stream.Moonlight"];
+
+  public static readonly systemMoonlight = ["moonlight"];
+
   public static create(): Settings
   {
     return {
-      host: "localhost",
-      moonlightCommand: ["moonlight"],
+      host: "",
+      hostName: "",
+      moonlightCommand: DefaultSettings.flatpakMoonlight,
       sunshineApiUrl: "",
       sunshineUser: "",
       sunshinePassword: "",

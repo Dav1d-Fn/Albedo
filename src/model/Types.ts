@@ -31,15 +31,23 @@ export interface DeviceProfile
 
 export interface Settings
 {
-  /** Host name or IP of the Sunshine PC, as Moonlight knows it. */
+  /** IP or host name of the Sunshine PC, as Moonlight knows it. Empty = not set up yet. */
   host: string;
+  /** Display name of the host (mDNS name), falls back to `host`. */
+  hostName: string;
   /** Program plus fixed arguments, e.g. ["flatpak", "run", "com.moonlight_stream.Moonlight"]. */
   moonlightCommand: string[];
-  /** e.g. "https://192.168.1.10:47990". Empty = get the game list via `moonlight list`. */
+  /** Optional, settings file only: "https://<pc>:47990" + web UI login. Empty = `moonlight list` (needs pairing). */
   sunshineApiUrl: string;
   sunshineUser: string;
   sunshinePassword: string;
   profiles: Record<DeviceId, DeviceProfile>;
   /** "<game name>|<device>" -> mode index remembered for that game. */
   rememberedModes: Record<string, number>;
+}
+
+export interface DiscoveredHost
+{
+  name: string;
+  address: string;
 }

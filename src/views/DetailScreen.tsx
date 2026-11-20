@@ -78,7 +78,7 @@ export function DetailScreen(props: { app: LauncherApp })
 
           {state.lastLaunchError
             ? <div className="dnote err up d5"><span className="dot err" /><code>{state.lastLaunchError}</code></div>
-            : <div className="dnote up d5"><span className="dot on" />{app.settings.host + " · Sunshine bereit"}</div>}
+            : <div className="dnote up d5"><span className="dot on" />{app.hostDisplayName() + " · Sunshine bereit"}</div>}
         </div>
       </div>
     </div>

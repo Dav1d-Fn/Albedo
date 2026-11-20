@@ -1,9 +1,11 @@
 import React, { CSSProperties } from "react";
 import { InputRouter } from "./input/InputRouter";
 import { ModeText } from "./model/ModeText";
-import { DeviceId, DeviceProfile, PadButton, Settings, StreamMode } from "./model/Types";
+import { DefaultSettings } from "./model/DefaultSettings";
+import { DeviceId, DeviceProfile, DiscoveredHost, PadButton, Settings, StreamMode } from "./model/Types";
 import { Backend } from "./services/Backend";
 import { ConnectScreen } from "./views/ConnectScreen";
+import { ConnectionScreen } from "./views/ConnectionScreen";
 import { DetailScreen } from "./views/DetailScreen";
 import { EditorRows } from "./views/EditorRows";
 import { EditorScreen } from "./views/EditorScreen";
@@ -12,7 +14,7 @@ import { HomeScreen } from "./views/HomeScreen";
 import { StreamScreen } from "./views/StreamScreen";
 import { ToastCard, ToastContent } from "./views/ToastCard";
 
-export type ScreenName = "home" | "detail" | "connect" | "stream" | "editor";
+export type ScreenName = "home" | "detail" | "connect" | "stream" | "editor" | "connection";
 
 export type HostState = "loading" | "online" | "error";
 
@@ -43,6 +45,16 @@ export interface LauncherState
   editZone: "modes" | "rows";
   editRow: number;
   bumps: Record<string, number>;
+  /** Connection screen: found hosts on the left, pairing and Moonlight on the right. */
+  discoveredHosts: DiscoveredHost[];
+  searchingHosts: boolean;
+  connectionZone: "hosts" | "rows";
+  connectionHostIndex: number;
+  connectionRow: number;
+  manualHostDraft: string;
+  pairState: "idle" | "pairing" | "paired" | "error";
+  pairPin: string;
+  pairMessage: string;
   /** Design is drawn at 1280px width and zoomed to the window. */
   zoom: number;
 }
@@ -97,6 +109,15 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       editZone: "modes",
       editRow: 0,
       bumps: {},
+      discoveredHosts: [],
+      searchingHosts: false,
+      connectionZone: "hosts",
+      connectionHostIndex: 0,
+      connectionRow: 0,
+      manualHostDraft: "",
+      pairState: "idle",
+      pairPin: "",
+      pairMessage: "",
       zoom: Math.max(window.innerWidth, 320) / LauncherApp.designWidth,
     };
   }
@@ -131,7 +152,14 @@ export default class LauncherApp extends React.Component<object, LauncherState>
         tv: settings.profiles.tv.defaultModeIndex,
       },
     });
-    this.reloadGames(settings);
+    if (settings.host === "")
+    {
+      this.openConnection();
+    }
+    else
+    {
+      this.reloadGames(settings);
+    }
     this.displayPollTimer = window.setInterval(() => this.pollDisplay(), LauncherApp.displayPollMilliseconds);
   }
 
@@ -172,6 +200,11 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   public selectedGame(): string | undefined
   {
     return this.state.games[this.state.gameIndex];
+  }
+
+  public hostDisplayName(): string
+  {
+    return this.settings.hostName || this.settings.host || "Kein PC";
   }
 
   public isRemembered(gameName: string | undefined, device: DeviceId = this.state.device): boolean
@@ -230,6 +263,11 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   public async reloadGames(settings: Settings = this.settings): Promise<void>
   {
+    if (settings.host === "")
+    {
+      this.setState({ games: [], hostState: "error", hostError: "Noch kein PC eingerichtet · A auf dem PC-Feld" });
+      return;
+    }
     this.setState({ hostState: "loading", hostError: "" });
     try
     {
@@ -411,6 +449,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
           this.setState({ screen: "detail" });
         }
         return;
+      case "connection":
+        return this.connectionButton(button);
       case "stream":
         // Moonlight owns the controller now; we come back via the "stream-ended" event.
         return;
@@ -475,7 +515,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.setState({ zone: "top", topIndex });
     if (topIndex === 0)
     {
-      this.reloadGames();
+      this.openConnection();
     }
     else if (topIndex === 1)
     {
@@ -557,7 +597,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     const mode = this.activeMode(device);
     const steps =
     [
-      "Verbinde mit " + this.settings.host,
+      "Verbinde mit " + this.hostDisplayName(),
       ModeText.deviceNames[device] + " setzen · " + ModeText.spec(mode),
       "Moonlight starten · " + gameName,
     ];
@@ -711,6 +751,176 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.setState({ editModeIndex: profile.modes.length, editZone: "rows", editRow: 0 });
   }
 
+  // ---------------------------------------------------------------- connection and pairing
+
+  /** Rows on the right side of the connection screen. */
+  public static readonly connectionRows = ["pair", "moonlight"] as const;
+
+  public openConnection(): void
+  {
+    this.setState({ screen: "connection", connectionZone: "hosts", connectionHostIndex: 0, pairState: "idle", pairMessage: "" });
+    this.searchHosts();
+  }
+
+  public async searchHosts(): Promise<void>
+  {
+    if (this.state.searchingHosts)
+    {
+      return;
+    }
+    this.setState({ searchingHosts: true });
+    try
+    {
+      const discoveredHosts = await this.backend.discoverHosts();
+      this.setState({ discoveredHosts });
+    }
+    catch (searchError)
+    {
+      this.showError("Suche fehlgeschlagen", String(searchError));
+    }
+    finally
+    {
+      this.setState({ searchingHosts: false });
+    }
+  }
+
+  /** Index of the "enter IP manually" entry, after the found hosts. */
+  public manualHostIndex(): number
+  {
+    return this.state.discoveredHosts.length;
+  }
+
+  public chooseHost(host: string, hostName: string): void
+  {
+    const trimmedHost = host.trim();
+    if (trimmedHost === "")
+    {
+      return;
+    }
+    this.updateSettings((settings) => ({ ...settings, host: trimmedHost, hostName }));
+    this.setState({ pairState: "idle", pairMessage: "", connectionZone: "rows", connectionRow: 0 });
+    this.reloadGames({ ...this.settings, host: trimmedHost, hostName });
+  }
+
+  public focusManualHost(): void
+  {
+    this.setState({ connectionZone: "hosts", connectionHostIndex: this.manualHostIndex() });
+    document.getElementById("manual-host")?.focus();
+  }
+
+  public async startPairing(): Promise<void>
+  {
+    if (this.settings.host === "" || this.state.pairState === "pairing")
+    {
+      return;
+    }
+    const pairPin = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+    this.setState({ pairState: "pairing", pairPin, pairMessage: "" });
+    try
+    {
+      await this.backend.pairHost(this.settings, pairPin);
+      this.setState({ pairState: "paired" });
+      this.reloadGames();
+    }
+    catch (pairError)
+    {
+      this.setState({ pairState: "error", pairMessage: String(pairError) });
+    }
+  }
+
+  public toggleMoonlightCommand(): void
+  {
+    const usesFlatpak = this.settings.moonlightCommand[0] === "flatpak";
+    const moonlightCommand = usesFlatpak ? DefaultSettings.systemMoonlight : DefaultSettings.flatpakMoonlight;
+    this.updateSettings((settings) => ({ ...settings, moonlightCommand }));
+  }
+
+  private connectionButton(button: PadButton): void
+  {
+    const state = this.state;
+    const typing = document.activeElement instanceof HTMLInputElement;
+    if (typing)
+    {
+      if (button === "A")
+      {
+        this.chooseHost(state.manualHostDraft, "");
+      }
+      (document.activeElement as HTMLInputElement).blur();
+      return;
+    }
+
+    if (button === "Y")
+    {
+      this.searchHosts();
+      return;
+    }
+    if (button === "B" || button === "MENU")
+    {
+      this.setState({ screen: "home" });
+      return;
+    }
+
+    if (state.connectionZone === "hosts")
+    {
+      if (button === "UP")
+      {
+        this.setState({ connectionHostIndex: Math.max(0, state.connectionHostIndex - 1) });
+      }
+      else if (button === "DOWN")
+      {
+        this.setState({ connectionHostIndex: Math.min(this.manualHostIndex(), state.connectionHostIndex + 1) });
+      }
+      else if (button === "RIGHT")
+      {
+        this.setState({ connectionZone: "rows" });
+      }
+      else if (button === "A")
+      {
+        const host = state.discoveredHosts[state.connectionHostIndex];
+        if (host === undefined)
+        {
+          this.focusManualHost();
+        }
+        else
+        {
+          this.chooseHost(host.address, host.name);
+        }
+      }
+    }
+    else
+    {
+      if (button === "UP")
+      {
+        this.setState({ connectionRow: Math.max(0, state.connectionRow - 1) });
+      }
+      else if (button === "DOWN")
+      {
+        this.setState({ connectionRow: Math.min(LauncherApp.connectionRows.length - 1, state.connectionRow + 1) });
+      }
+      else if (button === "LEFT")
+      {
+        this.setState({ connectionZone: "hosts" });
+      }
+      else if (button === "A")
+      {
+        this.activateConnectionRow(state.connectionRow);
+      }
+    }
+  }
+
+  public activateConnectionRow(rowIndex: number): void
+  {
+    this.setState({ connectionZone: "rows", connectionRow: rowIndex });
+    if (LauncherApp.connectionRows[rowIndex] === "pair")
+    {
+      this.startPairing();
+    }
+    else
+    {
+      this.toggleMoonlightCommand();
+    }
+  }
+
   // ---------------------------------------------------------------- render
 
   public render(): React.ReactNode
@@ -740,6 +950,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
           {state.screen === "connect" && <ConnectScreen app={this} />}
           {state.screen === "stream" && <StreamScreen app={this} />}
           {state.screen === "editor" && <EditorScreen app={this} />}
+          {state.screen === "connection" && <ConnectionScreen app={this} />}
           <div className="ambient" />
           <HintBar app={this} />
           {state.toast !== null && <ToastCard toast={state.toast} />}

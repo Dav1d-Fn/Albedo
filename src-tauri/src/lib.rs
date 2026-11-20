@@ -1,16 +1,22 @@
 mod display_detector;
 mod game_list_source;
 mod gamepad_listener;
+mod host_discovery;
 mod moonlight_command;
+mod moonlight_pairing;
 mod settings_store;
 mod stream_session;
+
+use std::time::Duration;
 
 use tauri::AppHandle;
 
 use display_detector::DisplayDetector;
 use game_list_source::GameListSource;
 use gamepad_listener::GamepadListener;
+use host_discovery::{DiscoveredHost, HostDiscovery};
 use moonlight_command::MoonlightCommand;
+use moonlight_pairing::MoonlightPairing;
 use settings_store::SettingsStore;
 use stream_session::StreamSession;
 
@@ -54,6 +60,22 @@ fn start_stream(app_handle: AppHandle, command: MoonlightCommand) -> Result<Stri
     StreamSession::start(app_handle, command)
 }
 
+#[tauri::command]
+async fn discover_hosts() -> Result<Vec<DiscoveredHost>, String>
+{
+    tauri::async_runtime::spawn_blocking(|| HostDiscovery::search(Duration::from_secs(3)))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+async fn pair_host(moonlight_command: Vec<String>, host: String, pin: String) -> Result<(), String>
+{
+    tauri::async_runtime::spawn_blocking(move || MoonlightPairing::pair(&moonlight_command, &host, &pin))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run()
 {
@@ -68,7 +90,9 @@ pub fn run()
             save_settings,
             has_external_display,
             fetch_games,
-            start_stream
+            start_stream,
+            discover_hosts,
+            pair_host
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

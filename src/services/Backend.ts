@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { DefaultSettings } from "../model/DefaultSettings";
 import { ModeText } from "../model/ModeText";
-import { DeviceProfile, PadButton, Settings, StreamMode } from "../model/Types";
+import { DeviceProfile, DiscoveredHost, PadButton, Settings, StreamMode } from "../model/Types";
 
 export interface StreamEnded
 {
@@ -54,6 +54,18 @@ export class Backend
         sunshinePassword: settings.sunshinePassword,
       },
     });
+  }
+
+  /** Looks for Sunshine hosts on the LAN via mDNS (takes about 3 seconds). */
+  public discoverHosts(): Promise<DiscoveredHost[]>
+  {
+    return invoke<DiscoveredHost[]>("discover_hosts");
+  }
+
+  /** Runs `moonlight pair`; resolves once the PIN was accepted in Sunshine. */
+  public pairHost(settings: Settings, pin: string): Promise<void>
+  {
+    return invoke<void>("pair_host", { moonlightCommand: settings.moonlightCommand, host: settings.host, pin });
   }
 
   /** Starts Moonlight; resolves with the command line that was run. */

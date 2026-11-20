@@ -72,6 +72,12 @@ export class InputRouter
     {
       return;
     }
+    // While typing into a text field only Enter (A) and Escape (B) are launcher buttons.
+    const typing = document.activeElement instanceof HTMLInputElement;
+    if (typing && keyEvent.key !== "Enter" && keyEvent.key !== "Escape")
+    {
+      return;
+    }
     const button = InputRouter.keyMap[keyEvent.key] ?? InputRouter.keyMap[keyEvent.key.toLowerCase()];
     if (button === undefined)
     {
