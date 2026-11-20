@@ -39,7 +39,13 @@ fn has_external_display() -> bool
 #[tauri::command]
 async fn fetch_games(source: GameListSource) -> Result<Vec<String>, String>
 {
-    source.fetch().await
+    let result = source.fetch().await;
+    match &result
+    {
+        Ok(games) => println!("[games] {} apps: {:?}", games.len(), games),
+        Err(error) => eprintln!("[games] {}", error),
+    }
+    result
 }
 
 #[tauri::command]

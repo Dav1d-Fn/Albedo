@@ -97,7 +97,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       editZone: "modes",
       editRow: 0,
       bumps: {},
-      zoom: window.innerWidth / LauncherApp.designWidth,
+      zoom: Math.max(window.innerWidth, 320) / LauncherApp.designWidth,
     };
   }
 
@@ -148,7 +148,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   private readonly handleResize = (): void =>
   {
-    this.setState({ zoom: window.innerWidth / LauncherApp.designWidth });
+    this.setState({ zoom: Math.max(window.innerWidth, 320) / LauncherApp.designWidth });
   };
 
   // ---------------------------------------------------------------- helpers used by views
