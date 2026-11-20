@@ -23,9 +23,16 @@ impl StreamSession
     /// Spawns Moonlight. Returns the command line on success; the "stream-ended" event follows later.
     pub fn start(app_handle: AppHandle, moonlight_command: MoonlightCommand) -> Result<String, String>
     {
-        let arguments = moonlight_command.to_arguments();
+        let mut arguments = moonlight_command.to_arguments();
         let command_line = moonlight_command.to_display_string();
         println!("[stream] {}", command_line);
+
+        // Test on the host PC without streaming to itself: run a short sleep instead of Moonlight.
+        if std::env::var_os("STREAMING_LAUNCHER_DRY_RUN").is_some()
+        {
+            println!("[stream] dry run, Moonlight not started");
+            arguments = vec!["sleep".into(), "2".into()];
+        }
 
         let (program, program_arguments) = arguments.split_first().ok_or("Moonlight-Befehl ist leer")?;
 

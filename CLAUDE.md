@@ -18,6 +18,8 @@ Design source: Claude design canvas https://claude.ai/artifact/UpFs3Nat5Q983TyyA
   - `stream_session.rs` – spawns Moonlight, emits `stream-ended`
   - `gamepad_listener.rs` – reads controllers with `gilrs`, emits `pad-button`
   - `display_detector.rs` – external screen connected? (`/sys/class/drm/*/status`)
+  - `host_discovery.rs` – finds Sunshine PCs via mDNS (`_nvstream._tcp`)
+  - `moonlight_pairing.rs` – `moonlight pair <host> --pin <pin>`
 - `src/` – frontend
   - `LauncherApp.tsx` – root class component, owns all state and the button logic
   - `model/` – settings types, defaults, text formatting, placeholder cover art
@@ -34,8 +36,10 @@ X switches device everywhere (home/detail), L1/R1 switch the mode, Y remembers t
 
 ## Commands
 
-- `npm run tauri dev` – run on the PC
-- `cd src-tauri && cargo test` – Rust tests
+- `npm run tauri dev` – run on the PC (dev port 1430; 1420 is used by other projects)
+- `STREAMING_LAUNCHER_DRY_RUN=1 npm run tauri dev` – log the Moonlight command instead of streaming to itself
+- `npm run dev` – UI only in a browser with fake data (`src/dev/BrowserMock.ts`)
+- `cd src-tauri && cargo test` – Rust tests (`-- --ignored` also runs the LAN discovery test)
 - `npx tsc --noEmit` – type check
 - Heavy builds with `nice -n 19` and few jobs (`-j 4`), David often plays on the same PC.
 
