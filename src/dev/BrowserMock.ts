@@ -125,6 +125,10 @@ export class BrowserMock
           return new Promise((resolve) => window.setTimeout(resolve, 500));
         case "load_box_art":
           return {};
+        case "companion_display_modes":
+          // DP-3 before the EDID got 1280x800@60 and the 120 Hz modes.
+          return [[1920, 1080, 100], [2560, 1440, 100], [3840, 2160, 60], [1280, 800, 90], [1920, 1080, 60], [2560, 1440, 60], [1280, 720, 60]]
+            .map(([width, height, refreshRate]) => ({ width, height, refreshRate }));
         case "companion_library":
           // `?companionOffline` in the dev URL: as if the companion were not running on the PC.
           if (new URLSearchParams(window.location.search).has("companionOffline"))

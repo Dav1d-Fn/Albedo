@@ -80,6 +80,18 @@ Moonlight UI, so newly added games would be missing.
 `502` with the German reason (e.g. "Sunshine-Login fehlt im PC-Helfer") when Sunshine cannot be asked;
 the launcher then falls back to `moonlight list`.
 
+### `GET /api/display-modes`
+
+Modes of the virtual streaming monitor (from `kscreen-doctor -j`, 5 s time limit because KWin
+sometimes hangs). When a client connects, `sunshine-match-client` switches it to the closest mode,
+so the launcher warns about a stream mode the PC does not have.
+
+```json
+{ "output": "DP-3", "modes": [{ "width": 1280, "height": 800, "refreshRate": 90 }] }
+```
+
+Refresh rates are rounded. `502` when kscreen-doctor fails or the output is missing.
+
 ### `GET /api/cover/<id>`
 
 PNG (portrait, ideally 600x900) for an entry with `hasCover`. 404 otherwise. `<id>` is URL-encoded.

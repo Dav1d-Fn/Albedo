@@ -4,7 +4,7 @@ import { ModeText } from "./model/ModeText";
 import { DefaultSettings } from "./model/DefaultSettings";
 import { DevicePalette } from "./model/DevicePalette";
 import { GameArt } from "./model/GameArt";
-import { AfterStreamAction, ArtKind, BackdropKind, DeviceId, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, Settings, StreamMode, SunshineLoginDraft, ImageDialogState } from "./model/Types";
+import { AfterStreamAction, ArtKind, BackdropKind, DeviceId, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, PcDisplayMode, Settings, StreamMode, SunshineLoginDraft, ImageDialogState } from "./model/Types";
 import { AvailableUpdate, Backend } from "./services/Backend";
 import { CompanionArt } from "./services/CompanionArt";
 import { AfterStreamDialog } from "./views/AfterStreamDialog";
@@ -65,6 +65,8 @@ export interface LauncherState
   editConfirmDelete: "" | "mode" | "device";
   editRow: number;
   bumps: Record<string, number>;
+  /** Modes of the PC's virtual monitor, for the "no matching mode" hint; null = unknown (no companion). */
+  pcDisplayModes: PcDisplayMode[] | null;
   /** Connection screen: found hosts on the left, pairing and Moonlight on the right. */
   discoveredHosts: DiscoveredHost[];
   searchingHosts: boolean;
@@ -190,6 +192,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       editConfirmDelete: "",
       editRow: 0,
       bumps: {},
+      pcDisplayModes: null,
       discoveredHosts: [],
       searchingHosts: false,
       connectionZone: "hosts",
@@ -1437,6 +1440,23 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   {
     const device = this.state.device;
     this.setState({ screen: "editor", editDevice: device, editModeIndex: this.currentModeIndex(device), editZone: "modes", editRow: 0, editConfirmDelete: "" });
+    this.loadPcDisplayModes();
+  }
+
+  /** Asks the companion which modes the PC's virtual monitor has; without companion there is simply no hint. */
+  private async loadPcDisplayModes(): Promise<void>
+  {
+    try
+    {
+      const host = await this.resolveHost();
+      const pcDisplayModes = await this.backend.companionDisplayModes(host);
+      this.setState({ pcDisplayModes });
+    }
+    catch (modesError)
+    {
+      console.info("PC display modes unknown:", modesError);
+      this.setState({ pcDisplayModes: null });
+    }
   }
 
   public switchEditDevice(device: DeviceId): void

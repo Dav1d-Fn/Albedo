@@ -13,6 +13,7 @@ mod moonlight_box_art;
 mod moonlight_command;
 mod moonlight_host_entries;
 mod moonlight_pairing;
+mod pc_display_mode;
 mod settings_store;
 mod stream_session;
 mod upload_token;
@@ -34,6 +35,7 @@ use moonlight_app_quit::MoonlightAppQuit;
 use moonlight_box_art::MoonlightBoxArt;
 use moonlight_command::MoonlightCommand;
 use moonlight_pairing::MoonlightPairing;
+use pc_display_mode::PcDisplayMode;
 use settings_store::SettingsStore;
 use stream_session::StreamSession;
 use upload_token::UploadToken;
@@ -221,6 +223,12 @@ async fn companion_remove_app(host: String, app_name: String) -> Result<(), Stri
 }
 
 #[tauri::command]
+async fn companion_display_modes(host: String) -> Result<Vec<PcDisplayMode>, String>
+{
+    CompanionClient::for_host(&host)?.display_modes().await
+}
+
+#[tauri::command]
 async fn companion_set_sunshine_login(host: String, user: String, password: String) -> Result<(), String>
 {
     let result = CompanionClient::for_host(&host)?.set_sunshine_login(&user, &password).await;
@@ -276,6 +284,7 @@ pub fn run()
             companion_add_app,
             companion_remove_app,
             companion_set_sunshine_login,
+            companion_display_modes,
             check_for_update,
             install_update
         ])

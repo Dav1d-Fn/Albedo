@@ -7,6 +7,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::companion_library::CompanionLibrary;
+use crate::pc_display_mode::PcDisplayMode;
 use crate::upload_token::UploadToken;
 
 #[derive(Deserialize)]
@@ -19,6 +20,12 @@ struct ArtVersionResponse
 struct SunshineAppsResponse
 {
     apps: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct DisplayModesResponse
+{
+    modes: Vec<PcDisplayMode>,
 }
 
 #[derive(Deserialize)]
@@ -71,6 +78,14 @@ impl CompanionClient
         let response = self.send(self.http_client.get(self.url(&["api", "apps"]))).await?;
         let sunshine_apps: SunshineAppsResponse = response.json().await.map_err(|error| error.to_string())?;
         Ok(sunshine_apps.apps)
+    }
+
+    /// Modes the PC's virtual streaming monitor can switch to (`GET /api/display-modes`).
+    pub async fn display_modes(&self) -> Result<Vec<PcDisplayMode>, String>
+    {
+        let response = self.send(self.http_client.get(self.url(&["api", "display-modes"]))).await?;
+        let display_modes: DisplayModesResponse = response.json().await.map_err(|error| error.to_string())?;
+        Ok(display_modes.modes)
     }
 
     pub async fn library(&self) -> Result<CompanionLibrary, String>

@@ -147,3 +147,12 @@ export interface DiscoveredHost
   name: string;
   address: string;
 }
+
+/** One mode of the PC's virtual streaming monitor (companion `GET /api/display-modes`). */
+export interface PcDisplayMode
+{
+  width: number;
+  height: number;
+  /** Rounded to whole Hz. */
+  refreshRate: number;
+}

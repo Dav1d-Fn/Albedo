@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { DefaultSettings } from "../model/DefaultSettings";
 import { ModeText } from "../model/ModeText";
-import { ArtKind, CompanionLibrary, UploadToken, DeviceProfile, DiscoveredHost, PadButton, Settings, StreamMode } from "../model/Types";
+import { ArtKind, CompanionLibrary, UploadToken, DeviceProfile, DiscoveredHost, PadButton, PcDisplayMode, Settings, StreamMode } from "../model/Types";
 
 export interface StreamEnded
 {
@@ -99,6 +99,12 @@ export class Backend
   public companionLibrary(host: string): Promise<CompanionLibrary>
   {
     return invoke<CompanionLibrary>("companion_library", { host });
+  }
+
+  /** Modes of the PC's virtual streaming monitor; rejects when the companion is not reachable. */
+  public companionDisplayModes(host: string): Promise<PcDisplayMode[]>
+  {
+    return invoke<PcDisplayMode[]>("companion_display_modes", { host });
   }
 
   /** Hands the Sunshine web UI login to the companion; rejects with its German message when Sunshine refuses it. */

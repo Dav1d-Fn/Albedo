@@ -9,6 +9,7 @@ use crate::client_address_filter::ClientAddressFilter;
 use crate::companion_config::CompanionConfig;
 use crate::cover_converter::CoverConverter;
 use crate::cover_source::CoverSource;
+use crate::display_mode_reader::DisplayModeReader;
 use crate::library_scanner::LibraryScanner;
 use crate::sunshine_app_builder::SunshineAppBuilder;
 use crate::sunshine_client::SunshineClient;
@@ -109,6 +110,7 @@ impl ApiServer
                 self.screenshot(&screenshot_path["/api/screenshot/".len()..])
             }
             (Method::Get, "/api/apps") => self.sunshine_apps(),
+            (Method::Get, "/api/display-modes") => Self::display_modes(),
             (Method::Post, "/api/apps") => Self::read_body(request).and_then(|body| self.add_app(&body)),
             (Method::Delete, "/api/apps") => Self::read_body(request).and_then(|body| self.delete_app(&body)),
             (Method::Put, "/api/sunshine-login") => Self::read_body(request).and_then(|body| self.set_sunshine_login(&body)),
@@ -160,6 +162,12 @@ impl ApiServer
             .app_names()
             .map_err(|message| (502, message))?;
         Ok(Self::json(200, json!({ "apps": app_names })))
+    }
+
+    fn display_modes() -> Result<ApiAnswer, (u16, String)>
+    {
+        let modes = DisplayModeReader::read().map_err(|message| (502, message))?;
+        Ok(Self::json(200, json!({ "output": DisplayModeReader::VIRTUAL_OUTPUT, "modes": modes })))
     }
 
     fn cover(&self, entry_id: &str) -> Result<ApiAnswer, (u16, String)>

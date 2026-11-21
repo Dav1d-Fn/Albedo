@@ -1,6 +1,7 @@
 import LauncherApp from "../LauncherApp";
 import { DevicePalette } from "../model/DevicePalette";
 import { ModeText } from "../model/ModeText";
+import { PcModeMatcher } from "../model/PcModeMatcher";
 import { DeviceColor, DeviceIconKind, StreamMode } from "../model/Types";
 import { EditorRows } from "./EditorRows";
 import { ChevronLeftIcon, ChevronRightIcon, DeviceIcon, MinusIcon, PlusIcon } from "./Icons";
@@ -24,6 +25,7 @@ export function EditorScreen(props: { app: LauncherApp })
   const profile = app.profile(editDevice);
   const editMode = profile.modes[state.editModeIndex] ?? profile.modes[0];
   const isDefault = state.editModeIndex === profile.defaultModeIndex;
+  const pcModeHint = PcModeMatcher.hint(state.pcDisplayModes, editMode);
   const deviceOrder = app.settings.deviceOrder;
   const editDeviceIndex = Math.max(0, deviceOrder.indexOf(editDevice));
   const animationClass = (editDeviceIndex + state.editModeIndex) % 2 ? "swapA" : "swapB";
@@ -206,6 +208,7 @@ export function EditorScreen(props: { app: LauncherApp })
                     )}
                   </div>
                 </div>
+                {row.key === "codec" && pcModeHint && <div className="pchint">{pcModeHint}</div>}
               </div>
             );
           })}
