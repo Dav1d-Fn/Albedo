@@ -240,3 +240,7 @@ body { cursor: default; user-select: none; }
 .stopmark { width: 14px; height: 14px; border-radius: 3px; background: currentColor; }
 @keyframes dpop { 0% { opacity: 0; transform: scale(.85) translateY(16px); } 100% { opacity: 1; transform: none; } }
 @keyframes fadein { 0% { opacity: 0; } 100% { opacity: 1; } }
+
+/* Real cover as backdrop: blurred and darkened, the image is only 600x800 */
+.bd.img { filter: blur(40px) brightness(.5) saturate(1.2); transform: scale(1.25); }
+.bd.img.on { transform: scale(1.15); }

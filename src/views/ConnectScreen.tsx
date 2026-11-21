@@ -1,5 +1,4 @@
 import type LauncherApp from "../LauncherApp";
-import { GameArt } from "../model/GameArt";
 import { ModeText } from "../model/ModeText";
 import { CheckIcon } from "./Icons";
 
@@ -9,19 +8,19 @@ export function ConnectScreen(props: { app: LauncherApp })
   const app = props.app;
   const state = app.state;
   const gameName = app.selectedGame() ?? "";
-  const art = new GameArt(gameName);
+  const art = app.artFor(gameName);
   const progress = state.connectSteps.length ? Math.round(state.connectStep / state.connectSteps.length * 100) : 0;
 
   return (
     <div className="screen">
-      <div className="bd on blur" style={{ background: art.backdrop }} />
+      <div className={"bd on blur" + art.backdropClass} style={{ background: art.backdrop }} />
       <div className="connect">
         <div className="rings">
           <span className="ring" />
           <span className="ring r2" />
           <span className="ring r3" />
           <div className="ccover" style={{ background: art.cover }}>
-            <span className="ctitle" style={{ color: art.ink }}>{gameName}</span>
+            {!art.hasImage && <span className="ctitle" style={{ color: art.ink }}>{gameName}</span>}
           </div>
         </div>
         <div className="ctext">

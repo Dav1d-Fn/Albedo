@@ -2,6 +2,7 @@ import React, { CSSProperties } from "react";
 import { InputRouter } from "./input/InputRouter";
 import { ModeText } from "./model/ModeText";
 import { DefaultSettings } from "./model/DefaultSettings";
+import { GameArt } from "./model/GameArt";
 import { AfterStreamAction, DeviceId, DeviceProfile, DiscoveredHost, PadButton, Settings, StreamMode } from "./model/Types";
 import { Backend } from "./services/Backend";
 import { AfterStreamDialog } from "./views/AfterStreamDialog";
@@ -34,6 +35,8 @@ export interface LauncherState
   externalDisplay: boolean;
   automatic: boolean;
   games: string[];
+  /** Game name -> cover image (`data:` URL) from Moonlight's cache. */
+  boxArt: Record<string, string>;
   hostState: HostState;
   hostError: string;
   toast: ToastContent | null;
@@ -102,6 +105,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       externalDisplay: false,
       automatic: true,
       games: [],
+      boxArt: {},
       hostState: "loading",
       hostError: "",
       toast: null,
@@ -283,11 +287,31 @@ export default class LauncherApp extends React.Component<object, LauncherState>
         hostState: "online",
         gameIndex: Math.min(state.gameIndex, Math.max(0, games.length - 1)),
       }));
+      this.loadBoxArt(settings);
     }
     catch (fetchError)
     {
       this.setState({ hostState: "error", hostError: String(fetchError) });
     }
+  }
+
+  /** Covers are optional: without them the placeholders stay, so errors are only logged. */
+  private async loadBoxArt(settings: Settings): Promise<void>
+  {
+    try
+    {
+      const boxArt = await this.backend.loadBoxArt(settings);
+      this.setState({ boxArt });
+    }
+    catch (artError)
+    {
+      console.warn("no cover art", artError);
+    }
+  }
+
+  public artFor(gameName: string): GameArt
+  {
+    return new GameArt(gameName, this.state.boxArt[gameName]);
   }
 
   // ---------------------------------------------------------------- toasts and timers

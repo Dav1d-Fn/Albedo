@@ -3484,6 +3484,7 @@ checksum = "ff7589a1859b09232522bb9edf076ca7fcf14ded96685d3fa629db73023ffbb7"
 name = "streaming-launcher"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "gilrs",
  "mdns-sd",
  "reqwest 0.12.28",

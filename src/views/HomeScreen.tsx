@@ -1,5 +1,4 @@
 import type LauncherApp from "../LauncherApp";
-import { GameArt } from "../model/GameArt";
 import { ModeText } from "../model/ModeText";
 import { HandheldIcon, SlidersIcon, TvIcon } from "./Icons";
 import { ModeStrip } from "./ModeStrip";
@@ -26,7 +25,7 @@ export function HomeScreen(props: { app: LauncherApp })
   return (
     <div className="screen">
       {state.games.map((gameName, gameIndex) => (
-        <div key={gameName} className={"bd" + (gameIndex === state.gameIndex ? " on" : "")} style={{ background: new GameArt(gameName).backdrop }} />
+        <div key={gameName} className={"bd" + (gameIndex === state.gameIndex ? " on" : "") + app.artFor(gameName).backdropClass} style={{ background: app.artFor(gameName).backdrop }} />
       ))}
       <div className="scrim" />
 
@@ -103,11 +102,11 @@ export function HomeScreen(props: { app: LauncherApp })
         <div className="track" style={{ transform: `translateX(-${railOffset}px)` }}>
           {state.games.map((gameName, gameIndex) =>
           {
-            const art = new GameArt(gameName);
+            const art = app.artFor(gameName);
             const focusClass = gamesZone ? (gameIndex === state.gameIndex ? " f" : " dim") : "";
             return (
               <button key={gameName} className={"cover" + focusClass} onClick={() => app.openGame(gameIndex)} aria-label={gameName} style={{ background: art.cover }}>
-                <span className="ctitle" style={{ color: art.ink }}>{gameName}</span>
+                {!art.hasImage && <span className="ctitle" style={{ color: art.ink }}>{gameName}</span>}
                 <span className="shine" />
               </button>
             );

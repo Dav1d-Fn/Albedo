@@ -68,6 +68,12 @@ export class Backend
     return invoke<void>("pair_host", { moonlightCommand: settings.moonlightCommand, host: settings.host, pin });
   }
 
+  /** Game name -> cover image (`data:` URL) from Moonlight's box art cache. */
+  public loadBoxArt(settings: Settings): Promise<Record<string, string>>
+  {
+    return invoke<Record<string, string>>("load_box_art", { moonlightCommand: settings.moonlightCommand, host: settings.host });
+  }
+
   /** Ends the app still running on the PC (`moonlight quit <host>`). */
   public quitHostApp(settings: Settings): Promise<void>
   {

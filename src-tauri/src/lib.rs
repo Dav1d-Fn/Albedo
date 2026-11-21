@@ -4,11 +4,14 @@ mod gamepad_listener;
 mod host_discovery;
 mod host_environment;
 mod moonlight_app_quit;
+mod moonlight_box_art;
 mod moonlight_command;
+mod moonlight_host_entries;
 mod moonlight_pairing;
 mod settings_store;
 mod stream_session;
 
+use std::collections::HashMap;
 use std::time::Duration;
 
 use tauri::AppHandle;
@@ -18,6 +21,7 @@ use game_list_source::GameListSource;
 use gamepad_listener::GamepadListener;
 use host_discovery::{DiscoveredHost, HostDiscovery};
 use moonlight_app_quit::MoonlightAppQuit;
+use moonlight_box_art::MoonlightBoxArt;
 use moonlight_command::MoonlightCommand;
 use moonlight_pairing::MoonlightPairing;
 use settings_store::SettingsStore;
@@ -91,6 +95,20 @@ async fn quit_host_app(moonlight_command: Vec<String>, host: String) -> Result<(
     result
 }
 
+#[tauri::command]
+async fn load_box_art(moonlight_command: Vec<String>, host: String) -> Result<HashMap<String, String>, String>
+{
+    let result = tauri::async_runtime::spawn_blocking(move || MoonlightBoxArt::for_command(&moonlight_command)?.load(&host))
+        .await
+        .map_err(|error| error.to_string())?;
+    match &result
+    {
+        Ok(images) => println!("[art] {} covers", images.len()),
+        Err(error) => eprintln!("[art] {}", error),
+    }
+    result
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run()
 {
@@ -108,7 +126,8 @@ pub fn run()
             start_stream,
             discover_hosts,
             pair_host,
-            quit_host_app
+            quit_host_app,
+            load_box_art
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
