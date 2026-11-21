@@ -67,6 +67,8 @@ Everything that can be added, sorted by group, then name.
 - `hasCover`/`hasHero`/`hasLogo` include the user's overrides (see "Pictures per entry").
 - `customArt`: the kinds with an override, e.g. `["hero"]`; empty when every picture is automatic.
   A hero override is what the launcher shows behind the menu, whatever backdrop kind is chosen.
+- `system`: for "Emulation" entries the emulated system from the EmuDeck/Steam ROM Manager tag
+  (e.g. `"Nintendo 64"`), otherwise `null`. The launcher picks the libretro thumbnails by it.
 - `screenshotCount`: Steam screenshots of all Steam accounts on the PC (`GET /api/screenshot/<id>/<index>`),
   `0` for everything else. A new screenshot shifts the indices, so reload the library to see it.
 - Not listed: tools like Proton, Steam Linux Runtime, Steamworks Redist, Wallpaper Engine, VR-only games.

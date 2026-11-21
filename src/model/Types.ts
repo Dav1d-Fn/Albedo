@@ -113,6 +113,8 @@ export interface LibraryEntry
   screenshotCount: number;
   /** Picture kinds set by hand (phone or picture search); a hand-set "hero" is always the backdrop. */
   customArt: ArtKind[];
+  /** Emulated system of an EmuDeck game ("Nintendo 64"), picks the libretro pictures; older companions send none. */
+  system?: string | null;
 }
 
 /** Answer of the companion's `GET /api/library`. */
@@ -140,7 +142,7 @@ export interface ArtCandidate
 {
   imageUrl: string;
   thumbnailUrl: string;
-  /** "Steam-Shop" or "SteamGridDB". */
+  /** Where it comes from: "Steam-Shop", "SteamGridDB" or "libretro". */
   source: string;
   label: string;
 }
@@ -154,7 +156,7 @@ export interface ArtSearchResult
 }
 
 /** Rows of the "Bild setzen" dialog; "backdrop" is only there while the game has no title image set by hand. */
-export type ImageDialogRow = "kind" | "pictures" | "backdrop";
+export type ImageDialogRow = "kind" | "search" | "pictures" | "backdrop";
 
 /** "Bild setzen" dialog on the detail page. */
 export interface ImageDialogState
@@ -164,7 +166,9 @@ export interface ImageDialogState
   token: UploadToken | null;
   loading: boolean;
   error: string;
-  /** Pictures from the Steam shop and SteamGridDB for `kind`. */
+  /** Name the pictures are searched for; starts as the app name without tags, the user can type another. */
+  query: string;
+  /** Pictures from the Steam shop, libretro and SteamGridDB for `kind` and `query`. */
   candidates: ArtCandidate[];
   candidateIndex: number;
   searching: boolean;

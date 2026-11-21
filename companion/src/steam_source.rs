@@ -92,6 +92,7 @@ impl SteamSource
             // Every game process Steam starts carries "SteamLaunch AppId=<id> " in its command line.
             quit_command: Some(ProcessQuitter::command_for(&format!("SteamLaunch AppId={} ", app_id))),
             follows_client_resolution: true,
+            system: None,
         })
     }
 

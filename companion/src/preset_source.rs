@@ -27,6 +27,7 @@ impl PresetSource
                 detached_command: None,
                 quit_command: None,
                 follows_client_resolution: true,
+                system: None,
             },
             LibraryEntry
             {
@@ -41,6 +42,7 @@ impl PresetSource
                 detached_command: None,
                 quit_command: None,
                 follows_client_resolution: false,
+                system: None,
             },
             LibraryEntry
             {
@@ -55,6 +57,7 @@ impl PresetSource
                 detached_command: Some("steam steam://open/bigpicture".into()),
                 quit_command: Some("steam steam://close/bigpicture".into()),
                 follows_client_resolution: true,
+                system: None,
             },
         ]
     }

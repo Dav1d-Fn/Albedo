@@ -20,7 +20,7 @@ function pick(german: string, english: string): string
 
 export class BrowserMock
 {
-  private static readonly sampleGames = ["Cyberpunk 2077", "Elden Ring", "Hades II", "Forza Horizon 5", "Baldur's Gate 3", "Stardew Valley", "Portal 2"];
+  private static readonly sampleGames = ["Cyberpunk 2077", "Elden Ring", "Hades II", "Forza Horizon 5", "Baldur's Gate 3", "Stardew Valley", "Portal 2", "Super Mario 64"];
 
   private static sampleLibrary()
   {
@@ -32,6 +32,7 @@ export class BrowserMock
     { id: "steam:1551360", name: "Forza Horizon 5", group: "Steam", hasCover: false, inSunshine: false, hasHero: false, hasLogo: false, screenshotCount: 0 },
     { id: "heroic:Crow", name: "Dead Island 2", group: "Heroic", hasCover: false, inSunshine: false, hasHero: false, hasLogo: false, screenshotCount: 0 },
     { id: "steam:1145350", name: "Hades II", group: "Steam", hasCover: true, inSunshine: true, hasHero: true, hasLogo: true, screenshotCount: 3 },
+    { id: "shortcut:4092884985", name: "Super Mario 64", group: "Emulation", hasCover: false, inSunshine: true, hasHero: false, hasLogo: false, screenshotCount: 0, system: "Nintendo 64" },
     { id: "prism:26.3 Modpack Test", name: "Minecraft 26.3 Modpack Test", group: "Minecraft", hasCover: false, inSunshine: false, hasHero: false, hasLogo: false, screenshotCount: 0 },
     ];
   }
@@ -44,22 +45,34 @@ export class BrowserMock
     return "data:image/svg+xml," + encodeURIComponent(svg);
   }
 
-  /** Coloured stand-ins for found pictures: 2 from the Steam shop, 8 more from SteamGridDB with a key. */
-  private static fakeArtSearch(kind: string, steamGridDbKey: string): { candidates: object[]; problem: string | null }
+  /**
+   * Coloured stand-ins for found pictures: 2 from libretro for an emulated game, 2 from the Steam shop,
+   * 8 more from SteamGridDB with a key. "nichts" finds nothing.
+   */
+  private static fakeArtSearch(query: string, system: string | null, kind: string, steamGridDbKey: string): { candidates: object[]; problem: string | null }
   {
+    if (query.toLowerCase() === "nichts")
+    {
+      return { candidates: [], problem: null };
+    }
     const size = { cover: [600, 900], hero: [1920, 620], logo: [800, 300] }[kind] ?? [600, 900];
     const colours = ["#1e3a8a", "#7c2d12", "#065f46", "#581c87", "#9f1239", "#0e7490", "#3f6212", "#78350f", "#334155", "#be185d"];
     const hasKey = steamGridDbKey.trim() !== "";
-    const count = hasKey ? colours.length : 2;
-    const candidates = colours.slice(0, count).map((colour, pictureIndex) =>
+    const shopSource = pick("Steam-Shop", "Steam store");
+    const sources = [...(system !== null ? ["libretro", "libretro"] : []), shopSource, shopSource];
+    while (hasKey && sources.length < colours.length)
     {
-      const shopSource = pick("Steam-Shop", "Steam store");
-      const source = pictureIndex < 2 ? shopSource : "SteamGridDB";
+      sources.unshift("SteamGridDB");
+    }
+    const candidates = sources.map((source, pictureIndex) =>
+    {
+      const colour = colours[pictureIndex];
       const background = kind === "logo" ? "" : `<rect width='${size[0]}' height='${size[1]}' fill='${colour}'/>`;
       const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${size[0]}' height='${size[1]}'>${background}`
-        + `<text x='50%' y='55%' font-size='${size[1] / 5}' fill='${kind === "logo" ? colour : "white"}' font-weight='900' text-anchor='middle' font-family='sans-serif'>${source === shopSource ? "Shop" : "SGDB"} ${pictureIndex + 1}</text></svg>`;
+        + `<text x='50%' y='55%' font-size='${size[1] / 5}' fill='${kind === "logo" ? colour : "white"}' font-weight='900' text-anchor='middle' font-family='sans-serif'>${source === "SteamGridDB" ? "SGDB" : source === "libretro" ? "Retro" : "Shop"} ${pictureIndex + 1}</text></svg>`;
       const url = "data:image/svg+xml," + encodeURIComponent(svg);
-      return { imageUrl: url, thumbnailUrl: url, source, label: source === shopSource ? "Hades II" : pick("Künstler ", "Artist ") + pictureIndex };
+      const label = source === "SteamGridDB" ? pick("Künstler ", "Artist ") + pictureIndex : source === "libretro" ? query + " (USA) · " + system : query;
+      return { imageUrl: url, thumbnailUrl: url, source, label };
     });
     return { candidates, problem: hasKey && steamGridDbKey.trim() === "falsch" ? pick("SteamGridDB-Schlüssel ungültig", "SteamGridDB key invalid") : null };
   }
@@ -172,7 +185,7 @@ export class BrowserMock
           setCustomArt(args.entryId as string, args.kind as string, false);
           return null;
         case "search_art":
-          return new Promise((resolve) => window.setTimeout(() => resolve(BrowserMock.fakeArtSearch(args.kind as string, args.steamGridDbKey as string)), 600));
+          return new Promise((resolve) => window.setTimeout(() => resolve(BrowserMock.fakeArtSearch(args.gameName as string, (args.system as string | null) ?? null, args.kind as string, args.steamGridDbKey as string)), 600));
         case "apply_art":
           return new Promise((resolve) => window.setTimeout(() =>
           {

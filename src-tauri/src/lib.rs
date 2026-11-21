@@ -11,6 +11,7 @@ mod host_address_picker;
 mod host_discovery;
 mod host_environment;
 mod library_entry;
+mod libretro_thumbnails;
 mod moonlight_app_quit;
 mod moonlight_box_art;
 mod moonlight_command;
@@ -25,7 +26,7 @@ mod upload_token;
 use std::collections::HashMap;
 use std::time::Duration;
 
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 use app_updater::{AppUpdater, AvailableUpdate};
 use art_search::ArtSearch;
@@ -219,20 +220,43 @@ async fn companion_reset_art(host: String, entry_id: String, kind: String) -> Re
     result
 }
 
-/// Pictures of one kind from the Steam shop and, with a key, SteamGridDB. The key is never logged.
+/// Pictures of one kind from the Steam shop, libretro and, with a key, SteamGridDB. The key is never logged.
 #[tauri::command]
-async fn search_art(game_name: String, entry_id: String, kind: String, steam_grid_db_key: String) -> Result<ArtSearchResult, String>
+async fn search_art(
+    app_handle: AppHandle,
+    game_name: String,
+    entry_id: String,
+    system: Option<String>,
+    kind: String,
+    steam_grid_db_key: String,
+) -> Result<ArtSearchResult, String>
 {
-    let result = ArtSearch::new()?.search(&game_name, &entry_id, &kind, &steam_grid_db_key).await;
-    println!("[art] search {} {} -> {} found, problem {:?}", entry_id, kind, result.candidates.len(), result.problem);
+    let result = art_search(&app_handle)?
+        .search(&game_name, &entry_id, system.as_deref(), &kind, &steam_grid_db_key)
+        .await;
+    println!(
+        "[art] search \"{}\" {} {:?} {} -> {} found, problem {:?}",
+        game_name,
+        entry_id,
+        system,
+        kind,
+        result.candidates.len(),
+        result.problem
+    );
     Ok(result)
+}
+
+fn art_search(app_handle: &AppHandle) -> Result<ArtSearch, String>
+{
+    let cache_directory = app_handle.path().app_cache_dir().map_err(|error| error.to_string())?;
+    ArtSearch::new(cache_directory.join("libretro"))
 }
 
 /// Downloads the picked picture and hands it to the companion like a phone upload.
 #[tauri::command]
-async fn apply_art(host: String, entry_id: String, kind: String, image_url: String) -> Result<(), String>
+async fn apply_art(app_handle: AppHandle, host: String, entry_id: String, kind: String, image_url: String) -> Result<(), String>
 {
-    let image_bytes = ArtSearch::new()?.download(&image_url).await?;
+    let image_bytes = art_search(&app_handle)?.download(&image_url).await?;
     let result = CompanionClient::for_host(&host)?.upload_art(&entry_id, &kind, image_bytes).await;
     println!("[art] set {} {} from {} -> {:?}", entry_id, kind, image_url, result);
     result

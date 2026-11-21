@@ -15,4 +15,6 @@ pub struct LibraryEntryResponse
     pub in_sunshine: bool,
     /// Picture kinds set by hand ("cover", "hero", "logo").
     pub custom_art: Vec<String>,
+    /// Emulated system, e.g. "Nintendo 64"; null for other games.
+    pub system: Option<String>,
 }

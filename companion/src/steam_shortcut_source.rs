@@ -63,9 +63,14 @@ impl SteamShortcutSource
                 let app_id = shortcut["appid"].as_u64().unwrap_or_default();
                 if seen_app_ids.insert(app_id)
                 {
-                    if let Some(entry) = Self::entry_from_shortcut(shortcut, app_id, &config_directory.join("grid"))
+                    if let Some(mut entry) = Self::entry_from_shortcut(shortcut, app_id, &config_directory.join("grid"))
                     {
-                        entries.push((entry, Self::system_name(shortcut)));
+                        let system_name = Self::system_name(shortcut);
+                        if entry.group == "Emulation"
+                        {
+                            entry.system = system_name.clone();
+                        }
+                        entries.push((entry, system_name));
                     }
                 }
             }
@@ -162,6 +167,7 @@ impl SteamShortcutSource
             detached_command,
             quit_command,
             follows_client_resolution: true,
+            system: None,
         })
     }
 

@@ -336,7 +336,11 @@ body { cursor: default; user-select: none; }
 .imgphone .qrbox { width: 180px; height: 180px; }
 .imgphone .qr { width: 166px; height: 166px; }
 .imgphone .qrurl { max-width: 200px; font-size: 11px; }
-.imgweb { width: 640px; }
+.imgweb { width: 640px; display: flex; flex-direction: column; gap: 6px; }
+.imgrow.searchrow { flex-direction: row; gap: 12px; padding: 4px 12px; }
+.searchrow .rlabel { white-space: nowrap; font-size: 14px; font-weight: 650; color: #C4C4CC; }
+.searchrow .hostinput { margin-top: 0; flex: 1; }
+.pic .picsource { position: absolute; left: 4px; bottom: 4px; padding: 1px 6px; border-radius: 6px; background: rgba(0,0,0,.7); color: #F5F5F7; font-size: 11px; font-weight: 700; }
 .picstrip { display: flex; align-items: center; justify-content: center; gap: 10px; height: 190px; width: 100%; }
 .picstrip.hero, .picstrip.logo { height: 120px; }
 :where(.app) button.pic { position: relative; flex: none; display: grid; place-items: center; padding: 0; border-radius: 10px; overflow: hidden; background: rgba(255,255,255,.06); outline: 2px solid transparent; outline-offset: 2px; opacity: .55; transition: opacity .25s, outline-color .25s, transform .25s; }

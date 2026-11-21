@@ -5,7 +5,7 @@ import { ArtKind, ImageDialogState } from "../model/Types";
 /** How many found pictures fit next to each other; the strip scrolls with the focused one. */
 const visiblePictureCounts: Record<ArtKind, number> = { cover: 5, hero: 3, logo: 4 };
 
-/** "Set image": QR code to a one-time upload page on the PC, found pictures, plus the backdrop kind for this game. */
+/** "Set image": QR code to a one-time upload page on the PC, a name search with found pictures, plus the backdrop kind for this game. */
 export function ImageDialog(props: { app: LauncherApp })
 {
   const app = props.app;
@@ -47,9 +47,25 @@ export function ImageDialog(props: { app: LauncherApp })
             {dialog.token !== null && <div className="qrurl">{dialog.token.url}</div>}
           </div>
 
-          <div className={"imgrow imgweb" + (dialog.row === "pictures" ? " f" : "")}>
-            <span className="clabel">{app.settings.steamGridDbKey === "" ? t.imageDialog.fromSteamShop : t.imageDialog.fromSteamShopAndGrid}</span>
-            <PictureStrip app={app} dialog={dialog} />
+          <div className="imgweb">
+            <span className="clabel">{t.imageDialog.fromWeb}</span>
+            <div className={"imgrow searchrow" + (dialog.row === "search" ? " f" : "")}>
+              <button className="rlabel" onClick={() => app.focusArtSearch()}>{t.imageDialog.searchFor}</button>
+              {/* Uncontrolled: typing does not search, Enter (A) does; a new search name resets the field. */}
+              <input
+                id="art-search"
+                key={dialog.query}
+                className="hostinput"
+                defaultValue={dialog.query}
+                placeholder={t.imageDialog.gameNamePlaceholder}
+                spellCheck={false}
+                autoComplete="off"
+                onFocus={() => app.focusArtSearch()}
+              />
+            </div>
+            <div className={"imgrow" + (dialog.row === "pictures" ? " f" : "")}>
+              <PictureStrip app={app} dialog={dialog} />
+            </div>
           </div>
         </div>
 
@@ -112,6 +128,7 @@ function PictureStrip(props: { app: LauncherApp; dialog: ImageDialogState })
               onClick={() => app.applyArtCandidate(candidateIndex)}
             >
               <img src={candidate.thumbnailUrl} alt={candidate.label} loading="lazy" />
+              <span className="picsource">{candidate.source}</span>
               {isFocused && dialog.applying && <span className="spin" />}
             </button>
           );

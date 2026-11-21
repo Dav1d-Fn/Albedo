@@ -1,4 +1,4 @@
-use crate::ui_language::UiLanguage;
+use std::path::PathBuf;
 use std::time::Duration;
 
 use reqwest::{Client, StatusCode, Url};
@@ -6,6 +6,8 @@ use serde::Deserialize;
 
 use crate::art_candidate::ArtCandidate;
 use crate::art_search_result::ArtSearchResult;
+use crate::libretro_thumbnails::LibretroThumbnails;
+use crate::ui_language::UiLanguage;
 
 #[derive(Deserialize)]
 struct ShopSearchResponse
@@ -48,12 +50,14 @@ struct GridDbAuthor
 }
 
 /// Finds pictures for a game on the internet, for the "Bild setzen" dialog:
-/// the Steam shop (no key needed; covers, title images and logos of games sold on Steam)
+/// the Steam shop (no key needed; covers, title images and logos of games sold on Steam),
+/// libretro's thumbnails (no key needed; retro and emulated games)
 /// and SteamGridDB when the user stored an API key (community art, also for non-Steam games).
 /// The SteamGridDB key is only sent as Authorization header and never logged.
 pub struct ArtSearch
 {
     http_client: Client,
+    libretro: LibretroThumbnails,
 }
 
 impl ArtSearch
@@ -66,22 +70,27 @@ impl ArtSearch
     /// Same limit as the companion's phone upload.
     const MAXIMUM_DOWNLOAD_BYTES: usize = 15 * 1024 * 1024;
 
-    pub fn new() -> Result<Self, String>
+    /// `cache_directory` keeps libretro's folder listings.
+    pub fn new(cache_directory: PathBuf) -> Result<Self, String>
     {
         let http_client = Client::builder()
             .timeout(Duration::from_secs(20))
             .user_agent("Albedo-Launcher")
             .build()
             .map_err(|error| error.to_string())?;
-        Ok(Self { http_client })
+        let libretro = LibretroThumbnails::new(http_client.clone(), cache_directory);
+        Ok(Self { http_client, libretro })
     }
 
-    /// Pictures of `kind` ("cover", "hero", "logo") for the game. `entry_id` is the companion's id;
-    /// for "steam:<appid>" the exact game is asked first instead of only searching by name.
+    /// Pictures of `kind` ("cover", "hero", "logo") for the game named `game_name` (the search text).
+    /// `entry_id` is the companion's id; for "steam:<appid>" the exact game is asked first instead of
+    /// only searching by name (empty when the user typed another name). `system` is the emulated
+    /// system ("Nintendo 64") of an EmuDeck game, its libretro pictures then come first.
     pub async fn search(
         &self,
         game_name: &str,
         entry_id: &str,
+        system: Option<&str>,
         kind: &str,
         grid_db_key: &str,
     ) -> ArtSearchResult
@@ -102,10 +111,20 @@ impl ArtSearch
                 Err(problem) => problems.push(problem),
             }
         }
+        if system.is_some()
+        {
+            self.add_libretro_pictures(game_name, system, kind, &mut candidates, &mut problems).await;
+        }
         match self.shop_pictures(game_name, steam_app_id, kind).await
         {
             Ok(shop_candidates) => candidates.extend(shop_candidates),
             Err(problem) => problems.push(problem),
+        }
+        // Steam games have no retro pictures; for other games without a known system
+        // (e.g. a stand-alone port of an old game) the common retro systems are searched last.
+        if system.is_none() && steam_app_id.is_none()
+        {
+            self.add_libretro_pictures(game_name, None, kind, &mut candidates, &mut problems).await;
         }
 
         let problem = if problems.is_empty()
@@ -120,6 +139,22 @@ impl ArtSearch
         {
             candidates,
             problem,
+        }
+    }
+
+    async fn add_libretro_pictures(
+        &self,
+        game_name: &str,
+        system: Option<&str>,
+        kind: &str,
+        candidates: &mut Vec<ArtCandidate>,
+        problems: &mut Vec<String>,
+    )
+    {
+        match self.libretro.pictures(game_name, system, kind).await
+        {
+            Ok(libretro_candidates) => candidates.extend(libretro_candidates),
+            Err(problem) => problems.push(problem),
         }
     }
 
@@ -376,9 +411,9 @@ mod tests
     fn finds_shop_pictures_without_a_key()
     {
         let result = tauri::async_runtime::block_on(async {
-            ArtSearch::new()
+            ArtSearch::new(std::env::temp_dir().join("albedo-art-test"))
                 .unwrap()
-                .search("Dead Island 2", "heroic:Crow", "cover", "")
+                .search("Dead Island 2", "heroic:Crow", None, "cover", "")
                 .await
         });
         println!("{:?}", result);
@@ -389,6 +424,22 @@ mod tests
                 .any(|candidate| candidate.image_url.contains("/934700/"))
         );
         assert!(result.problem.is_none());
+    }
+
+    /// Needs internet: `cargo test -- --ignored finds_libretro_pictures`.
+    #[test]
+    #[ignore]
+    fn finds_libretro_pictures_for_an_emulated_game()
+    {
+        let result = tauri::async_runtime::block_on(async {
+            ArtSearch::new(std::env::temp_dir().join("albedo-art-test"))
+                .unwrap()
+                .search("Zelda Ocarina of Time", "", Some("Nintendo 64"), "cover", "")
+                .await
+        });
+        println!("{:?}", result);
+        assert_eq!(result.candidates[0].source, "libretro");
+        assert!(result.candidates[0].image_url.ends_with("Ocarina%20of%20Time%20(USA).png"));
     }
 
     #[test]
