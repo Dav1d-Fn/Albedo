@@ -41,6 +41,8 @@ export interface LauncherState
   boxArt: Record<string, string>;
   hostState: HostState;
   hostError: string;
+  /** The PC address that answered last (home network or Tailscale); "" = not checked yet. */
+  activeHost: string;
   toast: ToastContent | null;
   connectSteps: string[];
   connectStep: number;
@@ -61,6 +63,8 @@ export interface LauncherState
   connectionHostIndex: number;
   connectionRow: number;
   manualHostDraft: string;
+  /** Text field for another address of the PC, e.g. its Tailscale IP. */
+  extraAddressDraft: string;
   pairState: "idle" | "pairing" | "paired" | "error";
   pairPin: string;
   pairMessage: string;
@@ -126,6 +130,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       boxArt: {},
       hostState: "loading",
       hostError: "",
+      activeHost: "",
       toast: null,
       connectSteps: [],
       connectStep: 0,
@@ -141,6 +146,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       connectionHostIndex: 0,
       connectionRow: 0,
       manualHostDraft: "",
+      extraAddressDraft: "",
       pairState: "idle",
       pairPin: "",
       pairMessage: "",
@@ -245,6 +251,50 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     return this.settings.hostName || this.settings.host || "Kein PC";
   }
 
+  /** All addresses of the PC in the order they are tried: home network first, then the extra ones. */
+  public hostAddresses(settings: Settings = this.settings): string[]
+  {
+    const addresses: string[] = [];
+    for (const address of [settings.host, ...settings.extraHostAddresses])
+    {
+      const trimmedAddress = address.trim();
+      if (trimmedAddress !== "" && !addresses.includes(trimmedAddress))
+      {
+        addresses.push(trimmedAddress);
+      }
+    }
+    return addresses;
+  }
+
+  /** Address for calls right now: the one that answered last, else the home address. */
+  public connectedHost(): string
+  {
+    return this.state.activeHost || this.settings.host;
+  }
+
+  /**
+   * Asks which address the PC answers on, like Moonlight with its local and remote address.
+   * When none answers the first one is used, so the error comes from the real call.
+   */
+  private async resolveHost(settings: Settings = this.settings): Promise<string>
+  {
+    const addresses = this.hostAddresses(settings);
+    let activeHost = addresses[0] ?? "";
+    if (addresses.length > 1)
+    {
+      try
+      {
+        activeHost = (await this.backend.pickHostAddress(addresses)) ?? activeHost;
+      }
+      catch (pickError)
+      {
+        console.warn("address check failed", pickError);
+      }
+    }
+    this.setState({ activeHost });
+    return activeHost;
+  }
+
   public isRemembered(gameName: string | undefined, device: DeviceId = this.state.device): boolean
   {
     return gameName !== undefined && this.settings.rememberedModes[gameName + "|" + device] !== undefined;
@@ -309,7 +359,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.setState({ hostState: "loading", hostError: "" });
     try
     {
-      const games = await this.backend.fetchGames(settings);
+      const host = await this.resolveHost(settings);
+      const games = await this.backend.fetchGames(settings, host);
       this.setState((state) => ({
         games,
         hostState: "online",
@@ -328,7 +379,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   {
     try
     {
-      const boxArt = await this.backend.loadBoxArt(settings);
+      const boxArt = await this.backend.loadBoxArt(settings, this.hostAddresses(settings));
       this.setState({ boxArt: boxArt ?? {} });
     }
     catch (artError)
@@ -707,7 +758,9 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       try
       {
-        await this.backend.startStream(this.settings, gameName, profile, mode);
+        // The Deck may have changed networks since the list was loaded (home ↔ Tailscale).
+        const host = await this.resolveHost();
+        await this.backend.startStream(this.settings, host, gameName, profile, mode);
         this.setState({ screen: "stream" });
       }
       catch (launchError)
@@ -809,7 +862,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     const gameName = this.selectedGame() ?? "";
     try
     {
-      await this.backend.quitHostApp(this.settings);
+      await this.backend.quitHostApp(this.settings, this.connectedHost());
       this.showToast({ kind: "ok", eyebrow: this.hostDisplayName(), name: "Beendet", spec: "", sub: gameName + " läuft nicht mehr auf dem PC" });
     }
     catch (quitError)
@@ -960,7 +1013,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.setState({ libraryState: "loading", libraryError: "" });
     try
     {
-      const companionLibrary = await this.backend.companionLibrary(this.settings);
+      const host = await this.resolveHost();
+      const companionLibrary = await this.backend.companionLibrary(host);
       this.setState({
         library: companionLibrary.entries,
         librarySunshineProblem: companionLibrary.sunshineProblem,
@@ -1017,7 +1071,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       let cover: string | null = null;
       try
       {
-        cover = await this.backend.companionCover(this.settings, entry.id);
+        cover = await this.backend.companionCover(this.connectedHost(), entry.id);
       }
       catch (coverError)
       {
@@ -1115,7 +1169,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.setState({ libraryBusyId: entry.id });
     try
     {
-      const appName = await this.backend.companionAddApp(this.settings, entry.id);
+      const appName = await this.backend.companionAddApp(this.connectedHost(), entry.id);
       this.markLibraryEntry(entry.id, true);
       this.showToast({ kind: "ok", eyebrow: "Hinzugefügt", name: appName, spec: "", sub: "Steht jetzt in der Spieleliste" });
     }
@@ -1145,7 +1199,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.setState({ libraryBusyId: entry.id });
     try
     {
-      await this.backend.companionRemoveApp(this.settings, entry.name);
+      await this.backend.companionRemoveApp(this.connectedHost(), entry.name);
       this.markLibraryEntry(entry.id, false);
       this.showToast({ kind: "ok", eyebrow: "Entfernt", name: entry.name, spec: "", sub: "Nicht mehr in der Spieleliste" });
     }
@@ -1270,7 +1324,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     try
     {
       const user = draft.user.trim();
-      await this.backend.companionSetSunshineLogin(this.settings, user, draft.password);
+      await this.backend.companionSetSunshineLogin(this.connectedHost(), user, draft.password);
       this.updateSettings((settings) => ({ ...settings, sunshineUser: user, sunshinePassword: draft.password }));
       this.setState({ sunshineLogin: null });
       this.showToast({ kind: "ok", eyebrow: "PC-Helfer", name: "Sunshine-Login gespeichert", spec: "", sub: "Spiele können jetzt hinzugefügt werden" });
@@ -1296,7 +1350,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   // ---------------------------------------------------------------- connection and pairing
 
   /** Rows on the right side of the connection screen. */
-  public static readonly connectionRows = ["pair", "moonlight", "afterStream"] as const;
+  public static readonly connectionRows = ["pair", "addresses", "moonlight", "afterStream"] as const;
 
   public openConnection(): void
   {
@@ -1339,9 +1393,48 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       return;
     }
-    this.updateSettings((settings) => ({ ...settings, host: trimmedHost, hostName }));
-    this.setState({ pairState: "idle", pairMessage: "", connectionZone: "rows", connectionRow: 0 });
-    this.reloadGames({ ...this.settings, host: trimmedHost, hostName });
+    // Another named PC brings its own addresses; the same PC (or a typed address) keeps the extra ones.
+    const isOtherPc = hostName !== "" && this.settings.hostName !== "" && hostName !== this.settings.hostName;
+    const extraHostAddresses = isOtherPc ? [] : this.settings.extraHostAddresses.filter((address) => address !== trimmedHost);
+    const changedSettings = { ...this.settings, host: trimmedHost, hostName, extraHostAddresses };
+    this.updateSettings(() => changedSettings);
+    this.setState({ pairState: "idle", pairMessage: "", connectionZone: "rows", connectionRow: 0, activeHost: "" });
+    this.reloadGames(changedSettings);
+  }
+
+  /** Row index of the extra addresses on the connection screen. */
+  public static readonly addressesRowIndex = LauncherApp.connectionRows.indexOf("addresses");
+
+  public focusExtraAddress(): void
+  {
+    this.setState({ connectionZone: "rows", connectionRow: LauncherApp.addressesRowIndex });
+    document.getElementById("extra-address")?.focus();
+  }
+
+  /** Another address of the same PC, e.g. its Tailscale IP; tried after the home address. */
+  public addExtraAddress(address: string): void
+  {
+    const trimmedAddress = address.trim();
+    if (trimmedAddress === "" || this.hostAddresses().includes(trimmedAddress))
+    {
+      this.setState({ extraAddressDraft: "" });
+      return;
+    }
+    const changedSettings = { ...this.settings, extraHostAddresses: [...this.settings.extraHostAddresses, trimmedAddress] };
+    this.updateSettings(() => changedSettings);
+    this.setState({ extraAddressDraft: "" });
+    this.reloadGames(changedSettings);
+  }
+
+  public removeLastExtraAddress(): void
+  {
+    if (this.settings.extraHostAddresses.length === 0)
+    {
+      return;
+    }
+    const changedSettings = { ...this.settings, extraHostAddresses: this.settings.extraHostAddresses.slice(0, -1) };
+    this.updateSettings(() => changedSettings);
+    this.reloadGames(changedSettings);
   }
 
   public focusManualHost(): void
@@ -1360,7 +1453,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.setState({ pairState: "pairing", pairPin, pairMessage: "" });
     try
     {
-      await this.backend.pairHost(this.settings, pairPin);
+      const host = await this.resolveHost();
+      await this.backend.pairHost(this.settings, host, pairPin);
       this.setState({ pairState: "paired" });
       this.reloadGames();
     }
@@ -1385,7 +1479,14 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       if (button === "A")
       {
-        this.chooseHost(state.manualHostDraft, "");
+        if ((document.activeElement as HTMLInputElement).id === "extra-address")
+        {
+          this.addExtraAddress(state.extraAddressDraft);
+        }
+        else
+        {
+          this.chooseHost(state.manualHostDraft, "");
+        }
       }
       (document.activeElement as HTMLInputElement).blur();
       return;
@@ -1447,6 +1548,10 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       {
         this.activateConnectionRow(state.connectionRow);
       }
+      else if (button === "X" && state.connectionRow === LauncherApp.addressesRowIndex)
+      {
+        this.removeLastExtraAddress();
+      }
     }
   }
 
@@ -1457,6 +1562,10 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     if (row === "pair")
     {
       this.startPairing();
+    }
+    else if (row === "addresses")
+    {
+      this.focusExtraAddress();
     }
     else if (row === "moonlight")
     {

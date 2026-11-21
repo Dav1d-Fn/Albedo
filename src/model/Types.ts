@@ -34,13 +34,18 @@ export interface DeviceProfile
 
 export interface Settings
 {
-  /** IP or host name of the Sunshine PC, as Moonlight knows it. Empty = not set up yet. */
+  /** IP or host name of the Sunshine PC in the home network, as Moonlight knows it. Empty = not set up yet. */
   host: string;
+  /** More addresses of the same PC (e.g. its Tailscale IP), tried after `host`; the first reachable one is used. */
+  extraHostAddresses: string[];
   /** Display name of the host (mDNS name), falls back to `host`. */
   hostName: string;
   /** Program plus fixed arguments, e.g. ["flatpak", "run", "com.moonlight_stream.Moonlight"]. */
   moonlightCommand: string[];
-  /** Optional, settings file only: "https://<pc>:47990" + web UI login. Empty = `moonlight list` (needs pairing). */
+  /**
+   * Optional, settings file only: "https://<pc>:47990" + web UI login. Empty = `moonlight list` (needs pairing).
+   * The host part is replaced by the PC address that is reachable right now.
+   */
   sunshineApiUrl: string;
   sunshineUser: string;
   sunshinePassword: string;

@@ -19,6 +19,7 @@ Design source: Claude design canvas https://claude.ai/artifact/UpFs3Nat5Q983TyyA
   - `gamepad_listener.rs` – reads controllers with `gilrs`, emits `pad-button`
   - `display_detector.rs` – external screen connected? (`/sys/class/drm/*/status`)
   - `host_discovery.rs` – finds Sunshine PCs via mDNS (`_nvstream._tcp`)
+  - `host_address_picker.rs` – first reachable PC address (home IP before Tailscale, settings `host` + `extraHostAddresses`); every call uses the address it picked
   - `moonlight_pairing.rs` – `moonlight pair <host> --pin <pin>`
   - `moonlight_app_quit.rs` – `moonlight quit <host>`, ends the game still running on the PC after a disconnect
   - `moonlight_box_art.rs` – cover images from Moonlight's box art cache (`moonlight_host_entries.rs` parses Moonlight.conf)

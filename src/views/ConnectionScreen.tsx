@@ -17,6 +17,8 @@ export function ConnectionScreen(props: { app: LauncherApp })
   const hostsZone = state.connectionZone === "hosts";
   const usesFlatpak = settings.moonlightCommand[0] === "flatpak";
   const manualIndex = app.manualHostIndex();
+  const addresses = app.hostAddresses();
+  const addressesRow = LauncherApp.addressesRowIndex;
   const rowFocus = (rowIndex: number) => (!hostsZone && state.connectionRow === rowIndex ? " f" : "");
 
   const pairTitle =
@@ -35,7 +37,7 @@ export function ConnectionScreen(props: { app: LauncherApp })
           <span className={"dot" + (state.searchingHosts ? " wake" : " on")} />
           <span>{state.searchingHosts ? "Suche Sunshine-PCs im Netzwerk …" : state.discoveredHosts.length + " PC(s) im Netzwerk gefunden"}</span>
         </div>
-        <div className="eactive">{settings.host ? "Aktuell: " + app.hostDisplayName() + " · " + settings.host : "Noch kein PC gewählt"}</div>
+        <div className="eactive">{settings.host ? "Aktuell: " + app.hostDisplayName() + " · " + app.connectedHost() : "Noch kein PC gewählt"}</div>
       </div>
 
       <div className="ebody">
@@ -86,7 +88,7 @@ export function ConnectionScreen(props: { app: LauncherApp })
               <span className="pairtitle">{pairTitle}</span>
               <span className="pairsub">
                 {state.pairState === "idle" && (settings.host ? "A erzeugt eine PIN. Die gibst du in Sunshine unter „PIN“ ein." : "Erst links einen PC wählen.")}
-                {state.pairState === "pairing" && "Sunshine-Weboberfläche öffnen (https://" + settings.host + ":47990) → PIN → diese Zahl eingeben."}
+                {state.pairState === "pairing" && "Sunshine-Weboberfläche öffnen (https://" + app.connectedHost() + ":47990) → PIN → diese Zahl eingeben."}
                 {state.pairState === "paired" && "Moonlight ist gekoppelt, die Spieleliste wird geladen."}
                 {state.pairState === "error" && state.pairMessage}
               </span>
@@ -95,9 +97,33 @@ export function ConnectionScreen(props: { app: LauncherApp })
             {state.pairState === "pairing" && <span className="spin" />}
           </div>
 
+          <div className="rhead clabel">Weitere Adressen</div>
+          <div className={"row addrrow" + rowFocus(addressesRow)}>
+            <button className="rlabel" onClick={() => app.focusExtraAddress()}>Unterwegs (Tailscale)</button>
+            <input
+              id="extra-address"
+              className="hostinput"
+              placeholder="z. B. 100.124.221.14"
+              value={state.extraAddressDraft}
+              spellCheck={false}
+              onChange={(changeEvent) => app.setState({ extraAddressDraft: changeEvent.target.value })}
+              onFocus={() => app.setState({ connectionZone: "rows", connectionRow: addressesRow })}
+            />
+          </div>
+          <div className="addrlist">
+            {addresses.map((address, addressIndex) => (
+              <span key={address} className={"addr" + (address === app.connectedHost() ? " on" : "")}>
+                <span className="addrnum">{addressIndex + 1}</span>
+                {address}
+                {address === app.connectedHost() && state.activeHost !== "" && <span className="badge">ERREICHBAR</span>}
+              </span>
+            ))}
+            <span className="dnote">Die erste erreichbare Adresse wird genommen, für Moonlight, Sunshine und den PC-Helfer.</span>
+          </div>
+
           <div className="rhead clabel">Moonlight</div>
-          <div className={"row" + rowFocus(1)}>
-            <button className="rlabel" onClick={() => app.activateConnectionRow(1)}>Moonlight-Version</button>
+          <div className={"row" + rowFocus(2)}>
+            <button className="rlabel" onClick={() => app.activateConnectionRow(2)}>Moonlight-Version</button>
             <div className="ctrl">
               <div className="seg">
                 <button className={"segb" + (usesFlatpak ? " on" : "")} onClick={() => usesFlatpak || app.toggleMoonlightCommand()}>Flatpak</button>
@@ -110,8 +136,8 @@ export function ConnectionScreen(props: { app: LauncherApp })
           </div>
 
           <div className="rhead clabel">Nach dem Stream</div>
-          <div className={"row" + rowFocus(2)}>
-            <button className="rlabel" onClick={() => app.activateConnectionRow(2)}>Spiel auf dem PC</button>
+          <div className={"row" + rowFocus(3)}>
+            <button className="rlabel" onClick={() => app.activateConnectionRow(3)}>Spiel auf dem PC</button>
             <div className="ctrl">
               <div className="seg">
                 {afterStreamOptions.map((option) => (

@@ -42,12 +42,13 @@ export class Backend
     return invoke<boolean>("has_external_display");
   }
 
-  public fetchGames(settings: Settings): Promise<string[]>
+  /** `host` is the PC address that answered (see `pickHostAddress`). */
+  public fetchGames(settings: Settings, host: string): Promise<string[]>
   {
     return invoke<string[]>("fetch_games", {
       source:
       {
-        host: settings.host,
+        host,
         moonlightCommand: settings.moonlightCommand,
         sunshineApiUrl: settings.sunshineApiUrl,
         sunshineUser: settings.sunshineUser,
@@ -62,62 +63,68 @@ export class Backend
     return invoke<DiscoveredHost[]>("discover_hosts");
   }
 
-  /** Runs `moonlight pair`; resolves once the PIN was accepted in Sunshine. */
-  public pairHost(settings: Settings, pin: string): Promise<void>
+  /** First address in the list that the PC answers on (home network before Tailscale), null when none does. */
+  public pickHostAddress(addresses: string[]): Promise<string | null>
   {
-    return invoke<void>("pair_host", { moonlightCommand: settings.moonlightCommand, host: settings.host, pin });
+    return invoke<string | null>("pick_host_address", { addresses });
   }
 
-  /** Game name -> cover image (`data:` URL) from Moonlight's box art cache. */
-  public loadBoxArt(settings: Settings): Promise<Record<string, string>>
+  /** Runs `moonlight pair`; resolves once the PIN was accepted in Sunshine. */
+  public pairHost(settings: Settings, host: string, pin: string): Promise<void>
   {
-    return invoke<Record<string, string>>("load_box_art", { moonlightCommand: settings.moonlightCommand, host: settings.host });
+    return invoke<void>("pair_host", { moonlightCommand: settings.moonlightCommand, host, pin });
+  }
+
+  /** Game name -> cover image (`data:` URL) from Moonlight's box art cache; Moonlight may know the PC under any of its addresses. */
+  public loadBoxArt(settings: Settings, addresses: string[]): Promise<Record<string, string>>
+  {
+    return invoke<Record<string, string>>("load_box_art", { moonlightCommand: settings.moonlightCommand, addresses });
   }
 
   /** Games and programs installed on the PC, from the companion service. */
-  public companionLibrary(settings: Settings): Promise<CompanionLibrary>
+  public companionLibrary(host: string): Promise<CompanionLibrary>
   {
-    return invoke<CompanionLibrary>("companion_library", { host: settings.host });
+    return invoke<CompanionLibrary>("companion_library", { host });
   }
 
   /** Hands the Sunshine web UI login to the companion; rejects with its German message when Sunshine refuses it. */
-  public companionSetSunshineLogin(settings: Settings, user: string, password: string): Promise<void>
+  public companionSetSunshineLogin(host: string, user: string, password: string): Promise<void>
   {
-    return invoke<void>("companion_set_sunshine_login", { host: settings.host, user, password });
+    return invoke<void>("companion_set_sunshine_login", { host, user, password });
   }
 
   /** Cover of a library entry as `data:` URL, null when the PC has none. */
-  public companionCover(settings: Settings, entryId: string): Promise<string | null>
+  public companionCover(host: string, entryId: string): Promise<string | null>
   {
-    return invoke<string | null>("companion_cover", { host: settings.host, entryId });
+    return invoke<string | null>("companion_cover", { host, entryId });
   }
 
   /** Creates the Sunshine app for an entry; resolves with the app name. */
-  public companionAddApp(settings: Settings, entryId: string): Promise<string>
+  public companionAddApp(host: string, entryId: string): Promise<string>
   {
-    return invoke<string>("companion_add_app", { host: settings.host, entryId });
+    return invoke<string>("companion_add_app", { host, entryId });
   }
 
-  public companionRemoveApp(settings: Settings, appName: string): Promise<void>
+  public companionRemoveApp(host: string, appName: string): Promise<void>
   {
-    return invoke<void>("companion_remove_app", { host: settings.host, appName });
+    return invoke<void>("companion_remove_app", { host, appName });
   }
 
   /** Ends the app still running on the PC (`moonlight quit <host>`). */
-  public quitHostApp(settings: Settings): Promise<void>
+  public quitHostApp(settings: Settings, host: string): Promise<void>
   {
-    return invoke<void>("quit_host_app", { moonlightCommand: settings.moonlightCommand, host: settings.host });
+    return invoke<void>("quit_host_app", { moonlightCommand: settings.moonlightCommand, host });
   }
 
   /** Starts Moonlight; resolves with the command line that was run. */
-  public startStream(settings: Settings, gameName: string, profile: DeviceProfile, mode: StreamMode): Promise<string>
+  public startStream(settings: Settings, host: string, gameName: string, profile: DeviceProfile, mode: StreamMode): Promise<string>
   {
     const size = ModeText.size(mode.resolution);
     return invoke<string>("start_stream", {
       command:
       {
         baseCommand: settings.moonlightCommand,
-        host: settings.host,
+        host,
         appName: gameName,
         width: size.width,
         height: size.height,

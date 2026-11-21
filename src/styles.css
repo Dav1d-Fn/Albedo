@@ -284,3 +284,11 @@ body { cursor: default; user-select: none; }
 .loginfield { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-radius: 14px; border: 1.5px solid transparent; transition: border-color .3s; }
 .loginfield.f { border-color: color-mix(in oklab, var(--acc) 50%, transparent); }
 .loginerr { color: #FCA5A5; font-size: 13px; max-width: 420px; }
+
+/* Extra addresses of the PC on the connection screen (home network first, then e.g. Tailscale) */
+.addrrow { padding: 0 12px 0 0; }
+.addrrow .hostinput { margin-top: 0; width: 260px; margin-left: auto; }
+.addrlist { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 0 4px 20px; }
+.addr { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px 0 4px; border-radius: 999px; background: rgba(255,255,255,.07); font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; color: #D4D4D8; }
+.addr.on { background: color-mix(in oklab, var(--acc) 18%, rgba(255,255,255,.05)); color: #F5F5F7; }
+.addrnum { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; background: rgba(255,255,255,.12); font-size: 11px; font-weight: 800; }

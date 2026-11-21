@@ -47,13 +47,17 @@ impl MoonlightBoxArt
     }
 
     /// App name -> `data:image/png;base64,…` URL. Apps without a cached or with Sunshine's grey default image are left out.
-    pub fn load(&self, host: &str) -> Result<HashMap<String, String>, String>
+    /// `addresses` are all addresses of the PC; Moonlight may know it under any of them.
+    pub fn load(&self, addresses: &[String]) -> Result<HashMap<String, String>, String>
     {
         let config_text = fs::read_to_string(&self.config_file)
             .map_err(|error| format!("Moonlight.conf nicht lesbar ({}): {}", self.config_file.display(), error))?;
         let host_entries = MoonlightHostEntries::parse(&config_text);
 
-        let Some(host_number) = host_entries.host_number_for_address(host) else
+        let host_number = addresses
+            .iter()
+            .find_map(|address| host_entries.host_number_for_address(address));
+        let Some(host_number) = host_number else
         {
             return Ok(HashMap::new());
         };

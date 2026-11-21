@@ -3,6 +3,7 @@ mod companion_library;
 mod display_detector;
 mod game_list_source;
 mod gamepad_listener;
+mod host_address_picker;
 mod host_discovery;
 mod host_environment;
 mod library_entry;
@@ -24,6 +25,7 @@ use companion_library::CompanionLibrary;
 use display_detector::DisplayDetector;
 use game_list_source::GameListSource;
 use gamepad_listener::GamepadListener;
+use host_address_picker::HostAddressPicker;
 use host_discovery::{DiscoveredHost, HostDiscovery};
 use moonlight_app_quit::MoonlightAppQuit;
 use moonlight_box_art::MoonlightBoxArt;
@@ -80,6 +82,18 @@ async fn discover_hosts() -> Result<Vec<DiscoveredHost>, String>
         .map_err(|error| error.to_string())?
 }
 
+/// First reachable address of the PC (home network before Tailscale), None when none answers.
+#[tauri::command]
+async fn pick_host_address(addresses: Vec<String>) -> Result<Option<String>, String>
+{
+    let picker = HostAddressPicker::new(addresses.clone(), Duration::from_secs(2));
+    let picked = tauri::async_runtime::spawn_blocking(move || picker.pick())
+        .await
+        .map_err(|error| error.to_string())?;
+    println!("[host] {:?} -> {:?}", addresses, picked);
+    Ok(picked)
+}
+
 #[tauri::command]
 async fn pair_host(moonlight_command: Vec<String>, host: String, pin: String) -> Result<(), String>
 {
@@ -101,9 +115,9 @@ async fn quit_host_app(moonlight_command: Vec<String>, host: String) -> Result<(
 }
 
 #[tauri::command]
-async fn load_box_art(moonlight_command: Vec<String>, host: String) -> Result<HashMap<String, String>, String>
+async fn load_box_art(moonlight_command: Vec<String>, addresses: Vec<String>) -> Result<HashMap<String, String>, String>
 {
-    let result = tauri::async_runtime::spawn_blocking(move || MoonlightBoxArt::for_command(&moonlight_command)?.load(&host))
+    let result = tauri::async_runtime::spawn_blocking(move || MoonlightBoxArt::for_command(&moonlight_command)?.load(&addresses))
         .await
         .map_err(|error| error.to_string())?;
     match &result
@@ -173,6 +187,7 @@ pub fn run()
             fetch_games,
             start_stream,
             discover_hosts,
+            pick_host_address,
             pair_host,
             quit_host_app,
             load_box_art,

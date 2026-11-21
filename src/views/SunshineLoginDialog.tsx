@@ -16,7 +16,7 @@ export function SunshineLoginDialog(props: { app: LauncherApp })
       <div className="dcard">
         <div className="teyebrow">{app.hostDisplayName() + " · PC-Helfer"}</div>
         <div className="tname">Sunshine-Login</div>
-        <div className="tsub">Benutzer und Passwort der Sunshine-Weboberfläche (https://{app.settings.host}:47990).</div>
+        <div className="tsub">Benutzer und Passwort der Sunshine-Weboberfläche (https://{app.connectedHost()}:47990).</div>
 
         <div className="loginform">
           <label className={"loginfield" + (draft.row === 0 ? " f" : "")}>

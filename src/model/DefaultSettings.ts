@@ -12,6 +12,7 @@ export class DefaultSettings
     return {
       host: "",
       hostName: "",
+      extraHostAddresses: [],
       moonlightCommand: DefaultSettings.flatpakMoonlight,
       sunshineApiUrl: "",
       sunshineUser: "",

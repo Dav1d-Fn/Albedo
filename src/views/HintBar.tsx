@@ -1,4 +1,4 @@
-import type LauncherApp from "../LauncherApp";
+import LauncherApp from "../LauncherApp";
 import { PadButton } from "../model/Types";
 
 interface Hint
@@ -53,7 +53,13 @@ export function HintBar(props: { app: LauncherApp })
   else if (state.screen === "connection")
   {
     const onPairRow = state.connectionZone === "rows" && state.connectionRow === 0;
-    hints.push({ glyph: "A", label: state.connectionZone === "hosts" ? "Verwenden" : onPairRow ? "Koppeln" : "Umschalten", button: "A" });
+    const onAddressesRow = state.connectionZone === "rows" && state.connectionRow === LauncherApp.addressesRowIndex;
+    const rowLabel = onPairRow ? "Koppeln" : onAddressesRow ? "Adresse eintippen" : "Umschalten";
+    hints.push({ glyph: "A", label: state.connectionZone === "hosts" ? "Verwenden" : rowLabel, button: "A" });
+    if (onAddressesRow && app.settings.extraHostAddresses.length > 0)
+    {
+      hints.push({ glyph: "X", label: "Letzte entfernen", button: "X" });
+    }
     hints.push({ glyph: "Y", label: "Neu suchen", button: "Y" });
     hints.push({ glyph: "B", label: "Fertig", button: "B" });
   }

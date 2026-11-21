@@ -46,6 +46,8 @@ export class BrowserMock
           return BrowserMock.sampleGames;
         case "discover_hosts":
           return [{ name: "fedora", address: "192.168.178.36" }];
+        case "pick_host_address":
+          return (args.addresses as string[])[0] ?? null;
         case "pair_host":
           return new Promise((resolve) => window.setTimeout(resolve, 4000));
         case "start_stream":

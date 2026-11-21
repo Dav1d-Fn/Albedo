@@ -13,6 +13,7 @@ pub struct GameListSource
     pub host: String,
     pub moonlight_command: Vec<String>,
     /// e.g. "https://192.168.1.10:47990"; empty = use `moonlight list` instead.
+    /// Its host part is replaced by `host`, the address of the PC that answered (home or Tailscale).
     pub sunshine_api_url: String,
     pub sunshine_user: String,
     pub sunshine_password: String,
@@ -54,7 +55,7 @@ impl GameListSource
             .build()
             .map_err(|error| error.to_string())?;
 
-        let url = format!("{}/api/apps", self.sunshine_api_url.trim_end_matches('/'));
+        let url = format!("{}/api/apps", self.sunshine_api_base_url()?.trim_end_matches('/'));
         let response = client
             .get(&url)
             .basic_auth(&self.sunshine_user, Some(&self.sunshine_password))
@@ -73,6 +74,26 @@ impl GameListSource
 
         let app_list: SunshineAppList = response.json().await.map_err(|error| error.to_string())?;
         Ok(app_list.apps.into_iter().map(|app| app.name).collect())
+    }
+
+    /// The configured API URL, pointed at the address that is reachable right now.
+    fn sunshine_api_base_url(&self) -> Result<String, String>
+    {
+        let mut url = reqwest::Url::parse(self.sunshine_api_url.trim()).map_err(|error| format!("Sunshine-API-Adresse ungültig: {}", error))?;
+        let host = self.host.trim().trim_start_matches('[').trim_end_matches(']');
+        if !host.is_empty()
+        {
+            let host_for_url = if host.contains(':')
+            {
+                format!("[{}]", host)
+            }
+            else
+            {
+                host.to_string()
+            };
+            url.set_host(Some(&host_for_url)).map_err(|error| format!("Sunshine-API-Adresse ungültig: {}", error))?;
+        }
+        Ok(url.to_string())
     }
 
     /// `moonlight list <host>` prints one app name per line; needs a paired client.
