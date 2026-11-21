@@ -22,7 +22,9 @@ export function HintBar(props: { app: LauncherApp })
   if (state.screen === "home")
   {
     const onAddTile = state.zone === "games" && app.isAddTileSelected();
-    hints.push({ glyph: "A", label: state.zone === "games" ? (onAddTile ? t.common.add : t.home.details) : t.home.select, button: "A" });
+    const onResumeTile = state.zone === "games" && state.gameIndex === -1;
+    const gamesLabel = onAddTile ? t.common.add : (onResumeTile ? t.home.resume : t.home.details);
+    hints.push({ glyph: "A", label: state.zone === "games" ? gamesLabel : t.home.select, button: "A" });
     hints.push({ glyph: "X", label: t.common.device, button: "X" });
     hints.push({ glyph: "L1 · R1", label: t.common.profile, button: "R1", pill: true });
     hints.push({ glyph: "Y", label: t.common.reload, button: "Y" });
@@ -42,9 +44,16 @@ export function HintBar(props: { app: LauncherApp })
     }
     hints.push({ glyph: "B", label: t.common.close, button: "B" });
   }
+  else if (state.screen === "detail" && state.switchGame !== null)
+  {
+    hints.push({ glyph: "◀ ▶", label: t.common.choose, button: "RIGHT", pill: true });
+    hints.push({ glyph: "A", label: state.switchGame.choiceIndex === 0 ? t.switchGameDialog.quitAndStart : t.switchGameDialog.cancel, button: "A" });
+    hints.push({ glyph: "B", label: t.switchGameDialog.cancel, button: "B" });
+  }
   else if (state.screen === "detail")
   {
-    const detailLabels = [t.detail.play, t.detail.switchDevice, t.detail.cycleAfterStream, t.detail.setImage];
+    const playLabel = app.isRunning(app.selectedGame()) ? t.home.resume : t.detail.play;
+    const detailLabels = [playLabel, t.detail.switchDevice, t.detail.cycleAfterStream, t.detail.setImage];
     hints.push({ glyph: "A", label: detailLabels[state.detailIndex] ?? t.detail.play, button: "A" });
     hints.push({ glyph: "X", label: t.common.device, button: "X" });
     hints.push({ glyph: "L1 · R1", label: t.common.profile, button: "R1", pill: true });

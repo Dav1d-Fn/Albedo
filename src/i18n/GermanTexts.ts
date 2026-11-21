@@ -101,6 +101,9 @@ export const germanTexts =
     noGames: "Keine Spiele",
     noApps: "Sunshine hat keine Apps geliefert.",
     addGames: "Spiele hinzufügen",
+    runningResume: "Läuft · Fortsetzen",
+    resumeText: "Läuft auf dem PC · A setzt den Stream fort",
+    resume: "Fortsetzen",
     details: "Details",
     select: "Auswählen",
   },
@@ -137,6 +140,14 @@ export const germanTexts =
     running: "Stream läuft",
     moonlightTookOver: (gameName: string) => "Moonlight hat übernommen · " + gameName,
     endStream: "Stream beenden",
+  },
+
+  switchGameDialog:
+  {
+    stillRunning: (gameName: string | null) => (gameName ?? "Ein Spiel") + " läuft noch",
+    question: (nextGame: string) => "Beenden und " + nextGame + " starten? Nicht gespeicherter Fortschritt geht verloren.",
+    quitAndStart: "Beenden und starten",
+    cancel: "Abbrechen",
   },
 
   afterStreamDialog:

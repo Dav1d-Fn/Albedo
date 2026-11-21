@@ -78,7 +78,7 @@ export function DetailScreen(props: { app: LauncherApp })
           <div className="actions up d4">
             <button className={"btn primary" + (state.detailIndex === 0 ? " f" : "")} onClick={() => app.detailAction(0)}>
               <PlayIcon />
-              {t.detail.play}
+              {app.isRunning(app.selectedGame()) ? t.home.resume : t.detail.play}
             </button>
             <button className={"btn" + (state.detailIndex === 1 ? " f" : "")} onClick={() => app.detailAction(1)}>
               <SwapIcon />

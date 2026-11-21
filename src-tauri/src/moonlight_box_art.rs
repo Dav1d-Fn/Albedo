@@ -83,6 +83,19 @@ impl MoonlightBoxArt
         Ok(images)
     }
 
+    /// Name of the app with this Sunshine id, as Moonlight last saw it; None when unknown.
+    pub fn app_name(&self, addresses: &[String], app_id: &str) -> Option<String>
+    {
+        let config_text = fs::read_to_string(&self.config_file).ok()?;
+        let host_entries = MoonlightHostEntries::parse(&config_text);
+        let host_number = addresses.iter().find_map(|address| host_entries.host_number_for_address(address))?;
+        host_entries
+            .apps_of(&host_number)
+            .into_iter()
+            .find(|(known_id, _)| known_id == app_id)
+            .map(|(_, app_name)| app_name)
+    }
+
     /// Sunshine's default cover is a grey PNG; real covers are in colour. Skips the grey ones.
     fn read_colour_png(image_path: &Path) -> Option<Vec<u8>>
     {

@@ -186,6 +186,14 @@ export interface SunshineLoginDraft
   error: string;
 }
 
+/** The Sunshine app running on the PC right now, streamed or paused (src-tauri/src/running_host_app.rs). */
+export interface RunningHostApp
+{
+  appId: string;
+  /** From Moonlight's app cache; null when Moonlight does not know the id. */
+  appName: string | null;
+}
+
 export interface DiscoveredHost
 {
   name: string;

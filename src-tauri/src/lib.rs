@@ -17,6 +17,7 @@ mod moonlight_command;
 mod moonlight_host_entries;
 mod moonlight_pairing;
 mod pc_display_mode;
+mod running_host_app;
 mod settings_store;
 mod stream_session;
 mod ui_language;
@@ -42,6 +43,7 @@ use moonlight_box_art::MoonlightBoxArt;
 use moonlight_command::MoonlightCommand;
 use moonlight_pairing::MoonlightPairing;
 use pc_display_mode::PcDisplayMode;
+use running_host_app::RunningHostApp;
 use settings_store::SettingsStore;
 use stream_session::StreamSession;
 use ui_language::UiLanguage;
@@ -144,6 +146,15 @@ async fn quit_host_app(moonlight_command: Vec<String>, host: String) -> Result<(
         .await
         .map_err(|error| error.to_string())?;
     println!("[quit] {:?}", result);
+    result
+}
+
+/// The app running on the PC (streamed or paused), None when Sunshine is idle.
+#[tauri::command]
+async fn running_host_app(moonlight_command: Vec<String>, host: String, addresses: Vec<String>) -> Result<Option<RunningHostApp>, String>
+{
+    let result = RunningHostApp::query(&host, &moonlight_command, &addresses).await;
+    println!("[running] {} -> {:?}", host, result);
     result
 }
 
@@ -305,6 +316,7 @@ pub fn run()
             pick_host_address,
             pair_host,
             quit_host_app,
+            running_host_app,
             load_box_art,
             companion_library,
             companion_cover,

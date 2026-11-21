@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { DefaultSettings } from "../model/DefaultSettings";
 import { ModeText } from "../model/ModeText";
-import { UiLanguage, ArtKind, ArtSearchResult, CompanionLibrary, UploadToken, DeviceProfile, DiscoveredHost, PadButton, PcDisplayMode, Settings, StreamMode } from "../model/Types";
+import { UiLanguage, ArtKind, ArtSearchResult, CompanionLibrary, UploadToken, DeviceProfile, DiscoveredHost, PadButton, PcDisplayMode, RunningHostApp, Settings, StreamMode } from "../model/Types";
 
 export interface StreamEnded
 {
@@ -190,6 +190,12 @@ export class Backend
   public quitHostApp(settings: Settings, host: string): Promise<void>
   {
     return invoke<void>("quit_host_app", { moonlightCommand: settings.moonlightCommand, host });
+  }
+
+  /** What runs on the PC right now (Sunshine's `serverinfo`), null when nothing does. */
+  public runningHostApp(settings: Settings, host: string, addresses: string[]): Promise<RunningHostApp | null>
+  {
+    return invoke<RunningHostApp | null>("running_host_app", { moonlightCommand: settings.moonlightCommand, host, addresses });
   }
 
   /** Starts Moonlight; resolves with the command line that was run. */
