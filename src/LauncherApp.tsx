@@ -438,8 +438,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   // ---------------------------------------------------------------- toasts and timers
 
-  /** Matches the 3.5 s pop animation of normal toasts in styles.css. */
-  private static readonly toastMilliseconds = 3550;
+  /** Matches the 1.9 s pop animation of normal toasts in styles.css. */
+  private static readonly toastMilliseconds = 1950;
 
   /** Errors need time to be read on the Deck; A or B closes them earlier. */
   private static readonly errorToastMilliseconds = 6000;
