@@ -93,6 +93,10 @@ export function HintBar(props: { app: LauncherApp })
     hints.push({ glyph: "Y", label: state.afterStreamRemember ? "Nicht merken" : "Merken", button: "Y" });
     hints.push({ glyph: "B", label: "Pausieren", button: "B" });
   }
+  else if (state.screen === "stream")
+  {
+    hints.push({ glyph: "B", label: "Stream beenden", button: "B" });
+  }
   else if (state.screen === "connect")
   {
     hints.push({ glyph: "B", label: "Abbrechen", button: "B" });

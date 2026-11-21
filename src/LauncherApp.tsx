@@ -108,9 +108,21 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   private static readonly connectStepMilliseconds = 450;
 
+  /** Timers stop while the Deck sleeps; a poll this much later than planned means it woke up. */
+  private static readonly sleepGapMilliseconds = 15000;
+
   public readonly backend = new Backend();
 
   private readonly companionArt = new CompanionArt(this.backend);
+
+  /** Counts stream starts; B on the connect screen bumps it, so a start already on its way is dropped. */
+  private launchAttempt = 0;
+
+  /** The user ended a hanging Moonlight; its "stream-ended" is then no error. */
+  private streamAbortRequested = false;
+
+  /** When the display poll ran last; a big gap means the Deck was asleep. */
+  private lastPollTime = Date.now();
 
   /** Rotates the screenshot backdrop. */
   private backdropTimer = 0;
@@ -351,6 +363,14 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   private async pollDisplay(): Promise<void>
   {
+    const now = Date.now();
+    const asleep = now - this.lastPollTime > LauncherApp.displayPollMilliseconds + LauncherApp.sleepGapMilliseconds;
+    this.lastPollTime = now;
+    if (asleep)
+    {
+      this.handleWakeUp();
+    }
+
     const externalDisplay = await this.backend.hasExternalDisplay();
     if (externalDisplay === this.state.externalDisplay || this.state.settings === null)
     {
@@ -622,8 +642,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       case "connect":
         if (button === "B")
         {
-          this.clearTimers();
-          this.setState({ screen: "detail" });
+          this.cancelConnect();
         }
         return;
       case "connection":
@@ -631,7 +650,12 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       case "library":
         return this.libraryButton(button);
       case "stream":
-        // Moonlight owns the controller now; we come back via the "stream-ended" event.
+        // Moonlight owns the controller; buttons only arrive here when the launcher has the focus,
+        // e.g. Moonlight hangs or shows an error behind it. B ends it, so the launcher never gets stuck.
+        if (button === "B")
+        {
+          this.abortStream();
+        }
         return;
       case "afterStream":
         return this.afterStreamButton(button);
@@ -774,6 +798,21 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   // ---------------------------------------------------------------- streaming
 
+  /**
+   * After standby the network and the PC may be gone or changed: reload the list (it checks the address again).
+   * A stream that was running stays, Moonlight notices the dead connection itself and B can end it.
+   */
+  private handleWakeUp(): void
+  {
+    console.info("woke up from standby, checking the PC again");
+    const screen = this.state.screen;
+    if (screen === "stream" || screen === "connect")
+    {
+      return;
+    }
+    this.reloadGames();
+  }
+
   private startStream(): void
   {
     const gameName = this.selectedGame();
@@ -792,6 +831,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     ];
 
     this.clearTimers();
+    this.launchAttempt += 1;
+    const launchAttempt = this.launchAttempt;
     this.setState({ screen: "connect", connectSteps: steps, connectStep: 0, lastLaunchError: "" });
     steps.forEach((_, stepIndex) =>
     {
@@ -801,20 +842,70 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       try
       {
-        // The Deck may have changed networks since the list was loaded (home ↔ Tailscale).
-        const host = await this.resolveHost();
+        // The Deck may have changed networks (home ↔ Tailscale) or just woke up: check the PC answers at all,
+        // otherwise Moonlight would only wait for it.
+        const host = await this.backend.pickHostAddress(this.hostAddresses());
+        if (launchAttempt !== this.launchAttempt)
+        {
+          return;
+        }
+        if (host === null)
+        {
+          this.setState({ screen: "detail", lastLaunchError: "PC " + this.hostDisplayName() + " antwortet nicht. Ist er an und läuft Sunshine?" });
+          return;
+        }
+        this.setState({ activeHost: host });
         await this.backend.startStream(this.settings, host, gameName, profile, mode);
+        if (launchAttempt !== this.launchAttempt)
+        {
+          // B was pressed while Moonlight was starting.
+          this.streamAbortRequested = true;
+          this.backend.stopStream();
+          return;
+        }
         this.setState({ screen: "stream" });
       }
       catch (launchError)
       {
-        this.setState({ screen: "detail", lastLaunchError: String(launchError) });
+        if (launchAttempt === this.launchAttempt)
+        {
+          this.setState({ screen: "detail", lastLaunchError: String(launchError) });
+        }
       }
     }, LauncherApp.connectStepMilliseconds * steps.length + 300);
   }
 
+  /** B on the connect screen: back to the detail page, a start already on its way is dropped. */
+  private cancelConnect(): void
+  {
+    this.clearTimers();
+    this.launchAttempt += 1;
+    this.setState({ screen: "detail" });
+  }
+
+  /** B while the stream screen has the focus: ends Moonlight (it hangs or shows an error nobody can see). */
+  private async abortStream(): Promise<void>
+  {
+    this.streamAbortRequested = true;
+    const wasRunning = await this.backend.stopStream();
+    if (!wasRunning)
+    {
+      // Moonlight is gone already but its "stream-ended" never came: do not wait for it.
+      this.streamAbortRequested = false;
+      this.setState({ screen: "detail", lastLaunchError: "" });
+    }
+  }
+
   private handleStreamEnded(exitCode: number | null, errorTail: string): void
   {
+    if (this.streamAbortRequested)
+    {
+      this.streamAbortRequested = false;
+      this.setState({ screen: "detail", lastLaunchError: "" });
+      this.showToast({ kind: "ok", eyebrow: this.hostDisplayName(), name: "Stream abgebrochen", spec: "", sub: "Moonlight wurde beendet, das Spiel läuft eventuell noch auf dem PC" });
+      return;
+    }
+
     const failed = exitCode !== 0;
     if (failed)
     {

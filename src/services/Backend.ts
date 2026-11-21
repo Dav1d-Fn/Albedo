@@ -149,6 +149,12 @@ export class Backend
     });
   }
 
+  /** Ends a Moonlight that hangs; resolves false when none was running. "stream-ended" follows. */
+  public stopStream(): Promise<boolean>
+  {
+    return invoke<boolean>("stop_stream");
+  }
+
   public onStreamEnded(handler: (event: StreamEnded) => void): Promise<UnlistenFn>
   {
     return listen<StreamEnded>("stream-ended", (event) => handler(event.payload));

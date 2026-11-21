@@ -18,7 +18,7 @@ mod stream_session;
 use std::collections::HashMap;
 use std::time::Duration;
 
-use tauri::AppHandle;
+use tauri::{AppHandle, State};
 
 use companion_client::CompanionClient;
 use companion_library::CompanionLibrary;
@@ -69,9 +69,16 @@ async fn fetch_games(source: GameListSource) -> Result<Vec<String>, String>
 }
 
 #[tauri::command]
-fn start_stream(app_handle: AppHandle, command: MoonlightCommand) -> Result<String, String>
+fn start_stream(app_handle: AppHandle, stream_session: State<StreamSession>, command: MoonlightCommand) -> Result<String, String>
 {
-    StreamSession::start(app_handle, command)
+    stream_session.start(app_handle, command)
+}
+
+/// Ends a Moonlight that hangs; false when none was running.
+#[tauri::command]
+fn stop_stream(stream_session: State<StreamSession>) -> bool
+{
+    stream_session.stop()
 }
 
 #[tauri::command]
@@ -187,6 +194,7 @@ async fn companion_set_sunshine_login(host: String, user: String, password: Stri
 pub fn run()
 {
     tauri::Builder::default()
+        .manage(StreamSession::default())
         .setup(|app|
         {
             GamepadListener::start(app.handle().clone());
@@ -198,6 +206,7 @@ pub fn run()
             has_external_display,
             fetch_games,
             start_stream,
+            stop_stream,
             discover_hosts,
             pick_host_address,
             pair_host,

@@ -5,6 +5,9 @@ import { emit } from "@tauri-apps/api/event";
  * Fake backend for `npm run dev` in a plain browser (no Tauri), so the UI can be
  * checked and clicked through without the Rust side. Never active inside the app.
  */
+/** Whether the fake Moonlight is "running", so stop_stream answers like the real one. */
+let streamRunning = false;
+
 export class BrowserMock
 {
   private static readonly sampleGames = ["Cyberpunk 2077", "Elden Ring", "Hades II", "Forza Horizon 5", "Baldur's Gate 3", "Stardew Valley", "Portal 2"];
@@ -29,6 +32,12 @@ export class BrowserMock
     return "data:image/svg+xml," + encodeURIComponent(svg);
   }
 
+  private static endStream(exitCode: number | null): void
+  {
+    streamRunning = false;
+    emit("stream-ended", { exitCode, errorTail: "" });
+  }
+
   public static installIfNeeded(): void
   {
     if ("__TAURI_INTERNALS__" in window)
@@ -36,6 +45,9 @@ export class BrowserMock
       return;
     }
     let storedSettings: string | null = null;
+    const urlParameters = new URLSearchParams(window.location.search);
+    const hang = urlParameters.has("hang");
+    const offline = urlParameters.has("offline");
     // Like a fresh companion: no Sunshine login until the launcher hands one over.
     let sunshineProblem: string | null = "Sunshine-Login fehlt im PC-Helfer";
 
@@ -56,12 +68,25 @@ export class BrowserMock
         case "discover_hosts":
           return [{ name: "fedora", address: "192.168.178.36" }];
         case "pick_host_address":
-          return (args.addresses as string[])[0] ?? null;
+          // "?offline": the PC does not answer.
+          return offline ? null : (args.addresses as string[])[0] ?? null;
         case "pair_host":
           return new Promise((resolve) => window.setTimeout(resolve, 4000));
         case "start_stream":
-          window.setTimeout(() => emit("stream-ended", { exitCode: 0, errorTail: "" }), 3000);
+          // "?hang": Moonlight never ends by itself, like one waiting for a PC that does not answer.
+          streamRunning = true;
+          if (!hang)
+          {
+            window.setTimeout(() => BrowserMock.endStream(0), 3000);
+          }
           return "moonlight stream (browser mock)";
+        case "stop_stream":
+          if (!streamRunning)
+          {
+            return false;
+          }
+          window.setTimeout(() => BrowserMock.endStream(null), 300);
+          return true;
         case "quit_host_app":
           return new Promise((resolve) => window.setTimeout(resolve, 500));
         case "load_box_art":
