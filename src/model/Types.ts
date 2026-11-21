@@ -112,7 +112,7 @@ export interface ImageDialogState
   token: UploadToken | null;
   loading: boolean;
   error: string;
-  /** Companion art version when the dialog opened; a higher one means a new picture arrived. */
+  /** Companion art version when the dialog opened; a different one means a picture arrived or was reset. */
   artVersion: number;
 }
 

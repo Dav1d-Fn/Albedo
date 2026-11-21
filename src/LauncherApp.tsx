@@ -889,7 +889,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.pollArtVersion();
   }
 
-  /** A higher art version than at the start means a picture came in: reload covers, logos and backdrop. */
+  /** A different art version than at the start means a picture came in or was reset: reload covers, logos and backdrop. */
   private async pollArtVersion(): Promise<void>
   {
     const dialog = this.state.imageDialog;
@@ -913,7 +913,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       this.changeImageDialog({ artVersion });
       return;
     }
-    if (artVersion > dialog.artVersion)
+    // Any change counts: the companion's counter starts at 0 again when its service restarts.
+    if (artVersion !== dialog.artVersion)
     {
       this.changeImageDialog({ artVersion });
       await this.reloadArt();
