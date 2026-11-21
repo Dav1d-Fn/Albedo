@@ -1,3 +1,5 @@
+import { DeviceIconKind } from "../model/Types";
+
 // Line icons from the design (24px grid, stroke = currentColor).
 
 const strokeProps =
@@ -107,9 +109,52 @@ export function PlayIcon()
   );
 }
 
-export function DeviceIcon(props: { device: "handheld" | "tv" })
+export function MonitorIcon()
 {
-  return props.device === "tv" ? <TvIcon /> : <HandheldIcon />;
+  return (
+    <svg {...strokeProps}>
+      <rect x="2.5" y="3.5" width="19" height="12" rx="1.5" />
+      <path d="M12 15.5v4M7.5 20.5h9" />
+    </svg>
+  );
+}
+
+export function LaptopIcon()
+{
+  return (
+    <svg {...strokeProps}>
+      <rect x="4.5" y="5" width="15" height="10" rx="1.5" />
+      <path d="M2 19h20l-2-4H4z" />
+    </svg>
+  );
+}
+
+export function ProjectorIcon()
+{
+  return (
+    <svg {...strokeProps}>
+      <rect x="2.5" y="8" width="19" height="9" rx="2" />
+      <circle cx="15.5" cy="12.5" r="2.5" />
+      <path d="M6 12.5h4M5 17v2M19 17v2" />
+    </svg>
+  );
+}
+
+export function DeviceIcon(props: { kind: DeviceIconKind })
+{
+  switch (props.kind)
+  {
+    case "handheld":
+      return <HandheldIcon />;
+    case "tv":
+      return <TvIcon />;
+    case "monitor":
+      return <MonitorIcon />;
+    case "laptop":
+      return <LaptopIcon />;
+    case "projector":
+      return <ProjectorIcon />;
+  }
 }
 
 export function ImageIcon()

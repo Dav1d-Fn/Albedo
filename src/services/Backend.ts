@@ -45,6 +45,12 @@ export class Backend
     return invoke<string>("save_settings", { settingsJson: JSON.stringify(settings, null, 2) });
   }
 
+  /** Names of the connected external screens (from their EDID); empty = no dock/TV. */
+  public externalDisplayNames(): Promise<string[]>
+  {
+    return invoke<string[]>("external_display_names");
+  }
+
   public hasExternalDisplay(): Promise<boolean>
   {
     return invoke<boolean>("has_external_display");

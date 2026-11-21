@@ -1,6 +1,6 @@
 import type LauncherApp from "../LauncherApp";
 import { ModeText } from "../model/ModeText";
-import { HandheldIcon, PlusIcon, SlidersIcon, TvIcon } from "./Icons";
+import { DeviceIcon, PlusIcon, SlidersIcon } from "./Icons";
 import { GameBackdrop } from "./GameBackdrop";
 import { ModeStrip } from "./ModeStrip";
 
@@ -19,6 +19,10 @@ export function HomeScreen(props: { app: LauncherApp })
     error: app.settings.host ? "Nicht erreichbar · Y lädt neu" : "Nicht eingerichtet · A drücken",
   }[state.hostState];
   const dotClass = { loading: "wake", online: "on", error: "err" }[state.hostState];
+  const deviceOrder = app.settings.deviceOrder;
+  const activeIndex = Math.max(0, deviceOrder.indexOf(state.device));
+  // The switch is 520px wide with 4px padding; each device gets an equal share.
+  const segmentWidth = (520 - 8) / deviceOrder.length;
   const coverWidthWithGap = 176;
   const visibleCovers = 6;
   const railOffset = Math.max(0, state.gameIndex - (visibleCovers - 1)) * coverWidthWithGap;
@@ -42,29 +46,34 @@ export function HomeScreen(props: { app: LauncherApp })
         </button>
 
         <div className="pwrap">
-          <button className={"pswitch" + topFocus(1)} onClick={() => app.activateTop(1)} aria-label={"Geräteprofil wechseln, aktiv: " + ModeText.deviceNames[state.device]}>
-            <span className="pthumb" style={{ transform: `translateX(${state.device === "tv" ? 256 : 0}px)` }} />
-            <span className={"pseg" + (state.device === "handheld" ? " on" : "")}>
-              <HandheldIcon />
-              <span className="ptext">
-                <span className="pname">Handheld</span>
-                <span className="pspec">{ModeText.spec(app.activeMode("handheld"))}</span>
-              </span>
-            </span>
-            <span className={"pseg" + (state.device === "tv" ? " on" : "")}>
-              <TvIcon />
-              <span className="ptext">
-                <span className="pname">TV</span>
-                <span className="pspec">{ModeText.spec(app.activeMode("tv"))}</span>
-              </span>
-            </span>
+          <button
+            className={"pswitch" + topFocus(1)}
+            style={{ gridTemplateColumns: `repeat(${deviceOrder.length}, 1fr)` }}
+            onClick={() => app.activateTop(1)}
+            aria-label={"Geräteprofil wechseln, aktiv: " + app.profile().name}
+          >
+            <span className="pthumb" style={{ width: segmentWidth, transform: `translateX(${activeIndex * segmentWidth}px)` }} />
+            {deviceOrder.map((deviceId) =>
+            {
+              const profile = app.profile(deviceId);
+              return (
+                <span key={deviceId} className={"pseg" + (deviceId === state.device ? " on" : "")}>
+                  <DeviceIcon kind={profile.icon} />
+                  <span className="ptext">
+                    <span className="pname">{profile.name}</span>
+                    {/* With more than two devices there is no room for the values. */}
+                    {deviceOrder.length <= 2 && <span className="pspec">{ModeText.spec(app.activeMode(deviceId))}</span>}
+                  </span>
+                </span>
+              );
+            })}
           </button>
           <ModeStrip app={app} />
           <div className="pauto">
             <span className="badge">{state.automatic ? "AUTO" : "MANUELL"}</span>
             <span>
               {state.automatic
-                ? (state.externalDisplay ? "Externer Bildschirm erkannt" : "Kein externer Bildschirm")
+                ? (state.displayNames.length > 0 ? "Bildschirm erkannt: " + state.displayNames.join(", ") : "Kein externer Bildschirm")
                 : "Automatisch wäre " + app.detectedDeviceName()}
             </span>
             <span className="glyph sm">X</span>
@@ -88,7 +97,7 @@ export function HomeScreen(props: { app: LauncherApp })
             <div className="hmeta">
               <span className="hprof">
                 <span className="adot" />
-                {"Startet als " + ModeText.deviceNames[state.device] + " · " + ModeText.spec(app.activeMode())}
+                {"Startet als " + app.profile().name + " · " + ModeText.spec(app.activeMode())}
               </span>
             </div>
           </div>

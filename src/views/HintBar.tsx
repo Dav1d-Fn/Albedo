@@ -1,5 +1,6 @@
 import LauncherApp from "../LauncherApp";
 import { PadButton } from "../model/Types";
+import { EditorRows } from "./EditorRows";
 
 interface Hint
 {
@@ -46,7 +47,7 @@ export function HintBar(props: { app: LauncherApp })
   }
   else if (state.screen === "editor")
   {
-    hints.push({ glyph: "L1 · R1", label: "Gerät", button: state.editDevice === "tv" ? "L1" : "R1", pill: true });
+    hints.push({ glyph: "L1 · R1", label: "Gerät", button: "R1", pill: true });
     if (state.editZone === "modes")
     {
       hints.push({ glyph: "A", label: "Bearbeiten", button: "A" });
@@ -54,10 +55,18 @@ export function HintBar(props: { app: LauncherApp })
       hints.push({ glyph: "X", label: "Neuer Modus", button: "X" });
       hints.push({ glyph: "B", label: "Fertig", button: "B" });
     }
+    else if (state.editZone === "actions")
+    {
+      hints.push({ glyph: "◀ ▶", label: "Wählen", button: "RIGHT", pill: true });
+      hints.push({ glyph: "A", label: state.editConfirmDelete !== "" ? "Wirklich löschen" : "Ausführen", button: "A" });
+      hints.push({ glyph: "B", label: "Fertig", button: "B" });
+    }
     else
     {
+      const rowType = EditorRows.rows[state.editRow]?.type;
+      const rowActionLabel = rowType === "text" ? "Umbenennen" : rowType === "screen" ? "Bildschirm übernehmen" : "Umschalten";
       hints.push({ glyph: "◀ ▶", label: "Wert ändern", button: "RIGHT", pill: true });
-      hints.push({ glyph: "A", label: "Umschalten", button: "A" });
+      hints.push({ glyph: "A", label: rowActionLabel, button: "A" });
       hints.push({ glyph: "B", label: "Zu den Modi", button: "B" });
     }
   }

@@ -24,7 +24,7 @@ export function ConnectScreen(props: { app: LauncherApp })
           </div>
         </div>
         <div className="ctext">
-          <div className="eyebrow">{"Startet als " + ModeText.deviceNames[state.device] + " · " + ModeText.spec(app.activeMode())}</div>
+          <div className="eyebrow">{"Startet als " + app.profile().name + " · " + ModeText.spec(app.activeMode())}</div>
           <h2 className="ctitle2">{gameName}</h2>
         </div>
         <ol className="steps">

@@ -15,7 +15,7 @@ export function DetailScreen(props: { app: LauncherApp })
   const backdropArt = app.backdropArtFor(gameName);
   const logo = state.logos[gameName];
   const remembered = app.isRemembered(gameName);
-  const devices: DeviceId[] = ["handheld", "tv"];
+  const devices: DeviceId[] = app.settings.deviceOrder;
   const afterStreamOverride = app.afterStreamOverride(gameName);
   const afterStreamLabel = afterStreamOverride === undefined
     ? "Danach: Standard"
@@ -38,14 +38,14 @@ export function DetailScreen(props: { app: LauncherApp })
 
           <div className="scard up d3">
             <div className="shead">
-              Startet als <b>{ModeText.deviceNames[state.device] + " · " + ModeText.label(app.activeMode()) + " FPS"}</b>
+              Startet als <b>{app.profile().name + " · " + ModeText.label(app.activeMode()) + " FPS"}</b>
               <span className="badge">{state.automatic ? "AUTO" : "MANUELL"}</span>
               <span>{remembered ? "· für dieses Spiel gemerkt" : ""}</span>
             </div>
             <div className="slayers">
               {devices.map((device) => app.profile(device).modes.map((mode, modeIndex) =>
               {
-                const isActive = device === state.device && modeIndex === state.currentModes[device];
+                const isActive = device === state.device && modeIndex === app.currentModeIndex(device);
                 const cells =
                 [
                   { label: "Auflösung", value: ModeText.prettyResolution(mode.resolution) },
@@ -80,7 +80,7 @@ export function DetailScreen(props: { app: LauncherApp })
             </button>
             <button className={"btn" + (state.detailIndex === 1 ? " f" : "")} onClick={() => app.detailAction(1)}>
               <SwapIcon />
-              {"Gerät: " + ModeText.deviceNames[state.device]}
+              {"Gerät: " + app.profile().name}
               <span className="glyph sm">X</span>
             </button>
             <button className={"btn" + (state.detailIndex === 2 ? " f" : "")} onClick={() => app.detailAction(2)}>

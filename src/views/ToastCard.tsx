@@ -1,8 +1,10 @@
-import { CheckIcon, HandheldIcon, TvIcon } from "./Icons";
+import { DeviceIconKind } from "../model/Types";
+import { CheckIcon, DeviceIcon } from "./Icons";
 
 export interface ToastContent
 {
-  kind: "handheld" | "tv" | "ok" | "error";
+  /** A device symbol for device and mode changes, else a check mark or "!". */
+  kind: DeviceIconKind | "ok" | "error";
   eyebrow: string;
   name: string;
   spec: string;
@@ -18,8 +20,7 @@ export function ToastCard(props: { toast: ToastContent })
     <div className={"toast" + (isError ? " err" : "")}>
       <div className="tcard">
         <div className="ticon">
-          {toast.kind === "handheld" && <HandheldIcon />}
-          {toast.kind === "tv" && <TvIcon />}
+          {toast.kind !== "ok" && toast.kind !== "error" && <DeviceIcon kind={toast.kind} />}
           {toast.kind === "ok" && <CheckIcon />}
           {toast.kind === "error" && <span style={{ fontSize: 34, fontWeight: 800 }}>!</span>}
         </div>

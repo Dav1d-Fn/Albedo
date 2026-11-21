@@ -308,3 +308,14 @@ body { cursor: default; user-select: none; }
 .qr { width: 204px; height: 204px; image-rendering: pixelated; }
 .qrurl { font-size: 12px; color: #A1A1AA; font-variant-numeric: tabular-nums; word-break: break-all; max-width: 520px; }
 .btn.iconbtn { width: 56px; padding: 0; justify-content: center; }
+
+/* Device management in the editor: N device tabs, swatch for the colour row, name field, action buttons */
+.tabbar { width: auto; }
+.swatch { width: 18px; height: 18px; border-radius: 999px; flex: none; box-shadow: 0 0 0 2px rgba(255,255,255,.15); }
+.nameinput { margin-top: 0; width: 240px; }
+.mbtns { flex-wrap: wrap; }
+.madd.f { outline: 2px solid var(--acc); outline-offset: 2px; }
+.madd.warn { background: rgba(248,113,113,.25); color: #FECACA; }
+.mbtns .madd { white-space: nowrap; }
+.tab { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 10px; }
+.pname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }

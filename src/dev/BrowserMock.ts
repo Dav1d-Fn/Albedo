@@ -81,6 +81,9 @@ export class BrowserMock
         case "save_settings":
           storedSettings = args.settingsJson as string;
           return "(browser mock)";
+        case "external_display_names":
+          // "?tv=Name": a TV with that EDID name is plugged in.
+          return urlParameters.has("tv") ? [urlParameters.get("tv") || "LG TV SSCR2"] : [];
         case "has_external_display":
           return false;
         case "fetch_games":

@@ -60,6 +60,13 @@ fn has_external_display() -> bool
     DisplayDetector::has_external_display()
 }
 
+/// Names of the connected external screens (from their EDID), for picking a device automatically.
+#[tauri::command]
+fn external_display_names() -> Vec<String>
+{
+    DisplayDetector::external_display_names()
+}
+
 #[tauri::command]
 async fn fetch_games(source: GameListSource) -> Result<Vec<String>, String>
 {
@@ -249,6 +256,7 @@ pub fn run()
             load_settings,
             save_settings,
             has_external_display,
+            external_display_names,
             fetch_games,
             start_stream,
             stop_stream,

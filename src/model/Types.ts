@@ -1,6 +1,13 @@
 // Shared data types. The settings file on disk has exactly the shape of `Settings`.
 
-export type DeviceId = "handheld" | "tv";
+/** Key of a device in `Settings.profiles`; "handheld" and "tv" for the two devices every install starts with. */
+export type DeviceId = string;
+
+/** Symbol of a device on the switch, in the editor and on toasts. */
+export type DeviceIconKind = "handheld" | "tv" | "monitor" | "laptop" | "projector";
+
+/** Accent colour of a device, from `DevicePalette`; the whole UI tints with the active device. */
+export type DeviceColor = "blue" | "orange" | "green" | "violet" | "pink" | "teal" | "yellow" | "red";
 
 export type PadButton = "UP" | "DOWN" | "LEFT" | "RIGHT" | "A" | "B" | "X" | "Y" | "L1" | "R1" | "MENU";
 
@@ -12,7 +19,7 @@ export type AudioLayout = "Stereo" | "5.1 Surround" | "7.1 Surround";
 export type AfterStreamAction = "ask" | "keep" | "quit";
 
 /** When a device profile may be picked automatically. */
-export type AutoRule = "Deck ohne Dock" | "Dock mit Bildschirm" | "Nur manuell";
+export type AutoRule = "Deck ohne Dock" | "Dock mit Bildschirm" | "Dieser Bildschirm" | "Nur manuell";
 
 export interface StreamMode
 {
@@ -26,8 +33,14 @@ export interface StreamMode
 
 export interface DeviceProfile
 {
+  /** Shown on the switch, e.g. "Handheld", "TV Wohnzimmer". */
+  name: string;
+  color: DeviceColor;
+  icon: DeviceIconKind;
   audio: AudioLayout;
   autoRule: AutoRule;
+  /** Monitor name from the screen's EDID for the rule "Dieser Bildschirm", e.g. "LG TV SSCR2". */
+  displayName: string;
   defaultModeIndex: number;
   modes: StreamMode[];
 }
@@ -53,6 +66,8 @@ export interface Settings
   sunshineUser: string;
   sunshinePassword: string;
   profiles: Record<DeviceId, DeviceProfile>;
+  /** Devices in switch order; at least one. */
+  deviceOrder: DeviceId[];
   /** "ask" shows the pause/quit dialog, "keep" leaves the game running, "quit" ends it. */
   /** Default after a normal disconnect; a game can override it in `afterStreamPerGame`. */
   afterStream: AfterStreamAction;

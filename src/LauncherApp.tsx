@@ -2,6 +2,7 @@ import React, { CSSProperties } from "react";
 import { InputRouter } from "./input/InputRouter";
 import { ModeText } from "./model/ModeText";
 import { DefaultSettings } from "./model/DefaultSettings";
+import { DevicePalette } from "./model/DevicePalette";
 import { GameArt } from "./model/GameArt";
 import { AfterStreamAction, ArtKind, BackdropKind, DeviceId, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, Settings, StreamMode, SunshineLoginDraft, ImageDialogState } from "./model/Types";
 import { AvailableUpdate, Backend } from "./services/Backend";
@@ -37,7 +38,8 @@ export interface LauncherState
   /** Device and mode currently used for starting games. */
   device: DeviceId;
   currentModes: Record<DeviceId, number>;
-  externalDisplay: boolean;
+  /** Names of the connected external screens (EDID); empty = Deck without dock. */
+  displayNames: string[];
   automatic: boolean;
   games: string[];
   /** Game name -> cover image (`data:` URL) from Moonlight's cache. */
@@ -56,7 +58,11 @@ export interface LauncherState
   /** Editor state. */
   editDevice: DeviceId;
   editModeIndex: number;
-  editZone: "modes" | "rows";
+  editZone: "modes" | "rows" | "actions";
+  /** Button under the mode list (see `editorActions`). */
+  editActionIndex: number;
+  /** "mode"/"device" after the first A on a delete button; the second A deletes. */
+  editConfirmDelete: "" | "mode" | "device";
   editRow: number;
   bumps: Record<string, number>;
   /** Connection screen: found hosts on the left, pairing and Moonlight on the right. */
@@ -166,7 +172,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       detailIndex: 0,
       device: "handheld",
       currentModes: { handheld: 0, tv: 0 },
-      externalDisplay: false,
+      displayNames: [],
       automatic: true,
       games: [],
       boxArt: {},
@@ -180,6 +186,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       editDevice: "handheld",
       editModeIndex: 0,
       editZone: "modes",
+      editActionIndex: 0,
+      editConfirmDelete: "",
       editRow: 0,
       bumps: {},
       discoveredHosts: [],
@@ -229,18 +237,19 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.unlistenStreamEnded = unlisten;
 
     const settings = await this.backend.loadSettings();
-    const externalDisplay = await this.backend.hasExternalDisplay();
-    const device = this.detectedDevice(settings, externalDisplay) ?? "handheld";
+    const displayNames = await this.backend.externalDisplayNames();
+    const device = this.detectedDevice(settings, displayNames) ?? settings.deviceOrder[0];
+    const currentModes: Record<DeviceId, number> = {};
+    for (const deviceId of settings.deviceOrder)
+    {
+      currentModes[deviceId] = settings.profiles[deviceId].defaultModeIndex;
+    }
     this.setState({
       settings,
-      externalDisplay,
+      displayNames,
       device,
       editDevice: device,
-      currentModes:
-      {
-        handheld: settings.profiles.handheld.defaultModeIndex,
-        tv: settings.profiles.tv.defaultModeIndex,
-      },
+      currentModes,
     });
     if (settings.host === "")
     {
@@ -298,7 +307,20 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   public activeMode(device: DeviceId = this.state.device): StreamMode
   {
     const profile = this.profile(device);
-    return profile.modes[this.state.currentModes[device]] ?? profile.modes[0];
+    return profile.modes[this.currentModeIndex(device)] ?? profile.modes[0];
+  }
+
+  /** Mode picked for the device right now; a device added in this session starts at its default. */
+  public currentModeIndex(device: DeviceId = this.state.device): number
+  {
+    return this.state.currentModes[device] ?? this.profile(device).defaultModeIndex;
+  }
+
+  /** The device's colour as CSS value; the UI tints with it. */
+  public accentColor(device: DeviceId = this.state.device): string
+  {
+    const profile = this.settings.profiles[device];
+    return DevicePalette.colors[profile?.color ?? "blue"] ?? DevicePalette.colors.blue;
   }
 
   public selectedGame(): string | undefined
@@ -362,17 +384,30 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   // ---------------------------------------------------------------- device detection
 
-  /** Which device the hardware suggests, or null when that device is set to manual only. */
-  private detectedDevice(settings: Settings, externalDisplay: boolean): DeviceId | null
+  /**
+   * Which device the connected screens suggest, or null when no device's rule fits.
+   * A device bound to one screen by name wins over "Dock mit Bildschirm", so two TVs can be told apart.
+   */
+  private detectedDevice(settings: Settings, displayNames: string[]): DeviceId | null
   {
-    const device: DeviceId = externalDisplay ? "tv" : "handheld";
-    return settings.profiles[device].autoRule === "Nur manuell" ? null : device;
+    const order = settings.deviceOrder;
+    const byScreenName = order.find((deviceId) =>
+    {
+      const profile = settings.profiles[deviceId];
+      return profile.autoRule === "Dieser Bildschirm" && profile.displayName !== "" && displayNames.includes(profile.displayName);
+    });
+    if (byScreenName !== undefined)
+    {
+      return byScreenName;
+    }
+    const wantedRule = displayNames.length > 0 ? "Dock mit Bildschirm" : "Deck ohne Dock";
+    return order.find((deviceId) => settings.profiles[deviceId].autoRule === wantedRule) ?? null;
   }
 
   public detectedDeviceName(): string
   {
-    const detected = this.detectedDevice(this.settings, this.state.externalDisplay);
-    return detected === null ? "keins" : ModeText.deviceNames[detected];
+    const detected = this.detectedDevice(this.settings, this.state.displayNames);
+    return detected === null ? "keins" : this.profile(detected).name;
   }
 
   private async pollDisplay(): Promise<void>
@@ -385,16 +420,16 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       this.handleWakeUp();
     }
 
-    const externalDisplay = await this.backend.hasExternalDisplay();
-    if (externalDisplay === this.state.externalDisplay || this.state.settings === null)
+    const displayNames = await this.backend.externalDisplayNames();
+    if (displayNames.join("|") === this.state.displayNames.join("|") || this.state.settings === null)
     {
       return;
     }
-    this.setState({ externalDisplay });
-    const detected = this.detectedDevice(this.settings, externalDisplay);
+    this.setState({ displayNames });
+    const detected = this.detectedDevice(this.settings, displayNames);
     if (this.state.automatic && detected !== null && detected !== this.state.device && this.state.screen !== "stream")
     {
-      this.setDevice(detected, externalDisplay ? "Bildschirm erkannt · automatisch" : "Bildschirm getrennt · automatisch", true);
+      this.setDevice(detected, displayNames.length > 0 ? "Bildschirm erkannt · automatisch" : "Bildschirm getrennt · automatisch", true);
     }
   }
 
@@ -513,9 +548,9 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     const profile = this.profile(device);
     const mode = profile.modes[modeIndex] ?? profile.modes[0];
     this.showToast({
-      kind: device,
+      kind: profile.icon,
       eyebrow,
-      name: ModeText.deviceNames[device],
+      name: profile.name,
       spec: ModeText.spec(mode),
       sub: ModeText.extra(mode) + " · " + profile.audio,
     });
@@ -545,7 +580,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
         return remembered;
       }
     }
-    return this.state.currentModes[device];
+    // A device added in this session has no current mode yet.
+    return this.state.currentModes[device] ?? this.profile(device).defaultModeIndex;
   }
 
   private setDevice(device: DeviceId, eyebrow: string, automatic: boolean): void
@@ -561,8 +597,9 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   public toggleDevice(): void
   {
-    const next: DeviceId = this.state.device === "tv" ? "handheld" : "tv";
-    const isAutomatic = next === this.detectedDevice(this.settings, this.state.externalDisplay);
+    const order = this.settings.deviceOrder;
+    const next = order[(order.indexOf(this.state.device) + 1) % order.length];
+    const isAutomatic = next === this.detectedDevice(this.settings, this.state.displayNames);
     this.setDevice(next, isAutomatic ? "Zurück auf automatisch" : "Manuell gewählt", isAutomatic);
   }
 
@@ -583,8 +620,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
     const mode = this.profile(device).modes[modeIndex];
     this.showToast({
-      kind: device,
-      eyebrow: ModeText.deviceNames[device] + " · Modus",
+      kind: this.profile(device).icon,
+      eyebrow: this.profile(device).name + " · Modus",
       name: ModeText.label(mode) + " FPS",
       spec: mode.bitrateMbps + " Mbit/s",
       sub: ModeText.extra(mode),
@@ -594,7 +631,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   public cycleMode(direction: number): void
   {
     const count = this.profile().modes.length;
-    this.setMode((this.state.currentModes[this.state.device] + direction + count) % count);
+    this.setMode((this.currentModeIndex() + direction + count) % count);
   }
 
   public toggleRemember(): void
@@ -1050,7 +1087,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     const steps =
     [
       "Verbinde mit " + this.hostDisplayName(),
-      ModeText.deviceNames[device] + " setzen · " + ModeText.spec(mode),
+      profile.name + " setzen · " + ModeText.spec(mode),
       "Moonlight starten · " + gameName,
     ];
 
@@ -1399,20 +1436,37 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   public openEditor(): void
   {
     const device = this.state.device;
-    this.setState({ screen: "editor", editDevice: device, editModeIndex: this.state.currentModes[device], editZone: "modes", editRow: 0 });
+    this.setState({ screen: "editor", editDevice: device, editModeIndex: this.currentModeIndex(device), editZone: "modes", editRow: 0, editConfirmDelete: "" });
   }
 
   public switchEditDevice(device: DeviceId): void
   {
-    this.setState({ editDevice: device, editModeIndex: this.state.currentModes[device], editZone: "modes" });
+    this.setState({ editDevice: device, editModeIndex: this.currentModeIndex(device), editZone: "modes", editConfirmDelete: "" });
   }
+
+  /** L1/R1 in the editor: previous/next device in switch order. */
+  private stepEditDevice(direction: number): void
+  {
+    const order = this.settings.deviceOrder;
+    const index = (order.indexOf(this.state.editDevice) + direction + order.length) % order.length;
+    this.switchEditDevice(order[index]);
+  }
+
+  /** Buttons under the mode list, reached with DOWN past the last mode. */
+  public static readonly editorActions = ["addMode", "makeDefault", "deleteMode", "addDevice", "deleteDevice"] as const;
 
   private editorButton(button: PadButton): void
   {
     const state = this.state;
+    if (document.activeElement instanceof HTMLInputElement)
+    {
+      // Renaming: Enter/Escape (A/B) end the text field, nothing else is a launcher button meanwhile.
+      (document.activeElement as HTMLInputElement).blur();
+      return;
+    }
     if (button === "L1" || button === "R1")
     {
-      return this.switchEditDevice(button === "L1" ? "handheld" : "tv");
+      return this.stepEditDevice(button === "L1" ? -1 : 1);
     }
 
     if (state.editZone === "modes")
@@ -1424,7 +1478,14 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       }
       else if (button === "DOWN")
       {
-        this.setState({ editModeIndex: Math.min(count - 1, state.editModeIndex + 1) });
+        if (state.editModeIndex >= count - 1)
+        {
+          this.setState({ editZone: "actions", editActionIndex: 0, editConfirmDelete: "" });
+        }
+        else
+        {
+          this.setState({ editModeIndex: state.editModeIndex + 1 });
+        }
       }
       else if (button === "RIGHT" || button === "A")
       {
@@ -1437,6 +1498,30 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       else if (button === "X")
       {
         this.addMode();
+      }
+      else if (button === "B" || button === "MENU")
+      {
+        this.setState({ screen: "home" });
+      }
+    }
+    else if (state.editZone === "actions")
+    {
+      const actionCount = LauncherApp.editorActions.length;
+      if (button === "UP")
+      {
+        this.setState({ editZone: "modes", editConfirmDelete: "" });
+      }
+      else if (button === "LEFT")
+      {
+        this.setState({ editActionIndex: Math.max(0, state.editActionIndex - 1), editConfirmDelete: "" });
+      }
+      else if (button === "RIGHT")
+      {
+        this.setState({ editActionIndex: Math.min(actionCount - 1, state.editActionIndex + 1), editConfirmDelete: "" });
+      }
+      else if (button === "A")
+      {
+        this.runEditorAction(state.editActionIndex);
       }
       else if (button === "B" || button === "MENU")
       {
@@ -1463,7 +1548,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       }
       else if (button === "A")
       {
-        this.changeValue(state.editRow, 1, true);
+        this.activateEditorRow(state.editRow);
       }
       else if (button === "B")
       {
@@ -1473,6 +1558,51 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       {
         this.setState({ screen: "home" });
       }
+    }
+  }
+
+  /** A on a row: text rows start typing, the screen row takes the connected screen, others step. */
+  public activateEditorRow(rowIndex: number): void
+  {
+    const row = EditorRows.rows[rowIndex];
+    this.setState({ editRow: rowIndex, editZone: "rows" });
+    if (row.type === "text")
+    {
+      document.getElementById("device-name")?.focus();
+    }
+    else if (row.type === "screen")
+    {
+      this.takeConnectedScreen();
+    }
+    else
+    {
+      this.changeValue(rowIndex, 1, true);
+    }
+  }
+
+  public runEditorAction(actionIndex: number): void
+  {
+    this.setState({ editZone: "actions", editActionIndex: actionIndex });
+    const action = LauncherApp.editorActions[actionIndex];
+    if (action === "addMode")
+    {
+      this.addMode();
+    }
+    else if (action === "makeDefault")
+    {
+      this.makeDefault();
+    }
+    else if (action === "deleteMode")
+    {
+      this.deleteMode();
+    }
+    else if (action === "addDevice")
+    {
+      this.addDevice();
+    }
+    else
+    {
+      this.deleteDevice();
     }
   }
 
@@ -1495,6 +1625,34 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }));
   }
 
+  /** Name field of the edited device; empty names are not kept. */
+  public renameEditDevice(name: string): void
+  {
+    this.updateProfile(this.state.editDevice, (profile) => ({ ...profile, name }));
+  }
+
+  public finishRename(): void
+  {
+    const profile = this.profile(this.state.editDevice);
+    if (profile.name.trim() === "")
+    {
+      this.renameEditDevice("Gerät");
+    }
+  }
+
+  /** Binds the edited device to the screen connected right now, so it is picked whenever that screen is there. */
+  public takeConnectedScreen(): void
+  {
+    const screenName = this.state.displayNames[0];
+    if (screenName === undefined)
+    {
+      this.showError("Kein Bildschirm", "Es ist gerade kein externer Bildschirm angeschlossen. Erst das Deck an den gewünschten Bildschirm hängen.");
+      return;
+    }
+    this.updateProfile(this.state.editDevice, (profile) => ({ ...profile, autoRule: "Dieser Bildschirm", displayName: screenName }));
+    this.showToast({ kind: this.profile(this.state.editDevice).icon, eyebrow: "Automatisch bei", name: screenName, spec: "", sub: this.profile(this.state.editDevice).name + " wird bei diesem Bildschirm gewählt" });
+  }
+
   public makeDefault(): void
   {
     const modeIndex = this.state.editModeIndex;
@@ -1513,6 +1671,141 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.updateProfile(device, (current) => ({ ...current, modes: [...current.modes, copy] }));
     this.setState({ editModeIndex: profile.modes.length, editZone: "rows", editRow: 0 });
   }
+
+  /**
+   * Deletes the selected mode; the last mode of a device stays. Default, current and remembered
+   * mode indices after it move up by one, the ones pointing at it fall back to the first mode.
+   */
+  public deleteMode(): void
+  {
+    const device = this.state.editDevice;
+    const deletedIndex = this.state.editModeIndex;
+    const profile = this.profile(device);
+    if (profile.modes.length <= 1)
+    {
+      this.showError("Modus löschen", "Der letzte Modus eines Geräts bleibt.");
+      return;
+    }
+    if (this.state.editConfirmDelete !== "mode")
+    {
+      this.setState({ editConfirmDelete: "mode" });
+      return;
+    }
+
+    const shiftIndex = (modeIndex: number) =>
+    {
+      if (modeIndex === deletedIndex)
+      {
+        return 0;
+      }
+      return modeIndex > deletedIndex ? modeIndex - 1 : modeIndex;
+    };
+    this.updateSettings((settings) =>
+    {
+      const current = settings.profiles[device];
+      const modes = current.modes.filter((_, modeIndex) => modeIndex !== deletedIndex);
+      const rememberedModes: Record<string, number> = {};
+      for (const [rememberKey, modeIndex] of Object.entries(settings.rememberedModes))
+      {
+        rememberedModes[rememberKey] = rememberKey.endsWith("|" + device) ? shiftIndex(modeIndex) : modeIndex;
+      }
+      return {
+        ...settings,
+        profiles: { ...settings.profiles, [device]: { ...current, modes, defaultModeIndex: shiftIndex(current.defaultModeIndex) } },
+        rememberedModes,
+      };
+    });
+    this.setState((state) => ({
+      editModeIndex: Math.max(0, Math.min(deletedIndex, profile.modes.length - 2)),
+      editConfirmDelete: "",
+      currentModes: { ...state.currentModes, [device]: shiftIndex(state.currentModes[device] ?? 0) },
+    }));
+  }
+
+  /** New device with the modes of the edited one, the next free colour and a screen symbol. */
+  public addDevice(): void
+  {
+    const settings = this.settings;
+    if (settings.deviceOrder.length >= LauncherApp.maximumDevices)
+    {
+      this.showError("Gerät hinzufügen", "Mehr als " + LauncherApp.maximumDevices + " Geräte passen nicht auf den Schalter.");
+      return;
+    }
+    const template = this.profile(this.state.editDevice);
+    const deviceId = "device-" + Date.now().toString(36);
+    const usedColors = settings.deviceOrder.map((existingId) => settings.profiles[existingId].color);
+    const profile: DeviceProfile =
+    {
+      ...template,
+      name: "Gerät " + (settings.deviceOrder.length + 1),
+      color: DevicePalette.nextFreeColor(usedColors),
+      icon: "tv",
+      autoRule: "Nur manuell",
+      displayName: "",
+      modes: template.modes.map((mode) => ({ ...mode })),
+    };
+    this.updateSettings((current) => ({
+      ...current,
+      profiles: { ...current.profiles, [deviceId]: profile },
+      deviceOrder: [...current.deviceOrder, deviceId],
+    }));
+    this.setState((state) => ({
+      editDevice: deviceId,
+      editModeIndex: profile.defaultModeIndex,
+      editZone: "rows",
+      editRow: EditorRows.rows.findIndex((row) => row.key === "name"),
+      editConfirmDelete: "",
+      currentModes: { ...state.currentModes, [deviceId]: profile.defaultModeIndex },
+    }));
+  }
+
+  /** Deletes the edited device after a second A; one device always stays. Its remembered modes go too. */
+  public deleteDevice(): void
+  {
+    const settings = this.settings;
+    const device = this.state.editDevice;
+    if (settings.deviceOrder.length <= 1)
+    {
+      this.showError("Gerät löschen", "Ein Gerät bleibt immer.");
+      return;
+    }
+    if (this.state.editConfirmDelete !== "device")
+    {
+      this.setState({ editConfirmDelete: "device" });
+      return;
+    }
+
+    const deviceOrder = settings.deviceOrder.filter((deviceId) => deviceId !== device);
+    const fallbackDevice = deviceOrder[0];
+    // When the active device goes, take the one the screens suggest now, like at start.
+    const remainingSettings = { ...settings, deviceOrder };
+    const activeFallback = this.detectedDevice(remainingSettings, this.state.displayNames) ?? fallbackDevice;
+    // Move off the device first, so nothing renders a profile that is gone.
+    this.setState((state) => ({
+      editDevice: fallbackDevice,
+      editModeIndex: this.currentModeIndex(fallbackDevice),
+      editZone: "modes",
+      editConfirmDelete: "",
+      device: state.device === device ? activeFallback : state.device,
+    }));
+    this.updateSettings((current) =>
+    {
+      const profiles = { ...current.profiles };
+      delete profiles[device];
+      const rememberedModes: Record<string, number> = {};
+      for (const [rememberKey, modeIndex] of Object.entries(current.rememberedModes))
+      {
+        if (!rememberKey.endsWith("|" + device))
+        {
+          rememberedModes[rememberKey] = modeIndex;
+        }
+      }
+      return { ...current, profiles, deviceOrder, rememberedModes };
+    });
+  }
+
+  /** The switch on home gets too narrow beyond this. */
+  public static readonly maximumDevices = 4;
 
   // ---------------------------------------------------------------- adding games through the PC companion
 
@@ -2171,7 +2464,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
     const accentDevice = state.screen === "editor" ? state.editDevice : state.device;
     const innerStyle = {
-      "--acc": ModeText.accentColors[accentDevice],
+      "--acc": this.accentColor(accentDevice),
       width: LauncherApp.designWidth,
       height: window.innerHeight / state.zoom,
       zoom: state.zoom,

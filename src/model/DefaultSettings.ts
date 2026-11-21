@@ -1,4 +1,4 @@
-import { Settings } from "./Types";
+import { DeviceProfile, Settings } from "./Types";
 
 /** Settings used on first start, and to fill in keys missing from an older settings file. */
 export class DefaultSettings
@@ -25,8 +25,12 @@ export class DefaultSettings
       {
         handheld:
         {
+          name: "Handheld",
+          color: "blue",
+          icon: "handheld",
           audio: "Stereo",
           autoRule: "Deck ohne Dock",
+          displayName: "",
           defaultModeIndex: 0,
           modes:
           [
@@ -37,8 +41,12 @@ export class DefaultSettings
         },
         tv:
         {
+          name: "TV",
+          color: "orange",
+          icon: "tv",
           audio: "5.1 Surround",
           autoRule: "Dock mit Bildschirm",
+          displayName: "",
           defaultModeIndex: 1,
           modes:
           [
@@ -49,21 +57,61 @@ export class DefaultSettings
           ],
         },
       },
+      deviceOrder: ["handheld", "tv"],
       rememberedModes: {},
     };
   }
 
-  /** Merges a parsed settings file over the defaults (shallow, profiles taken whole). */
+  /**
+   * Merges a parsed settings file over the defaults. Profiles are taken from the file when it has any
+   * (a deleted device must not come back), older profiles get the device fields they did not have yet.
+   * The ids "handheld" and "tv" stay, so the "<game>|<device>" keys of `rememberedModes` keep working.
+   */
   public static merge(stored: Partial<Settings>): Settings
   {
     const defaults = DefaultSettings.create();
+    const storedProfiles = stored.profiles !== undefined && Object.keys(stored.profiles).length > 0 ? stored.profiles : defaults.profiles;
+
+    const profiles: Record<string, DeviceProfile> = {};
+    for (const [deviceId, storedProfile] of Object.entries(storedProfiles))
+    {
+      profiles[deviceId] = DefaultSettings.completeProfile(deviceId, storedProfile as Partial<DeviceProfile>, defaults.profiles);
+    }
+
+    // Keep the stored order for devices that still exist, then add any the order does not list.
+    const deviceOrder = (stored.deviceOrder ?? []).filter((deviceId) => deviceId in profiles);
+    for (const deviceId of Object.keys(profiles))
+    {
+      if (!deviceOrder.includes(deviceId))
+      {
+        deviceOrder.push(deviceId);
+      }
+    }
+
     return {
       ...defaults,
       ...stored,
-      profiles: { ...defaults.profiles, ...(stored.profiles ?? {}) },
+      profiles,
+      deviceOrder,
+      extraHostAddresses: stored.extraHostAddresses ?? [],
       rememberedModes: stored.rememberedModes ?? {},
       afterStreamPerGame: stored.afterStreamPerGame ?? {},
       backdropKindPerGame: stored.backdropKindPerGame ?? {},
+    };
+  }
+
+  /** Fills fields an older settings file did not have, from the default device of the same id or generic values. */
+  private static completeProfile(deviceId: string, stored: Partial<DeviceProfile>, defaultProfiles: Record<string, DeviceProfile>): DeviceProfile
+  {
+    const fallback = defaultProfiles[deviceId] ?? defaultProfiles.tv;
+    return {
+      ...fallback,
+      ...stored,
+      name: stored.name ?? (defaultProfiles[deviceId]?.name ?? "Gerät"),
+      color: stored.color ?? fallback.color,
+      icon: stored.icon ?? fallback.icon,
+      displayName: stored.displayName ?? "",
+      modes: stored.modes !== undefined && stored.modes.length > 0 ? stored.modes : fallback.modes,
     };
   }
 }

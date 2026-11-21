@@ -6,7 +6,7 @@ export function ModeStrip(props: { app: LauncherApp })
 {
   const app = props.app;
   const profile = app.profile();
-  const currentIndex = app.state.currentModes[app.state.device];
+  const currentIndex = app.currentModeIndex();
 
   return (
     <div className="mstrip">

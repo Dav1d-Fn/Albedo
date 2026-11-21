@@ -1,8 +1,19 @@
-import type LauncherApp from "../LauncherApp";
+import LauncherApp from "../LauncherApp";
+import { DevicePalette } from "../model/DevicePalette";
 import { ModeText } from "../model/ModeText";
-import { StreamMode } from "../model/Types";
+import { DeviceColor, DeviceIconKind, StreamMode } from "../model/Types";
 import { EditorRows } from "./EditorRows";
-import { ChevronLeftIcon, ChevronRightIcon, HandheldIcon, MinusIcon, PlusIcon, TvIcon } from "./Icons";
+import { ChevronLeftIcon, ChevronRightIcon, DeviceIcon, MinusIcon, PlusIcon } from "./Icons";
+
+/** Labels of the buttons under the mode list, in `LauncherApp.editorActions` order. */
+const actionLabels: Record<(typeof LauncherApp.editorActions)[number], string> =
+{
+  addMode: "+ Modus",
+  makeDefault: "Als Standard",
+  deleteMode: "Modus löschen",
+  addDevice: "+ Gerät",
+  deleteDevice: "Gerät löschen",
+};
 
 /** Profile editor: modes of a device on the left, values of the selected mode on the right. */
 export function EditorScreen(props: { app: LauncherApp })
@@ -13,33 +24,35 @@ export function EditorScreen(props: { app: LauncherApp })
   const profile = app.profile(editDevice);
   const editMode = profile.modes[state.editModeIndex] ?? profile.modes[0];
   const isDefault = state.editModeIndex === profile.defaultModeIndex;
-  const animationClass = ((editDevice === "tv" ? 1 : 0) + state.editModeIndex) % 2 ? "swapA" : "swapB";
+  const deviceOrder = app.settings.deviceOrder;
+  const editDeviceIndex = Math.max(0, deviceOrder.indexOf(editDevice));
+  const animationClass = (editDeviceIndex + state.editModeIndex) % 2 ? "swapA" : "swapB";
+  // The thumb under the device tabs; each tab is 146px wide.
+  const tabWidth = 146;
 
   return (
     <div className="screen">
       <div className="etop">
         <div className="etitle">Geräteprofile</div>
         <div className="tabs">
-          <button className="glyph pill" onClick={() => app.switchEditDevice("handheld")}>L1</button>
-          <div className="tabbar">
-            <span className="tthumb" style={{ transform: `translateX(${editDevice === "tv" ? 146 : 0}px)` }} />
-            <button className={"tab" + (editDevice === "handheld" ? " on" : "")} onClick={() => app.switchEditDevice("handheld")}>
-              <HandheldIcon />
-              Handheld
-            </button>
-            <button className={"tab" + (editDevice === "tv" ? " on" : "")} onClick={() => app.switchEditDevice("tv")}>
-              <TvIcon />
-              TV
-            </button>
+          <span className="glyph pill">L1</span>
+          <div className="tabbar" style={{ gridTemplateColumns: `repeat(${deviceOrder.length}, ${tabWidth}px)` }}>
+            <span className="tthumb" style={{ transform: `translateX(${editDeviceIndex * tabWidth}px)` }} />
+            {deviceOrder.map((deviceId) => (
+              <button key={deviceId} className={"tab" + (deviceId === editDevice ? " on" : "")} onClick={() => app.switchEditDevice(deviceId)}>
+                <DeviceIcon kind={app.profile(deviceId).icon} />
+                {app.profile(deviceId).name}
+              </button>
+            ))}
           </div>
-          <button className="glyph pill" onClick={() => app.switchEditDevice("tv")}>R1</button>
+          <span className="glyph pill">R1</span>
         </div>
-        <div className="eactive">{"Aktiv: " + ModeText.deviceNames[state.device] + " · " + ModeText.label(app.activeMode()) + " FPS"}</div>
+        <div className="eactive">{"Aktiv: " + app.profile().name + " · " + ModeText.label(app.activeMode()) + " FPS"}</div>
       </div>
 
       <div className="ebody">
         <div className="mlist">
-          <div className="clabel" style={{ paddingLeft: 4 }}>{"Modi für " + ModeText.deviceNames[editDevice]}</div>
+          <div className="clabel" style={{ paddingLeft: 4 }}>{"Modi für " + profile.name}</div>
           {profile.modes.map((mode, modeIndex) =>
           {
             const selected = modeIndex === state.editModeIndex;
@@ -55,20 +68,43 @@ export function EditorScreen(props: { app: LauncherApp })
                   {modeIndex === profile.defaultModeIndex && <span className="badge">STANDARD</span>}
                 </span>
                 <span className="msub">
-                  {modeIndex === state.currentModes[editDevice] && <span className="adot" />}
+                  {modeIndex === app.currentModeIndex(editDevice) && <span className="adot" />}
                   {mode.bitrateMbps + " Mbit/s · " + ModeText.extra(mode)}
                 </span>
               </button>
             );
           })}
           <div className="mbtns">
-            <button className={"madd" + (profile.modes.length >= 6 ? " dis" : "")} onClick={() => app.addMode()}>
-              <PlusIcon />
-              Modus
-            </button>
-            <button className={"madd" + (isDefault ? " dis" : "")} onClick={() => app.makeDefault()}>
-              {isDefault ? "Ist Standard" : "Als Standard"}
-            </button>
+            {LauncherApp.editorActions.map((action, actionIndex) =>
+            {
+              const focused = state.editZone === "actions" && state.editActionIndex === actionIndex;
+              const disabled =
+                (action === "addMode" && profile.modes.length >= 6)
+                || (action === "makeDefault" && isDefault)
+                || (action === "deleteMode" && profile.modes.length <= 1)
+                || (action === "addDevice" && deviceOrder.length >= LauncherApp.maximumDevices)
+                || (action === "deleteDevice" && deviceOrder.length <= 1);
+              const confirming = (action === "deleteMode" && state.editConfirmDelete === "mode")
+                || (action === "deleteDevice" && state.editConfirmDelete === "device");
+              let label = actionLabels[action];
+              if (action === "makeDefault" && isDefault)
+              {
+                label = "Ist Standard";
+              }
+              if (confirming)
+              {
+                label = "Wirklich löschen? A";
+              }
+              return (
+                <button
+                  key={action}
+                  className={"madd" + (disabled ? " dis" : "") + (focused ? " f" : "") + (confirming ? " warn" : "")}
+                  onClick={() => app.runEditorAction(actionIndex)}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -81,7 +117,7 @@ export function EditorScreen(props: { app: LauncherApp })
             const focused = state.editZone === "rows" && rowIndex === state.editRow;
             const heading = row.scope === "mode"
               ? "Modus " + ModeText.label(editMode as StreamMode) + " FPS"
-              : "Für alle Modi von " + ModeText.deviceNames[editDevice];
+              : "Gerät " + profile.name;
             let displayValue = String(value);
             if (row.key === "resolution")
             {
@@ -99,16 +135,30 @@ export function EditorScreen(props: { app: LauncherApp })
             {
               displayValue = value ? "An" : "Aus";
             }
+            else if (row.key === "color")
+            {
+              displayValue = DevicePalette.colorNames[value as DeviceColor];
+            }
+            else if (row.key === "icon")
+            {
+              displayValue = DevicePalette.iconNames[value as DeviceIconKind];
+            }
+            else if (row.key === "displayName")
+            {
+              displayValue = value ? String(value) : "keiner";
+            }
 
             return (
               <div key={row.key} style={{ display: "contents" }}>
                 {row.heading && <div className="rhead clabel">{heading}</div>}
                 <div className={"row" + (focused ? " f" : "")}>
-                  <button className="rlabel" onClick={() => app.setState({ editRow: rowIndex, editZone: "rows" })}>{row.label}</button>
+                  <button className="rlabel" onClick={() => app.activateEditorRow(rowIndex)}>{row.label}</button>
                   <div className="ctrl">
                     {row.type === "list" && (
                       <>
                         <button className="arr" onClick={() => app.changeValue(rowIndex, -1, false)} aria-label={row.label + ": vorheriger Wert"}><ChevronLeftIcon /></button>
+                        {row.key === "color" && <span className="swatch" style={{ background: DevicePalette.colors[value as DeviceColor] }} />}
+                        {row.key === "icon" && <DeviceIcon kind={value as DeviceIconKind} />}
                         <span key={bumpCount} className={"val" + bumpClass}>{displayValue}</span>
                         <button className="arr" onClick={() => app.changeValue(rowIndex, 1, false)} aria-label={row.label + ": nächster Wert"}><ChevronRightIcon /></button>
                       </>
@@ -127,6 +177,24 @@ export function EditorScreen(props: { app: LauncherApp })
                         <button className={"toggle" + (value ? " on" : "")} role="switch" aria-checked={Boolean(value)} aria-label={row.label} onClick={() => app.changeValue(rowIndex, 1, true)}>
                           <span className="knob" />
                         </button>
+                      </>
+                    )}
+                    {row.type === "text" && (
+                      <input
+                        id="device-name"
+                        className="hostinput nameinput"
+                        value={profile.name}
+                        maxLength={24}
+                        spellCheck={false}
+                        onChange={(changeEvent) => app.renameEditDevice(changeEvent.target.value)}
+                        onFocus={() => app.setState({ editRow: rowIndex, editZone: "rows" })}
+                        onBlur={() => app.finishRename()}
+                      />
+                    )}
+                    {row.type === "screen" && (
+                      <>
+                        <span className="val">{displayValue}</span>
+                        <button className="madd" onClick={() => app.takeConnectedScreen()}>Aktuellen übernehmen · A</button>
                       </>
                     )}
                     {row.type === "seg" && (
