@@ -14,6 +14,7 @@ mod moonlight_host_entries;
 mod moonlight_pairing;
 mod settings_store;
 mod stream_session;
+mod upload_token;
 
 use std::collections::HashMap;
 use std::time::Duration;
@@ -33,6 +34,7 @@ use moonlight_command::MoonlightCommand;
 use moonlight_pairing::MoonlightPairing;
 use settings_store::SettingsStore;
 use stream_session::StreamSession;
+use upload_token::UploadToken;
 
 // Tauri commands must be free functions; each one only forwards to its class.
 
@@ -166,6 +168,34 @@ async fn companion_screenshot(host: String, entry_id: String, index: u32) -> Res
 }
 
 #[tauri::command]
+async fn companion_logo(host: String, entry_id: String) -> Result<Option<String>, String>
+{
+    CompanionClient::for_host(&host)?.logo(&entry_id).await
+}
+
+#[tauri::command]
+async fn companion_upload_token(host: String, entry_id: String, kind: String) -> Result<UploadToken, String>
+{
+    let result = CompanionClient::for_host(&host)?.upload_token(&entry_id, &kind).await;
+    println!("[companion] upload page for {} {} -> {:?}", entry_id, kind, result.as_ref().map(|token| &token.url));
+    result
+}
+
+#[tauri::command]
+async fn companion_art_version(host: String) -> Result<u64, String>
+{
+    CompanionClient::for_host(&host)?.art_version().await
+}
+
+#[tauri::command]
+async fn companion_reset_art(host: String, entry_id: String, kind: String) -> Result<(), String>
+{
+    let result = CompanionClient::for_host(&host)?.reset_art(&entry_id, &kind).await;
+    println!("[companion] reset {} {} -> {:?}", entry_id, kind, result);
+    result
+}
+
+#[tauri::command]
 async fn companion_add_app(host: String, entry_id: String) -> Result<String, String>
 {
     let result = CompanionClient::for_host(&host)?.add_app(&entry_id).await;
@@ -216,6 +246,10 @@ pub fn run()
             companion_cover,
             companion_hero,
             companion_screenshot,
+            companion_logo,
+            companion_upload_token,
+            companion_art_version,
+            companion_reset_art,
             companion_add_app,
             companion_remove_app,
             companion_set_sunshine_login

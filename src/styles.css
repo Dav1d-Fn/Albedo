@@ -296,3 +296,15 @@ body { cursor: default; user-select: none; }
 
 /* Title image or screenshot of the selected game: slightly blurred and darkened, fades in above the blurred cover */
 .bd.bdimage { background-position: center; background-size: cover; background-repeat: no-repeat; filter: blur(6px) brightness(.45); transform: scale(1.04); animation: fadein 1.2s ease both; }
+
+/* Logo instead of the game name: Steam's logo or one set from the phone */
+.glogo { display: block; max-width: 520px; max-height: 120px; object-fit: contain; object-position: left center; filter: drop-shadow(0 4px 18px rgba(0,0,0,.6)); }
+
+/* "Bild setzen" dialog: picture kind, QR code to the phone upload page, backdrop for this game */
+.imgdialog { gap: 10px; }
+.imgrow { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 18px; border: 1.5px solid transparent; transition: border-color .3s; }
+.imgrow.f { border-color: color-mix(in oklab, var(--acc) 50%, transparent); }
+.qrbox { width: 220px; height: 220px; display: grid; place-items: center; border-radius: 16px; background: #fff; }
+.qr { width: 204px; height: 204px; image-rendering: pixelated; }
+.qrurl { font-size: 12px; color: #A1A1AA; font-variant-numeric: tabular-nums; word-break: break-all; max-width: 520px; }
+.btn.iconbtn { width: 56px; padding: 0; justify-content: center; }

@@ -82,7 +82,9 @@ export function HomeScreen(props: { app: LauncherApp })
         {state.games.map((gameName, gameIndex) => (
           <div key={gameName} className={"ht" + (gameIndex === state.gameIndex ? " on" : "")}>
             <div className="eyebrow">{app.isRemembered(gameName) ? "Modus gemerkt" : "Sunshine-App"}</div>
-            <div className="htitle">{gameName}</div>
+            {state.logos[gameName] !== undefined
+              ? <div className="htitle"><img className="glogo" src={state.logos[gameName]} alt={gameName} /></div>
+              : <div className="htitle">{gameName}</div>}
             <div className="hmeta">
               <span className="hprof">
                 <span className="adot" />

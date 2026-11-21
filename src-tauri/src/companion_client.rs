@@ -7,6 +7,13 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::companion_library::CompanionLibrary;
+use crate::upload_token::UploadToken;
+
+#[derive(Deserialize)]
+struct ArtVersionResponse
+{
+    version: u64,
+}
 
 #[derive(Deserialize)]
 struct SunshineAppsResponse
@@ -93,6 +100,37 @@ impl CompanionClient
     pub async fn hero(&self, entry_id: &str) -> Result<Option<String>, String>
     {
         self.image(&["api", "hero", entry_id], "image/jpeg").await
+    }
+
+    /// The entry's logo (name lettering, transparent) as `data:image/png;base64,…`, or None.
+    pub async fn logo(&self, entry_id: &str) -> Result<Option<String>, String>
+    {
+        self.image(&["api", "logo", entry_id], "image/png").await
+    }
+
+    /// One-time upload page for a picture of `kind` ("cover", "hero" or "logo") from the phone.
+    pub async fn upload_token(&self, entry_id: &str, kind: &str) -> Result<UploadToken, String>
+    {
+        let request = self
+            .http_client
+            .post(self.url(&["api", "upload-token"]))
+            .json(&json!({ "id": entry_id, "kind": kind }));
+        self.send(request).await?.json().await.map_err(|error| error.to_string())
+    }
+
+    /// Goes up whenever a picture of any entry was set or reset.
+    pub async fn art_version(&self) -> Result<u64, String>
+    {
+        let response = self.send(self.http_client.get(self.url(&["api", "art-version"]))).await?;
+        let art_version: ArtVersionResponse = response.json().await.map_err(|error| error.to_string())?;
+        Ok(art_version.version)
+    }
+
+    /// Drops the picture set by hand, so the automatic one is used again.
+    pub async fn reset_art(&self, entry_id: &str, kind: &str) -> Result<(), String>
+    {
+        self.send(self.http_client.delete(self.url(&["api", "art", entry_id, kind]))).await?;
+        Ok(())
     }
 
     /// One of the user's screenshots of the entry (0 = newest) as `data:image/jpeg;base64,…`, or None.

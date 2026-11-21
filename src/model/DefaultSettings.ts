@@ -20,6 +20,7 @@ export class DefaultSettings
       afterStream: "ask",
       afterStreamPerGame: {},
       backdropKind: "hero",
+      backdropKindPerGame: {},
       profiles:
       {
         handheld:
@@ -62,6 +63,7 @@ export class DefaultSettings
       profiles: { ...defaults.profiles, ...(stored.profiles ?? {}) },
       rememberedModes: stored.rememberedModes ?? {},
       afterStreamPerGame: stored.afterStreamPerGame ?? {},
+      backdropKindPerGame: stored.backdropKindPerGame ?? {},
     };
   }
 }

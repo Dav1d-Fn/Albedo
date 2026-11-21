@@ -8,20 +8,23 @@ import { emit } from "@tauri-apps/api/event";
 /** Whether the fake Moonlight is "running", so stop_stream answers like the real one. */
 let streamRunning = false;
 
+/** Goes up when the fake phone "uploads" a picture. */
+let artVersion = 0;
+
 export class BrowserMock
 {
   private static readonly sampleGames = ["Cyberpunk 2077", "Elden Ring", "Hades II", "Forza Horizon 5", "Baldur's Gate 3", "Stardew Valley", "Portal 2"];
 
   private static readonly sampleLibrary =
   [
-    { id: "preset:desktop-auto", name: "Desktop", group: "Voreinstellungen", hasCover: false, inSunshine: true, hasHero: false, screenshotCount: 0 },
-    { id: "preset:big-picture", name: "Steam Big Picture", group: "Voreinstellungen", hasCover: false, inSunshine: false, hasHero: false, screenshotCount: 0 },
-    { id: "steam:1245620", name: "ELDEN RING", group: "Steam", hasCover: false, inSunshine: true, hasHero: false, screenshotCount: 0 },
-    { id: "steam:1086940", name: "Baldur's Gate 3", group: "Steam", hasCover: false, inSunshine: false, hasHero: false, screenshotCount: 0 },
-    { id: "steam:1551360", name: "Forza Horizon 5", group: "Steam", hasCover: false, inSunshine: false, hasHero: false, screenshotCount: 0 },
-    { id: "heroic:Crow", name: "Dead Island 2", group: "Heroic", hasCover: false, inSunshine: false, hasHero: false, screenshotCount: 0 },
-    { id: "steam:1145350", name: "Hades II", group: "Steam", hasCover: true, inSunshine: true, hasHero: true, screenshotCount: 3 },
-    { id: "prism:26.3 Modpack Test", name: "Minecraft 26.3 Modpack Test", group: "Minecraft", hasCover: false, inSunshine: false, hasHero: false, screenshotCount: 0 },
+    { id: "preset:desktop-auto", name: "Desktop", group: "Voreinstellungen", hasCover: false, inSunshine: true, hasHero: false, hasLogo: false, screenshotCount: 0 },
+    { id: "preset:big-picture", name: "Steam Big Picture", group: "Voreinstellungen", hasCover: false, inSunshine: false, hasHero: false, hasLogo: false, screenshotCount: 0 },
+    { id: "steam:1245620", name: "ELDEN RING", group: "Steam", hasCover: false, inSunshine: true, hasHero: false, hasLogo: false, screenshotCount: 0 },
+    { id: "steam:1086940", name: "Baldur's Gate 3", group: "Steam", hasCover: false, inSunshine: false, hasHero: false, hasLogo: false, screenshotCount: 0 },
+    { id: "steam:1551360", name: "Forza Horizon 5", group: "Steam", hasCover: false, inSunshine: false, hasHero: false, hasLogo: false, screenshotCount: 0 },
+    { id: "heroic:Crow", name: "Dead Island 2", group: "Heroic", hasCover: false, inSunshine: false, hasHero: false, hasLogo: false, screenshotCount: 0 },
+    { id: "steam:1145350", name: "Hades II", group: "Steam", hasCover: true, inSunshine: true, hasHero: true, hasLogo: true, screenshotCount: 3 },
+    { id: "prism:26.3 Modpack Test", name: "Minecraft 26.3 Modpack Test", group: "Minecraft", hasCover: false, inSunshine: false, hasHero: false, hasLogo: false, screenshotCount: 0 },
   ];
 
   /** A wide SVG standing in for a title image or screenshot. */
@@ -30,6 +33,23 @@ export class BrowserMock
     const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1920' height='1080'><rect width='1920' height='1080' fill='${colour}'/>`
       + `<circle cx='1400' cy='420' r='260' fill='white' opacity='.35'/><text x='1400' y='440' font-size='72' fill='white' text-anchor='middle' font-family='sans-serif'>${label}</text></svg>`;
     return "data:image/svg+xml," + encodeURIComponent(svg);
+  }
+
+  /** A QR-looking pattern; the real one comes from the companion. */
+  private static fakeQrSvg(): string
+  {
+    let cells = "";
+    for (let row = 0; row < 25; row++)
+    {
+      for (let column = 0; column < 25; column++)
+      {
+        if ((row * 7 + column * 13 + row * column) % 3 === 0)
+        {
+          cells += `<rect x='${column + 2}' y='${row + 2}' width='1' height='1'/>`;
+        }
+      }
+    }
+    return `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 29 29'><rect width='29' height='29' fill='white'/>${cells}</svg>`;
   }
 
   private static endStream(exitCode: number | null): void
@@ -80,6 +100,17 @@ export class BrowserMock
             window.setTimeout(() => BrowserMock.endStream(0), 3000);
           }
           return "moonlight stream (browser mock)";
+        case "companion_logo":
+          return "data:image/svg+xml," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='800' height='200'><text x='0' y='150' font-size='150' font-weight='900' fill='#fbbf24' font-family='serif'>HADES II</text></svg>");
+        case "companion_upload_token":
+          // Pretend the phone sends a picture 5 s after the code was shown.
+          window.setTimeout(() => { artVersion += 1; }, 5000);
+          return { url: "http://192.168.178.36:47995/upload/mock-" + (args.kind as string), qrSvg: BrowserMock.fakeQrSvg(), expiresInSeconds: 600 };
+        case "companion_art_version":
+          return artVersion;
+        case "companion_reset_art":
+          artVersion += 1;
+          return null;
         case "stop_stream":
           if (!streamRunning)
           {

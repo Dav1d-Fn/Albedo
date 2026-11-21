@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { DefaultSettings } from "../model/DefaultSettings";
 import { ModeText } from "../model/ModeText";
-import { CompanionLibrary, DeviceProfile, DiscoveredHost, PadButton, Settings, StreamMode } from "../model/Types";
+import { ArtKind, CompanionLibrary, UploadToken, DeviceProfile, DiscoveredHost, PadButton, Settings, StreamMode } from "../model/Types";
 
 export interface StreamEnded
 {
@@ -103,6 +103,30 @@ export class Backend
   public companionScreenshot(host: string, entryId: string, index: number): Promise<string | null>
   {
     return invoke<string | null>("companion_screenshot", { host, entryId, index });
+  }
+
+  /** Logo (name lettering) of a library entry as `data:` URL, null when the PC has none. */
+  public companionLogo(host: string, entryId: string): Promise<string | null>
+  {
+    return invoke<string | null>("companion_logo", { host, entryId });
+  }
+
+  /** One-time upload page plus its QR code, for setting a picture from the phone. */
+  public companionUploadToken(host: string, entryId: string, kind: ArtKind): Promise<UploadToken>
+  {
+    return invoke<UploadToken>("companion_upload_token", { host, entryId, kind });
+  }
+
+  /** Goes up whenever a picture was set or reset on the PC. */
+  public companionArtVersion(host: string): Promise<number>
+  {
+    return invoke<number>("companion_art_version", { host });
+  }
+
+  /** Back to the automatic picture of this kind. */
+  public companionResetArt(host: string, entryId: string, kind: ArtKind): Promise<void>
+  {
+    return invoke<void>("companion_reset_art", { host, entryId, kind });
   }
 
   /** Cover of a library entry as `data:` URL, null when the PC has none. */

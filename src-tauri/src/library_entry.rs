@@ -15,6 +15,9 @@ pub struct LibraryEntry
     /// A wide title image for the backdrop exists (`GET /api/hero/<id>`).
     #[serde(default)]
     pub has_hero: bool,
+    /// A logo with the game's name exists (`GET /api/logo/<id>`).
+    #[serde(default)]
+    pub has_logo: bool,
     /// Number of the user's screenshots (`GET /api/screenshot/<id>/<index>`, 0 = newest).
     #[serde(default)]
     pub screenshot_count: u32,

@@ -111,3 +111,14 @@ export function DeviceIcon(props: { device: "handheld" | "tv" })
 {
   return props.device === "tv" ? <TvIcon /> : <HandheldIcon />;
 }
+
+export function ImageIcon()
+{
+  return (
+    <svg {...strokeProps}>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+      <circle cx="9" cy="10" r="1.8" />
+      <path d="M20.5 16l-5-5-9 8.5" />
+    </svg>
+  );
+}

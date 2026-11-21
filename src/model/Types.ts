@@ -59,6 +59,8 @@ export interface Settings
   /** Game name -> after-stream action for that game, missing = the default above. */
   afterStreamPerGame: Record<string, AfterStreamAction>;
   backdropKind: BackdropKind;
+  /** Game name -> backdrop kind for that game, missing = the default above. */
+  backdropKindPerGame: Record<string, BackdropKind>;
   /** "<game name>|<device>" -> mode index remembered for that game. */
   rememberedModes: Record<string, number>;
 }
@@ -75,6 +77,8 @@ export interface LibraryEntry
   inSunshine: boolean;
   /** A wide title image for the backdrop exists (Steam hero, Epic key art). */
   hasHero: boolean;
+  /** A logo with the game's name exists (Steam logo or one set by hand). */
+  hasLogo: boolean;
   /** The user's screenshots of this game, 0 = newest; only Steam games have them. */
   screenshotCount: number;
 }
@@ -85,6 +89,31 @@ export interface CompanionLibrary
   entries: LibraryEntry[];
   /** null when the companion can reach Sunshine, otherwise the German reason (adding cannot work then). */
   sunshineProblem: string | null;
+}
+
+/** Picture kinds that can be set by hand from the phone. */
+export type ArtKind = "cover" | "hero" | "logo";
+
+/** One-time upload page of the companion, shown as QR code. */
+export interface UploadToken
+{
+  url: string;
+  /** QR code of `url` as SVG markup from the companion. */
+  qrSvg: string;
+  expiresInSeconds: number;
+}
+
+/** "Bild setzen" dialog on the detail page. */
+export interface ImageDialogState
+{
+  /** 0 = picture kind (QR code), 1 = backdrop for this game. */
+  row: number;
+  kind: ArtKind;
+  token: UploadToken | null;
+  loading: boolean;
+  error: string;
+  /** Companion art version when the dialog opened; a higher one means a new picture arrived. */
+  artVersion: number;
 }
 
 /** Dialog on the "Hinzufügen" screen that hands the Sunshine web UI login to the companion. */

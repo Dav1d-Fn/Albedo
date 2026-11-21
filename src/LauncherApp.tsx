@@ -3,7 +3,7 @@ import { InputRouter } from "./input/InputRouter";
 import { ModeText } from "./model/ModeText";
 import { DefaultSettings } from "./model/DefaultSettings";
 import { GameArt } from "./model/GameArt";
-import { AfterStreamAction, BackdropKind, DeviceId, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, Settings, StreamMode, SunshineLoginDraft } from "./model/Types";
+import { AfterStreamAction, ArtKind, BackdropKind, DeviceId, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, Settings, StreamMode, SunshineLoginDraft, ImageDialogState } from "./model/Types";
 import { Backend } from "./services/Backend";
 import { CompanionArt } from "./services/CompanionArt";
 import { AfterStreamDialog } from "./views/AfterStreamDialog";
@@ -14,6 +14,7 @@ import { EditorRows } from "./views/EditorRows";
 import { EditorScreen } from "./views/EditorScreen";
 import { HintBar } from "./views/HintBar";
 import { HomeScreen } from "./views/HomeScreen";
+import { ImageDialog } from "./views/ImageDialog";
 import { LibraryScreen } from "./views/LibraryScreen";
 import { StreamScreen } from "./views/StreamScreen";
 import { SunshineLoginDialog } from "./views/SunshineLoginDialog";
@@ -85,6 +86,10 @@ export interface LauncherState
   librarySunshineProblem: string | null;
   /** Open Sunshine login dialog on the "Hinzufügen" screen, null = closed. */
   sunshineLogin: SunshineLoginDraft | null;
+  /** Game name -> logo `data:` URL from the companion (Steam logo or set by hand). */
+  logos: Record<string, string>;
+  /** "Bild setzen" dialog on the detail page, null = closed. */
+  imageDialog: ImageDialogState | null;
   /** Title image or screenshots behind home and detail; the last one is on top and fades in. */
   backdropLayers: BackdropLayer[];
   /** Design is drawn at 1280px width and zoomed to the window. */
@@ -197,6 +202,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       librarySunshineProblem: null,
       sunshineLogin: null,
       backdropLayers: [],
+      logos: {},
+      imageDialog: null,
       zoom: Math.max(window.innerWidth, 320) / LauncherApp.designWidth,
     };
   }
@@ -245,8 +252,9 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   public componentDidUpdate(_previousProps: object, previousState: LauncherState): void
   {
     const previousGame = previousState.games[previousState.gameIndex];
-    const previousKind = previousState.settings?.backdropKind;
-    if (this.selectedGame() !== previousGame || this.state.settings?.backdropKind !== previousKind)
+    const previousKind = previousState.settings === null ? undefined : LauncherApp.backdropKindIn(previousState.settings, previousGame);
+    const currentKind = this.state.settings === null ? undefined : LauncherApp.backdropKindIn(this.state.settings, this.selectedGame());
+    if (this.selectedGame() !== previousGame || currentKind !== previousKind)
     {
       this.updateBackdrop();
     }
@@ -256,6 +264,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   {
     this.mounted = false;
     window.clearTimeout(this.backdropTimer);
+    window.clearInterval(this.artPollTimer);
     this.inputRouter.detach();
     window.removeEventListener("resize", this.handleResize);
     window.clearInterval(this.displayPollTimer);
@@ -445,8 +454,9 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }
     this.setState({ boxArt });
 
-    const companionCovers = await this.companionArt.missingCovers(host, games, boxArt);
-    this.setState((state) => ({ boxArt: { ...companionCovers, ...state.boxArt } }));
+    const companionArt = await this.companionArt.coversAndLogos(host, games);
+    // The companion's cover wins: it may be one set by hand.
+    this.setState((state) => ({ boxArt: { ...state.boxArt, ...companionArt.covers }, logos: companionArt.logos }));
     // The companion's library is known now, so the selected game can get its backdrop.
     this.updateBackdrop(host);
   }
@@ -620,7 +630,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }
 
     const screen = this.state.screen;
-    const quickSwitch = screen === "home" || screen === "detail";
+    // X and L1/R1 switch device and mode on home and detail, but not while the picture dialog is open.
+    const quickSwitch = (screen === "home" || screen === "detail") && this.state.imageDialog === null;
 
     if (button === "X" && quickSwitch)
     {
@@ -759,11 +770,16 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }));
   }
 
-  /** Spielen, Gerät, Danach. */
-  public static readonly detailButtonCount = 3;
+  /** Spielen, Gerät, Danach, Bild setzen. */
+  public static readonly detailButtonCount = 4;
 
   private detailButton(button: PadButton): void
   {
+    if (this.state.imageDialog !== null)
+    {
+      this.imageDialogButton(button);
+      return;
+    }
     if (button === "LEFT")
     {
       this.setState({ detailIndex: Math.max(0, this.state.detailIndex - 1) });
@@ -797,9 +813,200 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       this.toggleDevice();
     }
-    else
+    else if (detailIndex === 2)
     {
       this.cycleAfterStreamForGame();
+    }
+    else
+    {
+      this.openImageDialog();
+    }
+  }
+
+  // ---------------------------------------------------------------- "Bild setzen": pictures from the phone
+
+  public static readonly artKinds: ArtKind[] = ["cover", "hero", "logo"];
+
+  /** Options of the dialog's backdrop row; undefined = the default. */
+  public static readonly backdropChoices: (BackdropKind | undefined)[] = [undefined, "hero", "screenshots", "cover", "none"];
+
+  /** How often the open dialog asks the companion whether a picture arrived. */
+  private static readonly artPollMilliseconds = 2000;
+
+  private artPollTimer = 0;
+
+  public openImageDialog(): void
+  {
+    const dialog: ImageDialogState = { row: 0, kind: "cover", token: null, loading: false, error: "", artVersion: -1 };
+    // Polling starts once the dialog is in the state, its first round would otherwise stop it again.
+    this.setState({ imageDialog: dialog }, () =>
+    {
+      this.loadUploadToken("cover");
+      this.startArtPolling();
+    });
+  }
+
+  public closeImageDialog(): void
+  {
+    window.clearInterval(this.artPollTimer);
+    this.setState({ imageDialog: null });
+  }
+
+  private changeImageDialog(change: Partial<ImageDialogState>): void
+  {
+    this.setState((state) => (state.imageDialog === null ? null : { imageDialog: { ...state.imageDialog, ...change } }));
+  }
+
+  /** Asks the companion for a fresh upload page for this picture kind; the QR code shows it. */
+  public async loadUploadToken(kind: ArtKind): Promise<void>
+  {
+    const entryId = this.companionArt.entryId(this.selectedGame() ?? "");
+    if (entryId === undefined)
+    {
+      this.changeImageDialog({ kind, token: null, loading: false, error: "Der PC-Helfer kennt dieses Spiel nicht (läuft er?)." });
+      return;
+    }
+    this.changeImageDialog({ kind, token: null, loading: true, error: "" });
+    try
+    {
+      const token = await this.backend.companionUploadToken(this.connectedHost(), entryId, kind);
+      // Only show it if the user did not switch to another kind meanwhile.
+      if (this.state.imageDialog?.kind === kind)
+      {
+        this.changeImageDialog({ token, loading: false });
+      }
+    }
+    catch (tokenError)
+    {
+      this.changeImageDialog({ loading: false, error: String(tokenError) });
+    }
+  }
+
+  private startArtPolling(): void
+  {
+    window.clearInterval(this.artPollTimer);
+    this.artPollTimer = window.setInterval(() => this.pollArtVersion(), LauncherApp.artPollMilliseconds);
+    this.pollArtVersion();
+  }
+
+  /** A higher art version than at the start means a picture came in: reload covers, logos and backdrop. */
+  private async pollArtVersion(): Promise<void>
+  {
+    const dialog = this.state.imageDialog;
+    if (dialog === null)
+    {
+      window.clearInterval(this.artPollTimer);
+      return;
+    }
+    let artVersion: number;
+    try
+    {
+      artVersion = await this.backend.companionArtVersion(this.connectedHost());
+    }
+    catch (versionError)
+    {
+      console.warn("art version", versionError);
+      return;
+    }
+    if (dialog.artVersion < 0)
+    {
+      this.changeImageDialog({ artVersion });
+      return;
+    }
+    if (artVersion > dialog.artVersion)
+    {
+      this.changeImageDialog({ artVersion });
+      await this.reloadArt();
+      this.showToast({ kind: "ok", eyebrow: "Vom Handy", name: "Bild übernommen", spec: "", sub: this.selectedGame() ?? "" });
+      // The page on the phone was used up; a new code for the next picture.
+      this.loadUploadToken(this.state.imageDialog?.kind ?? dialog.kind);
+    }
+  }
+
+  private async reloadArt(): Promise<void>
+  {
+    await this.loadBoxArt(this.settings, this.connectedHost(), this.state.games);
+  }
+
+  /** X in the dialog: drop the picture set by hand for the shown kind. */
+  private async resetArt(): Promise<void>
+  {
+    const dialog = this.state.imageDialog;
+    const entryId = this.companionArt.entryId(this.selectedGame() ?? "");
+    if (dialog === null || entryId === undefined)
+    {
+      return;
+    }
+    try
+    {
+      await this.backend.companionResetArt(this.connectedHost(), entryId, dialog.kind);
+      // The version poll picks the change up and reloads.
+    }
+    catch (resetError)
+    {
+      this.showError("Zurücksetzen fehlgeschlagen", String(resetError));
+    }
+  }
+
+  public chooseArtKind(kind: ArtKind): void
+  {
+    this.changeImageDialog({ row: 0 });
+    this.loadUploadToken(kind);
+  }
+
+  public chooseBackdropForGame(choice: BackdropKind | undefined): void
+  {
+    const gameName = this.selectedGame();
+    if (gameName === undefined)
+    {
+      return;
+    }
+    this.changeImageDialog({ row: 1 });
+    this.setBackdropKindForGame(gameName, choice);
+  }
+
+  private imageDialogButton(button: PadButton): void
+  {
+    const dialog = this.state.imageDialog;
+    if (dialog === null)
+    {
+      return;
+    }
+    if (button === "B")
+    {
+      this.closeImageDialog();
+      return;
+    }
+    if (button === "UP" || button === "DOWN")
+    {
+      this.changeImageDialog({ row: button === "UP" ? 0 : 1 });
+      return;
+    }
+    if (button === "X" && dialog.row === 0)
+    {
+      this.resetArt();
+      return;
+    }
+    if (button !== "LEFT" && button !== "RIGHT")
+    {
+      return;
+    }
+    const step = button === "LEFT" ? -1 : 1;
+    if (dialog.row === 0)
+    {
+      const kinds = LauncherApp.artKinds;
+      const kindIndex = Math.min(kinds.length - 1, Math.max(0, kinds.indexOf(dialog.kind) + step));
+      if (kinds[kindIndex] !== dialog.kind)
+      {
+        this.loadUploadToken(kinds[kindIndex]);
+      }
+    }
+    else
+    {
+      const choices = LauncherApp.backdropChoices;
+      const current = choices.indexOf(this.backdropKindOverride(this.selectedGame()));
+      const choiceIndex = Math.min(choices.length - 1, Math.max(0, current + step));
+      this.chooseBackdropForGame(choices[choiceIndex]);
     }
   }
 
@@ -994,10 +1201,53 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   /** Screenshots change this often while a game stays selected. */
   private static readonly backdropRotationMilliseconds = 8000;
 
+  /** The game's own backdrop kind, else the default. */
+  private static backdropKindIn(settings: Settings, gameName: string | undefined): BackdropKind
+  {
+    if (gameName !== undefined && gameName in settings.backdropKindPerGame)
+    {
+      return settings.backdropKindPerGame[gameName];
+    }
+    return settings.backdropKind;
+  }
+
+  public backdropKindFor(gameName: string | undefined): BackdropKind
+  {
+    return LauncherApp.backdropKindIn(this.settings, gameName);
+  }
+
+  /** The game's own backdrop kind, undefined = it follows the default. */
+  public backdropKindOverride(gameName: string | undefined): BackdropKind | undefined
+  {
+    if (gameName === undefined)
+    {
+      return undefined;
+    }
+    return this.settings.backdropKindPerGame[gameName];
+  }
+
+  /** `undefined` removes the game's own kind, so it follows the default again. */
+  public setBackdropKindForGame(gameName: string, backdropKind: BackdropKind | undefined): void
+  {
+    this.updateSettings((settings) =>
+    {
+      const backdropKindPerGame = { ...settings.backdropKindPerGame };
+      if (backdropKind === undefined)
+      {
+        delete backdropKindPerGame[gameName];
+      }
+      else
+      {
+        backdropKindPerGame[gameName] = backdropKind;
+      }
+      return { ...settings, backdropKindPerGame };
+    });
+  }
+
   /** Art for the large backdrop: "Kein Bild" drops the cover there, the rail keeps it. */
   public backdropArtFor(gameName: string): GameArt
   {
-    if (this.settings.backdropKind === "none")
+    if (this.backdropKindFor(gameName) === "none")
     {
       return new GameArt(gameName);
     }
@@ -1010,7 +1260,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     window.clearTimeout(this.backdropTimer);
     this.backdropRequest += 1;
     const gameName = this.selectedGame();
-    const kind = this.settings.backdropKind;
+    const kind = this.backdropKindFor(gameName);
     if (gameName === undefined || kind === "cover" || kind === "none")
     {
       this.setState({ backdropLayers: [] });
@@ -1021,7 +1271,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   private async showBackdropStep(host: string, gameName: string, step: number, request: number): Promise<void>
   {
-    const kind = this.settings.backdropKind;
+    const kind = this.backdropKindFor(gameName);
     const image = await this.companionArt.backdropImage(host, gameName, kind, step);
     if (request !== this.backdropRequest || !this.mounted)
     {
@@ -1879,6 +2129,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
           {state.screen === "library" && <LibraryScreen app={this} />}
           <div className="ambient" />
           {state.screen === "afterStream" && <AfterStreamDialog app={this} />}
+          {state.screen === "detail" && state.imageDialog !== null && <ImageDialog app={this} />}
           {state.screen === "library" && state.sunshineLogin !== null && <SunshineLoginDialog app={this} />}
           <HintBar app={this} />
           {state.toast !== null && <ToastCard toast={state.toast} />}

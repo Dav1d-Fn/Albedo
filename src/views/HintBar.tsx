@@ -25,9 +25,19 @@ export function HintBar(props: { app: LauncherApp })
     hints.push({ glyph: "Y", label: "Neu laden", button: "Y" });
     hints.push({ glyph: "☰", label: "Profile", button: "MENU", pill: true });
   }
+  else if (state.screen === "detail" && state.imageDialog !== null)
+  {
+    hints.push({ glyph: "◀ ▶", label: "Wählen", button: "RIGHT", pill: true });
+    hints.push({ glyph: "▲ ▼", label: "Zeile", button: "DOWN", pill: true });
+    if (state.imageDialog.row === 0)
+    {
+      hints.push({ glyph: "X", label: "Automatisches Bild", button: "X" });
+    }
+    hints.push({ glyph: "B", label: "Schließen", button: "B" });
+  }
   else if (state.screen === "detail")
   {
-    const detailLabels = ["Spielen", "Gerät wechseln", "Danach umschalten"];
+    const detailLabels = ["Spielen", "Gerät wechseln", "Danach umschalten", "Bild setzen"];
     hints.push({ glyph: "A", label: detailLabels[state.detailIndex] ?? "Spielen", button: "A" });
     hints.push({ glyph: "X", label: "Gerät", button: "X" });
     hints.push({ glyph: "L1 · R1", label: "Modus", button: "R1", pill: true });

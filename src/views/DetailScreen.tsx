@@ -1,7 +1,7 @@
 import type LauncherApp from "../LauncherApp";
 import { ModeText } from "../model/ModeText";
 import { DeviceId } from "../model/Types";
-import { CheckIcon, PlayIcon, SwapIcon } from "./Icons";
+import { CheckIcon, ImageIcon, PlayIcon, SwapIcon } from "./Icons";
 import { GameBackdrop } from "./GameBackdrop";
 import { ModeStrip } from "./ModeStrip";
 
@@ -13,11 +13,12 @@ export function DetailScreen(props: { app: LauncherApp })
   const gameName = app.selectedGame() ?? "";
   const art = app.artFor(gameName);
   const backdropArt = app.backdropArtFor(gameName);
+  const logo = state.logos[gameName];
   const remembered = app.isRemembered(gameName);
   const devices: DeviceId[] = ["handheld", "tv"];
   const afterStreamOverride = app.afterStreamOverride(gameName);
   const afterStreamLabel = afterStreamOverride === undefined
-    ? "Danach: Standard (" + ModeText.afterStreamNames[app.settings.afterStream] + ")"
+    ? "Danach: Standard"
     : "Danach: " + ModeText.afterStreamNames[afterStreamOverride];
 
   return (
@@ -31,7 +32,9 @@ export function DetailScreen(props: { app: LauncherApp })
         </div>
         <div className="dcol">
           <div className="eyebrow up d1">{remembered ? "Modus für dieses Spiel gemerkt" : "Sunshine-App"}</div>
-          <h1 className="dtitle up d2">{gameName}</h1>
+          {logo !== undefined
+            ? <h1 className="dtitle up d2"><img className="glogo" src={logo} alt={gameName} /></h1>
+            : <h1 className="dtitle up d2">{gameName}</h1>}
 
           <div className="scard up d3">
             <div className="shead">
@@ -83,6 +86,9 @@ export function DetailScreen(props: { app: LauncherApp })
             <button className={"btn" + (state.detailIndex === 2 ? " f" : "")} onClick={() => app.detailAction(2)}>
               <span className="stopmark" />
               {afterStreamLabel}
+            </button>
+            <button className={"btn iconbtn" + (state.detailIndex === 3 ? " f" : "")} onClick={() => app.detailAction(3)} aria-label="Bild setzen">
+              <ImageIcon />
             </button>
           </div>
 

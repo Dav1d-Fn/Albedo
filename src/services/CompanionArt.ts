@@ -2,8 +2,8 @@ import { BackdropKind, LibraryEntry } from "../model/Types";
 import { Backend } from "./Backend";
 
 /**
- * Pictures of the home games from the PC companion: covers for games Moonlight has none for,
- * and the backdrop behind the menu (title image or screenshots).
+ * Pictures of the home games from the PC companion: covers, logos and the backdrop behind
+ * the menu (title image or screenshots), including the ones set by hand from the phone.
  * Moonlight only fills its box art cache when its own UI loads the app list, which the
  * launcher never does, so games added through "Hinzufügen" would stay without a cover.
  * Games are matched to companion entries by name.
@@ -23,25 +23,39 @@ export class CompanionArt
   {
   }
 
-  /** Game name -> cover `data:` URL for the games not in `knownCovers`. Empty when the companion is not reachable. */
-  public async missingCovers(host: string, gameNames: string[], knownCovers: Record<string, string>): Promise<Record<string, string>>
+  /**
+   * Game name -> cover and logo `data:` URLs from the companion, for every game it has one for.
+   * The companion's cover wins over Moonlight's cache, so a cover set by hand shows. Empty when it is not reachable.
+   */
+  public async coversAndLogos(host: string, gameNames: string[]): Promise<{ covers: Record<string, string>; logos: Record<string, string> }>
   {
     const covers: Record<string, string> = {};
+    const logos: Record<string, string> = {};
     try
     {
       await this.loadLibrary(host);
-      const missingNames = gameNames.filter((gameName) => !(gameName in knownCovers));
-      for (const gameName of missingNames)
+      for (const gameName of gameNames)
       {
         const entry = this.entriesByName.get(gameName);
-        if (entry === undefined || !entry.hasCover)
+        if (entry === undefined)
         {
           continue;
         }
-        const cover = await this.backend.companionCover(host, entry.id);
-        if (cover !== null)
+        if (entry.hasCover)
         {
-          covers[gameName] = cover;
+          const cover = await this.backend.companionCover(host, entry.id);
+          if (cover !== null)
+          {
+            covers[gameName] = cover;
+          }
+        }
+        if (entry.hasLogo)
+        {
+          const logo = await this.backend.companionLogo(host, entry.id);
+          if (logo !== null)
+          {
+            logos[gameName] = logo;
+          }
         }
       }
     }
@@ -50,7 +64,13 @@ export class CompanionArt
       // The companion is optional; without it the placeholders stay.
       console.warn("no companion covers", companionError);
     }
-    return covers;
+    return { covers, logos };
+  }
+
+  /** Companion entry id of a home game, undefined when the companion does not know it. */
+  public entryId(gameName: string): string | undefined
+  {
+    return this.entriesByName.get(gameName)?.id;
   }
 
   /** How many backdrop pictures the game has for this kind; more than one means they rotate. */
