@@ -56,6 +56,11 @@ export class BrowserMock
         case "load_box_art":
           return {};
         case "companion_library":
+          // `?companionOffline` in the dev URL: as if the companion were not running on the PC.
+          if (new URLSearchParams(window.location.search).has("companionOffline"))
+          {
+            return Promise.reject("PC-Helfer nicht erreichbar (Port 47995). Läuft der Companion auf dem PC?");
+          }
           return { entries: BrowserMock.sampleLibrary, sunshineProblem };
         case "companion_set_sunshine_login":
           if (args.password !== "sunshine")

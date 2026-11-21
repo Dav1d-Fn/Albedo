@@ -20,7 +20,7 @@ export function LibraryScreen(props: { app: LauncherApp })
   {
     loading: "Frage den PC nach installierten Spielen …",
     ready: state.library.length + " Einträge auf " + app.hostDisplayName(),
-    error: state.libraryError,
+    error: "Kein Kontakt zum PC-Helfer",
   }[state.libraryState];
 
   return (
@@ -86,7 +86,11 @@ export function LibraryScreen(props: { app: LauncherApp })
           <div className="lempty">
             <div className="htitle">PC-Helfer nicht erreichbar</div>
             <div className="dnote err"><span className="dot err" /><code>{state.libraryError}</code></div>
-            <div className="dnote">Der Companion muss auf dem PC laufen (companion/README.md). Y versucht es erneut.</div>
+            <div className="lnote">
+              Der Launcher geht auch ohne Helfer: Du spielst dann die Apps, die in Sunshine eingerichtet sind.
+              Nur Hinzufügen braucht den Helfer auf dem PC.
+            </div>
+            <div className="dnote">Helfer auf dem PC starten (companion/README.md), dann Y. B geht zurück zu den Spielen.</div>
           </div>
         )}
       </div>

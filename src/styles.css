@@ -272,6 +272,7 @@ body { cursor: default; user-select: none; }
 .lbadge { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border-radius: 999px; display: grid; place-items: center; background: var(--acc); color: #0B0B0F; }
 .lbadge .i { width: 16px; height: 16px; stroke-width: 3; }
 .lbusy { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(8,8,11,.6); }
+.lnote { font-size: 17px; line-height: 1.45; color: #E4E4E7; max-width: 760px; }
 .lempty { display: flex; flex-direction: column; gap: 12px; max-width: 900px; }
 
 /* Hint on the "Hinzufügen" screen when the companion cannot reach Sunshine */
