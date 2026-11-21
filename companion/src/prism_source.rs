@@ -43,6 +43,7 @@ impl PrismSource
                 // The game's Java process has the instance folder in its arguments.
                 quit_command: Some(ProcessQuitter::command_for(&format!("{}/", instance_path.display()))),
                 follows_client_resolution: true,
+                system: None,
             });
         }
         entries

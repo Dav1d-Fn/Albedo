@@ -105,6 +105,7 @@ impl DesktopFileSource
             detached_command: Some(format!("gio launch \"{}\"", desktop_path.display())),
             quit_command,
             follows_client_resolution: true,
+            system: None,
         })
     }
 

@@ -55,6 +55,7 @@ impl LutrisSource
                 detached_command: Some(format!("lutris lutris:rungameid/{}", game_id)),
                 quit_command: (!directory.is_empty()).then(|| ProcessQuitter::command_for(directory)),
                 follows_client_resolution: true,
+                system: None,
             });
         }
         entries

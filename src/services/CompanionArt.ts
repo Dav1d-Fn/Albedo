@@ -73,6 +73,12 @@ export class CompanionArt
     return this.entriesByName.get(gameName)?.id;
   }
 
+  /** Emulated system of the game ("Nintendo 64"), undefined for other games and older companions. */
+  public system(gameName: string): string | undefined
+  {
+    return this.entriesByName.get(gameName)?.system ?? undefined;
+  }
+
   /** The game has a picture of this kind set by hand (older companions do not say: false). */
   public hasCustomArt(gameName: string, kind: ArtKind): boolean
   {

@@ -27,6 +27,8 @@ pub struct LibraryEntry
     pub quit_command: Option<String>,
     /// Prep step that switches the PC screen to the client's resolution.
     pub follows_client_resolution: bool,
+    /// Emulated system from the EmuDeck/Steam ROM Manager tag ("Nintendo 64"), for the launcher's picture search.
+    pub system: Option<String>,
 }
 
 impl LibraryEntry
@@ -61,6 +63,7 @@ impl LibraryEntry
             screenshot_count: self.screenshots.len(),
             in_sunshine,
             custom_art: ArtOverrideStore.custom_kinds(&self.id),
+            system: self.system.clone(),
         }
     }
 }

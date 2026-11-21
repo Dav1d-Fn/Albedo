@@ -23,7 +23,7 @@ Design source: Claude design canvas https://claude.ai/artifact/UpFs3Nat5Q983TyyA
   - `moonlight_pairing.rs` – `moonlight pair <host> --pin <pin>`
   - `moonlight_app_quit.rs` – `moonlight quit <host>`, ends the game still running on the PC after a disconnect
   - `moonlight_box_art.rs` – cover images from Moonlight's box art cache (`moonlight_host_entries.rs` parses Moonlight.conf)
-  - `art_search.rs` – picture search for "Bild setzen": Steam shop (no key) + SteamGridDB (key in settings `steamGridDbKey`, never logged); the picked picture goes to the companion through an upload token like a phone upload
+  - `art_search.rs` – picture search for "Bild setzen": Steam shop and libretro thumbnails (`libretro_thumbnails.rs`, retro systems, no key) + SteamGridDB (key in settings `steamGridDbKey`, never logged); the picked picture goes to the companion through an upload token like a phone upload
   - `companion_client.rs` – HTTP client for the companion service on the PC (`companion/API.md`), `library_entry.rs` is its list item
   - `app_updater.rs` – self-update from signed GitHub releases (`tauri-plugin-updater`, only when running as AppImage)
   - `ui_language.rs` – language of Rust messages for the UI (`set_language` from the frontend); companion calls send it as `Accept-Language`

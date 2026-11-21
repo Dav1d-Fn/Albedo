@@ -32,6 +32,11 @@ export function HintBar(props: { app: LauncherApp })
   {
     hints.push({ glyph: "◀ ▶", label: t.common.choose, button: "RIGHT", pill: true });
     hints.push({ glyph: "▲ ▼", label: t.common.row, button: "DOWN", pill: true });
+    if (state.imageDialog.row === "search")
+    {
+      const typing = document.activeElement?.id === "art-search";
+      hints.push({ glyph: "A", label: typing ? t.imageDialog.search : t.imageDialog.typeName, button: "A" });
+    }
     if (state.imageDialog.row === "pictures" && state.imageDialog.candidates.length > 0)
     {
       hints.push({ glyph: "A", label: t.imageDialog.apply, button: "A" });

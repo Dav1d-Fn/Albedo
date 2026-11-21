@@ -146,9 +146,9 @@ export class Backend
   }
 
   /** Pictures of this kind from the Steam shop and, with a key, SteamGridDB. */
-  public searchArt(gameName: string, entryId: string, kind: ArtKind, steamGridDbKey: string): Promise<ArtSearchResult>
+  public searchArt(gameName: string, entryId: string, system: string | undefined, kind: ArtKind, steamGridDbKey: string): Promise<ArtSearchResult>
   {
-    return invoke<ArtSearchResult>("search_art", { gameName, entryId, kind, steamGridDbKey });
+    return invoke<ArtSearchResult>("search_art", { gameName, entryId, system: system ?? null, kind, steamGridDbKey });
   }
 
   /** Downloads a found picture and sets it on the PC like a phone upload. */

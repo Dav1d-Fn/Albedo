@@ -18,6 +18,7 @@ import { EditorScreen } from "./views/EditorScreen";
 import { HintBar } from "./views/HintBar";
 import { HomeScreen } from "./views/HomeScreen";
 import { ImageDialog } from "./views/ImageDialog";
+import { SearchName } from "./model/SearchName";
 import { LibraryScreen } from "./views/LibraryScreen";
 import { StreamScreen } from "./views/StreamScreen";
 import { SunshineLoginDialog } from "./views/SunshineLoginDialog";
@@ -912,6 +913,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       token: null,
       loading: false,
       error: "",
+      query: SearchName.fromAppName(this.selectedGame() ?? ""),
       candidates: [],
       candidateIndex: 0,
       searching: false,
@@ -947,9 +949,9 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     const gameName = this.selectedGame();
     if (gameName !== undefined && this.companionArt.hasCustomArt(gameName, "hero"))
     {
-      return ["kind", "pictures"];
+      return ["kind", "search", "pictures"];
     }
-    return ["kind", "pictures", "backdrop"];
+    return ["kind", "search", "pictures", "backdrop"];
   }
 
   /** QR code and found pictures for this picture kind. */
@@ -984,32 +986,58 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }
   }
 
-  /** Pictures of this kind from the Steam shop (no key needed) and SteamGridDB (with a key). */
-  private async searchArt(kind: ArtKind): Promise<void>
+  /**
+   * Pictures of this kind for the dialog's search name: Steam shop and libretro (no key needed)
+   * and SteamGridDB (with a key). `query` is a newly typed name, otherwise the current one stays.
+   */
+  private async searchArt(kind: ArtKind, query?: string): Promise<void>
   {
     const gameName = this.selectedGame() ?? "";
     const entryId = this.companionArt.entryId(gameName);
+    const searchName = (query ?? this.state.imageDialog?.query ?? "").trim();
     // Without a companion entry a found picture could not be stored on the PC.
-    if (entryId === undefined)
+    if (entryId === undefined || searchName === "")
     {
       this.changeImageDialog({ candidates: [], candidateIndex: 0, searching: false, searchProblem: "" });
       return;
     }
-    this.changeImageDialog({ candidates: [], candidateIndex: 0, searching: true, searchProblem: "" });
+    this.changeImageDialog({ query: searchName, candidates: [], candidateIndex: 0, searching: true, searchProblem: "" });
+    // A typed name searches for that name only; the game's own Steam appid would bring its pictures back.
+    const searchesOwnName = searchName === SearchName.fromAppName(gameName);
+    const stillWanted = () => this.state.imageDialog?.kind === kind && this.state.imageDialog.query === searchName;
     try
     {
-      const result = await this.backend.searchArt(gameName, entryId, kind, this.settings.steamGridDbKey);
-      if (this.state.imageDialog?.kind === kind)
+      const result = await this.backend.searchArt(searchName, searchesOwnName ? entryId : "", this.companionArt.system(gameName), kind, this.settings.steamGridDbKey);
+      if (stillWanted())
       {
         this.changeImageDialog({ candidates: result.candidates, searching: false, searchProblem: result.problem ?? "" });
       }
     }
     catch (searchError)
     {
-      if (this.state.imageDialog?.kind === kind)
+      if (stillWanted())
       {
         this.changeImageDialog({ searching: false, searchProblem: String(searchError) });
       }
+    }
+  }
+
+  /** The search field; A focuses it, so the Deck's on-screen keyboard (Steam + X) can type into it. */
+  public focusArtSearch(): void
+  {
+    this.changeImageDialog({ row: "search" });
+    document.getElementById("art-search")?.focus();
+  }
+
+  /** Enter in the search field (or leaving it): search for the typed name. */
+  public submitArtSearch(): void
+  {
+    const dialog = this.state.imageDialog;
+    const field = document.getElementById("art-search") as HTMLInputElement | null;
+    field?.blur();
+    if (dialog !== null && field !== null && field.value.trim() !== dialog.query)
+    {
+      this.searchArt(dialog.kind, field.value);
     }
   }
 
@@ -1134,6 +1162,22 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       return;
     }
+    // While typing only A (Enter) and B (Escape) arrive here; both end typing, A also searches.
+    if (document.activeElement instanceof HTMLInputElement && document.activeElement.id === "art-search")
+    {
+      if (button === "A")
+      {
+        this.submitArtSearch();
+      }
+      else
+      {
+        document.activeElement.value = dialog.query;
+        document.activeElement.blur();
+      }
+      // Re-render, so the hint bar no longer shows the typing hints.
+      this.changeImageDialog({ row: "search" });
+      return;
+    }
     if (button === "B")
     {
       this.closeImageDialog();
@@ -1149,6 +1193,11 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     if (button === "X" && dialog.row !== "backdrop")
     {
       this.resetArt();
+      return;
+    }
+    if (button === "A" && dialog.row === "search")
+    {
+      this.focusArtSearch();
       return;
     }
     if (button === "A" && dialog.row === "pictures")
@@ -1175,7 +1224,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       const candidateIndex = Math.min(dialog.candidates.length - 1, Math.max(0, dialog.candidateIndex + step));
       this.changeImageDialog({ candidateIndex: Math.max(0, candidateIndex) });
     }
-    else
+    else if (dialog.row === "backdrop")
     {
       const choices = LauncherApp.backdropChoices;
       const current = choices.indexOf(this.backdropKindOverride(this.selectedGame()));

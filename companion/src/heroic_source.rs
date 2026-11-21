@@ -64,6 +64,7 @@ impl HeroicSource
             detached_command: Some(format!("xdg-open \"heroic://launch?appName={}&runner={}\"", app_name, runner)),
             quit_command: (!install_path.is_empty()).then(|| ProcessQuitter::command_for(install_path)),
             follows_client_resolution: true,
+            system: None,
         }
     }
 
