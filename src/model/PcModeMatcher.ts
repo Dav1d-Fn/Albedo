@@ -1,3 +1,4 @@
+import { UiText } from "../i18n/UiText";
 import { ModeText } from "./ModeText";
 import { PcDisplayMode, StreamMode } from "./Types";
 
@@ -28,7 +29,7 @@ export class PcModeMatcher
     return sortedModes[0] ?? null;
   }
 
-  /** German hint when the PC has no exact mode for the stream mode, null when it has one (or nothing is known). */
+  /** Hint (in the UI language) when the PC has no exact mode for the stream mode, null when it has one (or nothing is known). */
   public static hint(pcModes: PcDisplayMode[] | null, mode: StreamMode): string | null
   {
     if (pcModes === null || pcModes.length === 0)
@@ -41,14 +42,14 @@ export class PcModeMatcher
     {
       return null;
     }
-    let hintText = "Der virtuelle Monitor des PCs kann das nicht genau und nimmt " + PcModeMatcher.text(closestMode) + ".";
+    let hintText = UiText.current.editor.pcModeInexact(PcModeMatcher.text(closestMode));
     const sameResolutionRates = pcModes
       .filter((pcMode) => pcMode.width === wanted.width && pcMode.height === wanted.height)
       .map((pcMode) => pcMode.refreshRate)
       .sort((first, second) => first - second);
     if (sameResolutionRates.length > 0)
     {
-      hintText += " Passend wären " + sameResolutionRates.join(" / ") + " FPS.";
+      hintText += UiText.current.editor.pcModeMatching(sameResolutionRates.join(" / "));
     }
     return hintText;
   }

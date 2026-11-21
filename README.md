@@ -155,7 +155,7 @@ Releases are signed. The AppImage checks GitHub on start and updates itself afte
 ## Requirements 📋
 
 > [!NOTE]
-> The interface is **German only** for now. Translations are welcome.
+> The interface speaks **German and English**. It follows the system language until you pick one under Connection → Language.
 
 ### Steam Deck
 

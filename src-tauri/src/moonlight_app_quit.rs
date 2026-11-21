@@ -1,3 +1,4 @@
+use crate::ui_language::UiLanguage;
 use std::process::Command;
 
 use crate::host_environment::HostEnvironment;
@@ -18,7 +19,7 @@ impl MoonlightAppQuit
             return Ok(());
         }
 
-        let (program, base_arguments) = moonlight_command.split_first().ok_or("Moonlight-Befehl ist leer")?;
+        let (program, base_arguments) = moonlight_command.split_first().ok_or_else(|| UiLanguage::pick("Moonlight-Befehl ist leer", "Moonlight command is empty"))?;
 
         let mut command = Command::new(program);
         HostEnvironment::apply_to(&mut command);
@@ -26,7 +27,7 @@ impl MoonlightAppQuit
             .args(base_arguments)
             .args(["quit", host])
             .output()
-            .map_err(|error| format!("Moonlight nicht gefunden ({}): {}", program, error))?;
+            .map_err(|error| format!("{} ({}): {}", UiLanguage::pick("Moonlight nicht gefunden", "Moonlight not found"), program, error))?;
 
         if output.status.success()
         {
@@ -34,6 +35,6 @@ impl MoonlightAppQuit
         }
         let error_text = String::from_utf8_lossy(&output.stderr);
         let last_line = error_text.lines().rev().find(|line| !line.trim().is_empty()).unwrap_or("").trim();
-        Err(format!("Beenden fehlgeschlagen (Code {:?}) {}", output.status.code(), last_line))
+        Err(format!("{} {:?} {}", UiLanguage::pick("Beenden fehlgeschlagen, Code", "Quitting failed, code"), output.status.code(), last_line))
     }
 }

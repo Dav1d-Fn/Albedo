@@ -1,3 +1,4 @@
+import { UiText } from "../i18n/UiText";
 import { DeviceIconKind } from "../model/Types";
 import { CheckIcon, DeviceIcon } from "./Icons";
 
@@ -32,7 +33,7 @@ export function ToastCard(props: { toast: ToastContent })
           <div className="tclose">
             <span className="glyph sm">A</span>
             <span className="glyph sm">B</span>
-            Schließen
+            {UiText.current.common.close}
           </div>
         )}
       </div>

@@ -1,3 +1,4 @@
+use crate::ui_language::UiLanguage;
 use std::os::unix::process::CommandExt;
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
@@ -42,7 +43,7 @@ impl StreamSession
         let mut running_group = self.running_group.lock().map_err(|error| error.to_string())?;
         if running_group.is_some()
         {
-            return Err("Es läuft schon ein Stream".into());
+            return Err(UiLanguage::pick("Es läuft schon ein Stream", "A stream is already running"));
         }
 
         let mut arguments = moonlight_command.to_arguments();
@@ -55,7 +56,7 @@ impl StreamSession
             arguments = dry_run_arguments;
         }
 
-        let (program, program_arguments) = arguments.split_first().ok_or("Moonlight-Befehl ist leer")?;
+        let (program, program_arguments) = arguments.split_first().ok_or_else(|| UiLanguage::pick("Moonlight-Befehl ist leer", "Moonlight command is empty"))?;
 
         let mut command = Command::new(program);
         HostEnvironment::apply_to(&mut command);
@@ -66,7 +67,7 @@ impl StreamSession
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|error| format!("Moonlight ließ sich nicht starten ({}): {}", error, command_line))?;
+            .map_err(|error| format!("{} ({}): {}", UiLanguage::pick("Moonlight ließ sich nicht starten", "Moonlight could not be started"), error, command_line))?;
         *running_group = Some(child.id());
 
         let running_group_for_thread = Arc::clone(&self.running_group);

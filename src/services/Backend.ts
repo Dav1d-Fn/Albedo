@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { DefaultSettings } from "../model/DefaultSettings";
 import { ModeText } from "../model/ModeText";
-import { ArtKind, ArtSearchResult, CompanionLibrary, UploadToken, DeviceProfile, DiscoveredHost, PadButton, PcDisplayMode, Settings, StreamMode } from "../model/Types";
+import { UiLanguage, ArtKind, ArtSearchResult, CompanionLibrary, UploadToken, DeviceProfile, DiscoveredHost, PadButton, PcDisplayMode, Settings, StreamMode } from "../model/Types";
 
 export interface StreamEnded
 {
@@ -43,6 +43,12 @@ export class Backend
   public saveSettings(settings: Settings): Promise<string>
   {
     return invoke<string>("save_settings", { settingsJson: JSON.stringify(settings, null, 2) });
+  }
+
+  /** Language of the Rust side's messages and of the companion's answers (sent as Accept-Language). */
+  public setLanguage(language: UiLanguage): Promise<void>
+  {
+    return invoke<void>("set_language", { language });
   }
 
   /** Names of the connected external screens (from their EDID); empty = no dock/TV. */

@@ -1,3 +1,4 @@
+use crate::request_language::RequestLanguage;
 use std::path::PathBuf;
 
 use crate::art_override_store::ArtOverrideStore;
@@ -35,13 +36,25 @@ impl LibraryEntry
         !matches!(self.cover, CoverSource::None)
     }
 
+    /// Group names are German inside the companion (sort order); English requests get them translated.
+    fn group_label(group: &str) -> String
+    {
+        match group
+        {
+            "Voreinstellungen" => RequestLanguage::pick(group, "Presets"),
+            "Nicht-Steam" => RequestLanguage::pick(group, "Non-Steam"),
+            "Programme" => RequestLanguage::pick(group, "Apps"),
+            _ => group.to_string(),
+        }
+    }
+
     pub fn to_response(&self, in_sunshine: bool) -> LibraryEntryResponse
     {
         LibraryEntryResponse
         {
             id: self.id.clone(),
             name: self.name.clone(),
-            group: self.group.clone(),
+            group: Self::group_label(&self.group),
             has_cover: self.has_cover(),
             has_hero: !matches!(self.hero, CoverSource::None),
             has_logo: !matches!(self.logo, CoverSource::None),

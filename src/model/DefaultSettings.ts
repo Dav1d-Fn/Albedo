@@ -1,3 +1,4 @@
+import { UiText } from "../i18n/UiText";
 import { DeviceProfile, Settings } from "./Types";
 
 /** Settings used on first start, and to fill in keys missing from an older settings file. */
@@ -22,6 +23,7 @@ export class DefaultSettings
       backdropKind: "hero",
       backdropKindPerGame: {},
       steamGridDbKey: "",
+      language: "",
       profiles:
       {
         handheld:
@@ -108,7 +110,7 @@ export class DefaultSettings
     return {
       ...fallback,
       ...stored,
-      name: stored.name ?? (defaultProfiles[deviceId]?.name ?? "Gerät"),
+      name: stored.name ?? (defaultProfiles[deviceId]?.name ?? UiText.current.common.defaultDeviceName),
       color: stored.color ?? fallback.color,
       icon: stored.icon ?? fallback.icon,
       displayName: stored.displayName ?? "",

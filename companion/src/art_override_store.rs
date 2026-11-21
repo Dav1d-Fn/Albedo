@@ -1,3 +1,4 @@
+use crate::request_language::RequestLanguage;
 use std::fs;
 use std::path::PathBuf;
 
@@ -59,7 +60,7 @@ impl ArtOverrideStore
         {
             fs::create_dir_all(art_directory).map_err(|error| error.to_string())?;
         }
-        fs::write(&override_path, converted_bytes).map_err(|error| format!("Bild nicht speicherbar: {}", error))?;
+        fs::write(&override_path, converted_bytes).map_err(|error| format!("{}: {}", RequestLanguage::pick("Bild nicht speicherbar", "Cannot store image"), error))?;
         Self::forget_cached_conversion(entry_id, art_kind);
         Ok(())
     }

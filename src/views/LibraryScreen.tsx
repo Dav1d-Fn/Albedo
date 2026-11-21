@@ -1,8 +1,9 @@
+import { UiText } from "../i18n/UiText";
 import LauncherApp from "../LauncherApp";
 import { GameArt } from "../model/GameArt";
 import { CheckIcon } from "./Icons";
 
-/** "Hinzufügen": games and programs installed on the PC, grouped by source, from the companion service. */
+/** "Add games": games and programs installed on the PC, grouped by source, from the companion service. */
 export function LibraryScreen(props: { app: LauncherApp })
 {
   const app = props.app;
@@ -10,6 +11,7 @@ export function LibraryScreen(props: { app: LauncherApp })
   const groups = app.libraryGroups();
   const entries = app.libraryEntriesOfGroup();
   const selectedEntry = app.selectedLibraryEntry();
+  const t = UiText.current;
 
   const columns = LauncherApp.libraryColumns;
   const rowHeightWithGap = 246;
@@ -18,15 +20,15 @@ export function LibraryScreen(props: { app: LauncherApp })
 
   const statusText =
   {
-    loading: "Frage den PC nach installierten Spielen …",
-    ready: state.library.length + " Einträge auf " + app.hostDisplayName(),
-    error: "Kein Kontakt zum PC-Helfer",
+    loading: t.library.asking,
+    ready: t.library.entriesOn(state.library.length, app.hostDisplayName()),
+    error: t.library.noContact,
   }[state.libraryState];
 
   return (
     <div className="screen">
       <div className="etop">
-        <div className="etitle">Hinzufügen</div>
+        <div className="etitle">{t.common.add}</div>
         <div className="pauto">
           <span className={"dot" + (state.libraryState === "loading" ? " wake" : state.libraryState === "error" ? " err" : " on")} />
           <span>{statusText}</span>
@@ -53,7 +55,7 @@ export function LibraryScreen(props: { app: LauncherApp })
           <span className="dot err" />
           <span>
             <b>{state.librarySunshineProblem}</b>
-            {" · Hinzufügen und Entfernen gehen erst mit Login. A oder ☰ trägt ihn ein."}
+            {t.library.loginNeeded}
           </span>
         </div>
       )}
@@ -84,13 +86,10 @@ export function LibraryScreen(props: { app: LauncherApp })
         </div>
         {state.libraryState === "error" && (
           <div className="lempty">
-            <div className="htitle">PC-Helfer nicht erreichbar</div>
+            <div className="htitle">{t.library.helperUnreachable}</div>
             <div className="dnote err"><span className="dot err" /><code>{state.libraryError}</code></div>
-            <div className="lnote">
-              Der Launcher geht auch ohne Helfer: Du spielst dann die Apps, die in Sunshine eingerichtet sind.
-              Nur Hinzufügen braucht den Helfer auf dem PC.
-            </div>
-            <div className="dnote">Helfer auf dem PC starten (companion/README.md), dann Y. B geht zurück zu den Spielen.</div>
+            <div className="lnote">{t.library.worksWithoutHelper}</div>
+            <div className="dnote">{t.library.startHelper}</div>
           </div>
         )}
       </div>

@@ -1,3 +1,4 @@
+import { UiText } from "../i18n/UiText";
 import type LauncherApp from "../LauncherApp";
 import { ModeText } from "../model/ModeText";
 import { DeviceIcon, PlusIcon, SlidersIcon } from "./Icons";
@@ -9,14 +10,15 @@ export function HomeScreen(props: { app: LauncherApp })
 {
   const app = props.app;
   const state = app.state;
+  const t = UiText.current;
   const gamesZone = state.zone === "games";
   const topFocus = (topIndex: number) => (!gamesZone && state.topIndex === topIndex ? " f" : "");
 
   const hostSubtitle =
   {
-    loading: "Lade Spieleliste …",
-    online: "Online · " + state.games.length + " Spiele · Sunshine bereit",
-    error: app.settings.host ? "Nicht erreichbar · Y lädt neu" : "Nicht eingerichtet · A drücken",
+    loading: t.home.loadingGames,
+    online: t.home.online(state.games.length),
+    error: app.settings.host ? t.home.unreachable : t.home.notSetUp,
   }[state.hostState];
   const dotClass = { loading: "wake", online: "on", error: "err" }[state.hostState];
   const deviceOrder = app.settings.deviceOrder;
@@ -36,7 +38,7 @@ export function HomeScreen(props: { app: LauncherApp })
       <div className="scrim" />
 
       <div className="top">
-        <button className={"chip" + topFocus(0)} onClick={() => app.activateTop(0)} aria-label={"Host-PC: " + hostSubtitle}>
+        <button className={"chip" + topFocus(0)} onClick={() => app.activateTop(0)} aria-label={t.home.hostChipLabel(hostSubtitle)}>
           <span className={"dot " + dotClass} />
           <span className="chip-txt">
             <span className="chip-name">{app.hostDisplayName()}</span>
@@ -50,7 +52,7 @@ export function HomeScreen(props: { app: LauncherApp })
             className={"pswitch" + topFocus(1)}
             style={{ gridTemplateColumns: `repeat(${deviceOrder.length}, 1fr)` }}
             onClick={() => app.activateTop(1)}
-            aria-label={"Gerät wechseln, aktiv: " + app.profile().name}
+            aria-label={t.home.switchDeviceLabel(app.profile().name)}
           >
             <span className="pthumb" style={{ width: segmentWidth, transform: `translateX(${activeIndex * segmentWidth}px)` }} />
             {deviceOrder.map((deviceId) =>
@@ -70,11 +72,11 @@ export function HomeScreen(props: { app: LauncherApp })
           </button>
           <ModeStrip app={app} />
           <div className="pauto">
-            <span className="badge">{state.automatic ? "AUTO" : "MANUELL"}</span>
+            <span className="badge">{state.automatic ? t.common.auto : t.common.manual}</span>
             <span>
               {state.automatic
-                ? (state.displayNames.length > 0 ? "Bildschirm erkannt: " + state.displayNames.join(", ") : "Kein externer Bildschirm")
-                : "Automatisch wäre " + app.detectedDeviceName()}
+                ? (state.displayNames.length > 0 ? t.home.screenDetected(state.displayNames.join(", ")) : t.home.noExternalScreen)
+                : t.home.automaticWouldBe(app.detectedDeviceName())}
             </span>
             <span className="glyph sm">X</span>
           </div>
@@ -82,7 +84,7 @@ export function HomeScreen(props: { app: LauncherApp })
 
         <button className={"tbtn" + topFocus(2)} onClick={() => app.activateTop(2)}>
           <SlidersIcon />
-          Geräte
+          {t.common.devices}
           <span className="glyph pill sm">☰</span>
         </button>
       </div>
@@ -90,28 +92,28 @@ export function HomeScreen(props: { app: LauncherApp })
       <div className="hero">
         {state.games.map((gameName, gameIndex) => (
           <div key={gameName} className={"ht" + (gameIndex === state.gameIndex ? " on" : "")}>
-            <div className="eyebrow">{app.isRemembered(gameName) ? "Profil gemerkt" : "Sunshine-App"}</div>
+            <div className="eyebrow">{app.isRemembered(gameName) ? t.home.profileRemembered : t.common.sunshineApp}</div>
             {state.logos[gameName] !== undefined
               ? <div className="htitle"><img className="glogo" src={state.logos[gameName]} alt={gameName} /></div>
               : <div className="htitle">{gameName}</div>}
             <div className="hmeta">
               <span className="hprof">
                 <span className="adot" />
-                {"Startet als " + app.profile().name + " · " + ModeText.spec(app.activeMode())}
+                {t.common.startsAs(app.profile().name, ModeText.spec(app.activeMode()))}
               </span>
             </div>
           </div>
         ))}
         <div className={"ht" + (app.isAddTileSelected() && state.games.length > 0 ? " on" : "")}>
-          <div className="eyebrow">Bibliothek</div>
-          <div className="htitle">Hinzufügen</div>
-          <div className="hmeta"><span>Spiele und Programme vom PC in die Liste holen</span></div>
+          <div className="eyebrow">{t.common.library}</div>
+          <div className="htitle">{t.common.add}</div>
+          <div className="hmeta"><span>{t.home.addTileText}</span></div>
         </div>
         {state.games.length === 0 && (
           <div className="ht on">
-            <div className="eyebrow">Bibliothek</div>
-            <div className="htitle">{state.hostState === "loading" ? "Lade …" : "Keine Spiele"}</div>
-            <div className="hmeta"><span>{state.hostError || "Sunshine hat keine Apps geliefert."}</span></div>
+            <div className="eyebrow">{t.common.library}</div>
+            <div className="htitle">{state.hostState === "loading" ? t.home.loading : t.home.noGames}</div>
+            <div className="hmeta"><span>{state.hostError || t.home.noApps}</span></div>
           </div>
         )}
       </div>
@@ -132,10 +134,10 @@ export function HomeScreen(props: { app: LauncherApp })
           <button
             className={"cover addtile" + (gamesZone ? (app.isAddTileSelected() ? " f" : " dim") : "")}
             onClick={() => app.openLibrary()}
-            aria-label="Spiele hinzufügen"
+            aria-label={t.home.addGames}
           >
             <PlusIcon />
-            <span className="addlabel">Hinzufügen</span>
+            <span className="addlabel">{t.common.add}</span>
           </button>
         </div>
       </div>

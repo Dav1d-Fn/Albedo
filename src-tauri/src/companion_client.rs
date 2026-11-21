@@ -1,7 +1,9 @@
+use crate::ui_language::UiLanguage;
 use std::time::Duration;
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64;
+use reqwest::header::{HeaderMap, HeaderValue, ACCEPT_LANGUAGE};
 use reqwest::{Client, RequestBuilder, Response, Url};
 use serde::Deserialize;
 use serde_json::json;
@@ -64,8 +66,13 @@ impl CompanionClient
             host.to_string()
         };
         let base_url = Url::parse(&format!("http://{}:{}/", host_part, Self::PORT)).map_err(|error| error.to_string())?;
+        // The companion answers in this language (errors, group names); a client lives for one command,
+        // so a language change applies to the next call.
+        let mut default_headers = HeaderMap::new();
+        default_headers.insert(ACCEPT_LANGUAGE, HeaderValue::from_static(UiLanguage::code()));
         let http_client = Client::builder()
             .timeout(Duration::from_secs(20))
+            .default_headers(default_headers)
             .build()
             .map_err(|error| error.to_string())?;
 
@@ -228,7 +235,7 @@ impl CompanionClient
         match response.json::<ErrorResponse>().await
         {
             Ok(error_response) => Err(error_response.error),
-            Err(_) => Err(format!("PC-Helfer antwortet mit {}", status)),
+            Err(_) => Err(format!("{} {}", UiLanguage::pick("PC-Helfer antwortet mit", "PC companion answered with"), status)),
         }
     }
 
@@ -236,7 +243,10 @@ impl CompanionClient
     {
         if error.is_connect() || error.is_timeout()
         {
-            format!("PC-Helfer nicht erreichbar (Port {}). Läuft der Companion auf dem PC?", Self::PORT)
+            UiLanguage::pick(
+                &format!("PC-Helfer nicht erreichbar (Port {}). Läuft der Companion auf dem PC?", Self::PORT),
+                &format!("PC companion unreachable (port {}). Is it running on the PC?", Self::PORT),
+            )
         }
         else
         {

@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="de">
+<html lang="{{LANGUAGE}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bild hochladen</title>
+<title>{{PAGE_TITLE}}</title>
 <style>
   :root { color-scheme: light dark; --accent: #3b82f6; }
   body { font-family: system-ui, sans-serif; margin: 0; padding: 24px 16px; background: Canvas; color: CanvasText; }
@@ -22,7 +22,7 @@
 <main>
   <h1>{{ENTRY_NAME}}</h1>
   <p class="kind">{{KIND_LABEL}}</p>
-  <label class="pick" id="pick">Bild auswählen<input type="file" id="file" accept="image/*"></label>
+  <label class="pick" id="pick">{{PICK_IMAGE}}<input type="file" id="file" accept="image/*"></label>
   <img id="preview" alt="">
   <p id="status"></p>
 </main>
@@ -42,25 +42,25 @@
     preview.src = URL.createObjectURL(pickedFile);
     preview.style.display = "block";
     statusLine.className = "";
-    statusLine.textContent = "Wird hochgeladen …";
+    statusLine.textContent = "{{UPLOADING}}";
     try
     {
       const response = await fetch(location.href, { method: "POST", body: pickedFile });
       if (response.ok)
       {
         statusLine.className = "done";
-        statusLine.textContent = "Fertig! Das Bild ist gleich auf dem Deck zu sehen. Du kannst diese Seite schließen.";
+        statusLine.textContent = "{{DONE}}";
         pickButton.style.display = "none";
         return;
       }
       const answer = await response.json().catch(() => ({}));
       statusLine.className = "error";
-      statusLine.textContent = answer.error || ("Fehler " + response.status);
+      statusLine.textContent = answer.error || ("{{ERROR}} " + response.status);
     }
     catch (error)
     {
       statusLine.className = "error";
-      statusLine.textContent = "PC nicht erreichbar. Bist du im selben WLAN?";
+      statusLine.textContent = "{{UNREACHABLE}}";
     }
   });
 </script>

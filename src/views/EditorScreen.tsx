@@ -1,19 +1,11 @@
+import { UiText } from "../i18n/UiText";
 import LauncherApp from "../LauncherApp";
 import { DevicePalette } from "../model/DevicePalette";
 import { ModeText } from "../model/ModeText";
 import { PcModeMatcher } from "../model/PcModeMatcher";
-import { DeviceColor, DeviceIconKind, StreamMode } from "../model/Types";
+import { AutoRule, DeviceColor, DeviceIconKind, StreamMode } from "../model/Types";
 import { EditorRows } from "./EditorRows";
 import { ChevronLeftIcon, ChevronRightIcon, DeviceIcon, MinusIcon, PlusIcon } from "./Icons";
-
-/** Labels of the buttons under the profile list, in `LauncherApp.editorActions` order. */
-const actionLabels: Record<(typeof LauncherApp.editorActions)[number], string> =
-{
-  addMode: "+ Profil",
-  makeDefault: "Als Standard",
-  deleteMode: "Profil löschen",
-  addDevice: "+ Gerät",
-};
 
 /**
  * Device editor: on the left the device settings entry and the device's profiles (stream modes),
@@ -23,6 +15,15 @@ export function EditorScreen(props: { app: LauncherApp })
 {
   const app = props.app;
   const state = app.state;
+  const t = UiText.current;
+  // Labels of the buttons under the profile list, in `LauncherApp.editorActions` order.
+  const actionLabels: Record<(typeof LauncherApp.editorActions)[number], string> =
+  {
+    addMode: t.editor.addProfile,
+    makeDefault: t.editor.makeDefault,
+    deleteMode: t.editor.deleteProfile,
+    addDevice: t.editor.addDevice,
+  };
   const editDevice = state.editDevice;
   const profile = app.profile(editDevice);
   const editMode = profile.modes[state.editModeIndex] ?? profile.modes[0];
@@ -40,7 +41,7 @@ export function EditorScreen(props: { app: LauncherApp })
   return (
     <div className="screen">
       <div className="etop">
-        <div className="etitle">Geräte</div>
+        <div className="etitle">{t.common.devices}</div>
         <div className="tabs">
           <span className="glyph pill">L1</span>
           <div className="tabbar" style={{ gridTemplateColumns: `repeat(${deviceOrder.length}, ${tabWidth}px)` }}>
@@ -54,7 +55,7 @@ export function EditorScreen(props: { app: LauncherApp })
           </div>
           <span className="glyph pill">R1</span>
         </div>
-        <div className="eactive">{"Aktiv: " + app.profile().name + " · " + ModeText.label(app.activeMode()) + " FPS"}</div>
+        <div className="eactive">{t.editor.activeNow(app.profile().name + " · " + ModeText.label(app.activeMode()) + " FPS")}</div>
       </div>
 
       <div className="ebody">
@@ -65,13 +66,13 @@ export function EditorScreen(props: { app: LauncherApp })
           >
             <span className="mtop">
               <span className="dicon" style={{ color: DevicePalette.colors[profile.color] }}><DeviceIcon kind={profile.icon} /></span>
-              <span className="mname">Geräteeinstellungen</span>
+              <span className="mname">{t.editor.deviceSettings}</span>
             </span>
             {deviceEntryConfirming
-              ? <span className="msub">{"Nochmal X: " + profile.name + " löschen"}</span>
-              : <span className="msub">{profile.autoRule + " · " + profile.audio}</span>}
+              ? <span className="msub">{t.editor.pressXAgainToDelete(profile.name)}</span>
+              : <span className="msub">{t.autoRuleNames[profile.autoRule] + " · " + profile.audio}</span>}
           </button>
-          <div className="clabel" style={{ paddingLeft: 4, marginTop: 6 }}>{"Profile für " + profile.name}</div>
+          <div className="clabel" style={{ paddingLeft: 4, marginTop: 6 }}>{t.editor.profilesOf(profile.name)}</div>
           {profile.modes.map((mode, modeIndex) =>
           {
             const selected = !onDeviceEntry && modeIndex === state.editModeIndex;
@@ -85,14 +86,14 @@ export function EditorScreen(props: { app: LauncherApp })
               >
                 <span className="mtop">
                   <span className="mname">{ModeText.label(mode) + " FPS"}</span>
-                  {modeIndex === profile.defaultModeIndex && <span className="badge">STANDARD</span>}
+                  {modeIndex === profile.defaultModeIndex && <span className="badge">{t.editor.defaultBadge}</span>}
                 </span>
                 {confirming
-                  ? <span className="msub">Nochmal X: Profil löschen</span>
+                  ? <span className="msub">{t.editor.pressXAgainToDeleteProfile}</span>
                   : (
                     <span className="msub">
                       {modeIndex === app.currentModeIndex(editDevice) && <span className="adot" />}
-                      {mode.bitrateMbps + " Mbit/s · " + ModeText.extra(mode)}
+                      {ModeText.bitrate(mode.bitrateMbps) + " · " + ModeText.extra(mode)}
                     </span>
                   )}
               </button>
@@ -111,11 +112,11 @@ export function EditorScreen(props: { app: LauncherApp })
               let label = actionLabels[action];
               if (action === "makeDefault" && isDefault)
               {
-                label = "Ist Standard";
+                label = t.editor.isDefault;
               }
               if (confirming)
               {
-                label = "Wirklich löschen? A";
+                label = t.editor.reallyDeleteA;
               }
               return (
                 <button
@@ -134,17 +135,18 @@ export function EditorScreen(props: { app: LauncherApp })
           {visibleRows.map((rowIndex) =>
           {
             const row = EditorRows.rows[rowIndex];
+            const rowLabel = EditorRows.label(row);
             const value = EditorRows.value(rowIndex, profile, state.editModeIndex);
             const bumpCount = state.bumps[editDevice + state.editModeIndex + row.key] ?? 0;
             const bumpClass = bumpCount ? (bumpCount % 2 ? " b1" : " b0") : "";
             const focused = state.editZone === "rows" && rowIndex === state.editRow;
             const confirmingDevice = row.scope === "device" && state.editConfirmDelete === "device" && state.editZone === "rows";
             let heading = row.scope === "mode"
-              ? "Profil " + ModeText.label(editMode as StreamMode) + " FPS"
-              : "Gerät " + profile.name + " · gilt für alle Profile";
+              ? t.editor.profileHeading(ModeText.label(editMode as StreamMode) + " FPS")
+              : t.editor.deviceHeading(profile.name);
             if (confirmingDevice)
             {
-              heading = "Gerät " + profile.name + " löschen? Nochmal X";
+              heading = t.editor.deleteDeviceHeading(profile.name);
             }
             let displayValue = String(value);
             if (row.key === "resolution")
@@ -157,52 +159,56 @@ export function EditorScreen(props: { app: LauncherApp })
             }
             else if (row.type === "range")
             {
-              displayValue = value + " Mbit/s";
+              displayValue = ModeText.bitrate(value as number);
             }
             else if (row.type === "bool")
             {
-              displayValue = value ? "An" : "Aus";
+              displayValue = value ? t.common.on : t.common.off;
             }
             else if (row.key === "color")
             {
-              displayValue = DevicePalette.colorNames[value as DeviceColor];
+              displayValue = t.colorNames[value as DeviceColor];
             }
             else if (row.key === "icon")
             {
-              displayValue = DevicePalette.iconNames[value as DeviceIconKind];
+              displayValue = t.iconNames[value as DeviceIconKind];
+            }
+            else if (row.key === "autoRule")
+            {
+              displayValue = t.autoRuleNames[value as AutoRule];
             }
             else if (row.key === "displayName")
             {
-              displayValue = value ? String(value) : "keiner";
+              displayValue = value ? String(value) : t.editor.noScreen;
             }
 
             return (
               <div key={row.key} style={{ display: "contents" }}>
                 {row.heading && <div className={"rhead clabel" + (confirmingDevice ? " warn" : "")}>{heading}</div>}
                 <div className={"row" + (focused ? " f" : "") + (row.type === "delete" ? " delrow" : "")} ref={focused ? (rowElement) => rowElement?.scrollIntoView({ block: "nearest" }) : undefined}>
-                  <button className="rlabel" onClick={() => app.activateEditorRow(rowIndex)}>{row.label}</button>
+                  <button className="rlabel" onClick={() => app.activateEditorRow(rowIndex)}>{rowLabel}</button>
                   <div className="ctrl">
                     {row.type === "list" && (
                       <>
-                        <button className="arr" onClick={() => app.changeValue(rowIndex, -1, false)} aria-label={row.label + ": vorheriger Wert"}><ChevronLeftIcon /></button>
+                        <button className="arr" onClick={() => app.changeValue(rowIndex, -1, false)} aria-label={t.editor.previousValue(rowLabel)}><ChevronLeftIcon /></button>
                         {row.key === "color" && <span className="swatch" style={{ background: DevicePalette.colors[value as DeviceColor] }} />}
                         {row.key === "icon" && <DeviceIcon kind={value as DeviceIconKind} />}
                         <span key={bumpCount} className={"val" + bumpClass}>{displayValue}</span>
-                        <button className="arr" onClick={() => app.changeValue(rowIndex, 1, false)} aria-label={row.label + ": nächster Wert"}><ChevronRightIcon /></button>
+                        <button className="arr" onClick={() => app.changeValue(rowIndex, 1, false)} aria-label={t.editor.nextValue(rowLabel)}><ChevronRightIcon /></button>
                       </>
                     )}
                     {row.type === "range" && (
                       <>
-                        <button className="arr" onClick={() => app.changeValue(rowIndex, -1, false)} aria-label="Bitrate senken"><MinusIcon /></button>
+                        <button className="arr" onClick={() => app.changeValue(rowIndex, -1, false)} aria-label={t.editor.lowerBitrate}><MinusIcon /></button>
                         <span className="bar"><span style={{ width: Math.round(((value as number) - row.minimum!) / (row.maximum! - row.minimum!) * 100) + "%" }} /></span>
                         <span key={bumpCount} className={"val short" + bumpClass}>{displayValue}</span>
-                        <button className="arr" onClick={() => app.changeValue(rowIndex, 1, false)} aria-label="Bitrate erhöhen"><PlusIcon /></button>
+                        <button className="arr" onClick={() => app.changeValue(rowIndex, 1, false)} aria-label={t.editor.raiseBitrate}><PlusIcon /></button>
                       </>
                     )}
                     {row.type === "bool" && (
                       <>
                         <span key={bumpCount} className={"val short" + bumpClass}>{displayValue}</span>
-                        <button className={"toggle" + (value ? " on" : "")} role="switch" aria-checked={Boolean(value)} aria-label={row.label} onClick={() => app.changeValue(rowIndex, 1, true)}>
+                        <button className={"toggle" + (value ? " on" : "")} role="switch" aria-checked={Boolean(value)} aria-label={rowLabel} onClick={() => app.changeValue(rowIndex, 1, true)}>
                           <span className="knob" />
                         </button>
                       </>
@@ -222,12 +228,12 @@ export function EditorScreen(props: { app: LauncherApp })
                     {row.type === "screen" && (
                       <>
                         <span className="val">{displayValue}</span>
-                        <button className="madd" onClick={() => app.takeConnectedScreen()}>Aktuellen übernehmen · A</button>
+                        <button className="madd" onClick={() => app.takeConnectedScreen()}>{t.editor.takeCurrentScreen}</button>
                       </>
                     )}
                     {row.type === "delete" && (
                       <button className={"madd danger" + (confirmingDevice ? " warn" : "") + (deviceOrder.length <= 1 ? " dis" : "")} onClick={() => app.activateEditorRow(rowIndex)}>
-                        {confirmingDevice ? "Wirklich löschen? A" : deviceOrder.length <= 1 ? "Ein Gerät bleibt immer" : "Löschen · A"}
+                        {confirmingDevice ? t.editor.reallyDeleteA : deviceOrder.length <= 1 ? t.editor.oneDeviceStays : t.editor.deleteA}
                       </button>
                     )}
                     {row.type === "seg" && (

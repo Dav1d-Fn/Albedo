@@ -1,3 +1,4 @@
+use crate::request_language::RequestLanguage;
 use std::io::Write;
 use std::process::{Command, Stdio};
 
@@ -23,7 +24,7 @@ impl SunshineClient
     {
         let response_body = self.request("GET", "/api/apps", None)?;
         let app_list: Value = serde_json::from_str(&response_body)
-            .map_err(|_| "Sunshine liefert keine gültige App-Liste".to_string())?;
+            .map_err(|_| RequestLanguage::pick("Sunshine liefert keine gültige App-Liste", "Sunshine returned no valid app list"))?;
         Ok(app_list["apps"].as_array().cloned().unwrap_or_default())
     }
 
@@ -48,7 +49,7 @@ impl SunshineClient
             .app_names()?
             .iter()
             .position(|name| name == app_name)
-            .ok_or_else(|| format!("„{}“ gibt es in Sunshine nicht", app_name))?;
+            .ok_or_else(|| RequestLanguage::pick(&format!("„{}“ gibt es in Sunshine nicht", app_name), &format!("\"{}\" doesn't exist in Sunshine", app_name)))?;
         self.request("DELETE", &format!("/api/apps/{}", app_index), None).map(|_| ())
     }
 
@@ -57,7 +58,7 @@ impl SunshineClient
         if !self.config.has_sunshine_login()
         {
             // Shown on the Deck, so no PC file path here.
-            return Err("Sunshine-Login fehlt im PC-Helfer".into());
+            return Err(RequestLanguage::pick("Sunshine-Login fehlt im PC-Helfer", "The PC companion has no Sunshine login"));
         }
 
         let base_url = self.config.sunshine_url.trim_end_matches('/');
@@ -79,7 +80,7 @@ impl SunshineClient
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
-            .map_err(|error| format!("curl nicht startbar: {}", error))?;
+            .map_err(|error| format!("{}: {}", RequestLanguage::pick("curl nicht startbar", "Cannot start curl"), error))?;
         curl_process
             .stdin
             .take()
@@ -93,9 +94,9 @@ impl SunshineClient
         match status_text.trim().parse::<u16>().unwrap_or(0)
         {
             200..=299 => Ok(response_body.to_string()),
-            0 => Err("Sunshine nicht erreichbar".into()),
-            401 => Err("Sunshine-Login falsch".into()),
-            status_code => Err(format!("Sunshine antwortet mit {}: {}", status_code, response_body.trim())),
+            0 => Err(RequestLanguage::pick("Sunshine nicht erreichbar", "Sunshine unreachable")),
+            401 => Err(RequestLanguage::pick("Sunshine-Login falsch", "Sunshine login wrong")),
+            status_code => Err(format!("{} {}: {}", RequestLanguage::pick("Sunshine antwortet mit", "Sunshine answered with"), status_code, response_body.trim())),
         }
     }
 

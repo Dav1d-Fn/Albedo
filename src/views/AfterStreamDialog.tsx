@@ -1,3 +1,4 @@
+import { UiText } from "../i18n/UiText";
 import type LauncherApp from "../LauncherApp";
 import { CheckIcon, PlayIcon } from "./Icons";
 
@@ -6,23 +7,24 @@ export function AfterStreamDialog(props: { app: LauncherApp })
 {
   const app = props.app;
   const state = app.state;
+  const t = UiText.current;
   const gameName = app.selectedGame() ?? "";
 
   return (
     <div className="dialog">
       <div className="dcard">
-        <div className="teyebrow">{app.hostDisplayName() + " · Stream getrennt"}</div>
+        <div className="teyebrow">{t.afterStreamDialog.disconnected(app.hostDisplayName())}</div>
         <div className="tname">{gameName}</div>
-        <div className="tsub">Läuft noch auf dem PC. Weiterlaufen lassen oder beenden?</div>
+        <div className="tsub">{t.afterStreamDialog.question}</div>
 
         <div className="actions dialogactions">
           <button className={"btn primary" + (state.afterStreamIndex === 0 ? " f" : "")} onClick={() => app.chooseAfterStream(0)}>
             <PlayIcon />
-            Pausieren
+            {t.afterStreamNames.keep}
           </button>
           <button className={"btn" + (state.afterStreamIndex === 1 ? " f" : "")} onClick={() => app.chooseAfterStream(1)}>
             <span className="stopmark" />
-            Beenden
+            {t.afterStreamNames.quit}
           </button>
         </div>
 
@@ -33,7 +35,7 @@ export function AfterStreamDialog(props: { app: LauncherApp })
           aria-checked={state.afterStreamRemember}
         >
           <span className="rbox"><CheckIcon /></span>
-          Für dieses Spiel merken
+          {t.common.rememberForGame}
           <span className="glyph sm">Y</span>
         </button>
       </div>

@@ -1,3 +1,4 @@
+use crate::request_language::RequestLanguage;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
@@ -63,7 +64,7 @@ impl UploadTokenStore
         let mut random_bytes = [0u8; 16];
         File::open("/dev/urandom")
             .and_then(|mut random_source| random_source.read_exact(&mut random_bytes))
-            .map_err(|error| format!("Kein Zufall verfügbar: {}", error))?;
+            .map_err(|error| format!("{}: {}", RequestLanguage::pick("Kein Zufall verfügbar", "No randomness available"), error))?;
         Ok(random_bytes.iter().map(|byte| format!("{:02x}", byte)).collect())
     }
 }

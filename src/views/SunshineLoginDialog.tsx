@@ -1,3 +1,4 @@
+import { UiText } from "../i18n/UiText";
 import LauncherApp from "../LauncherApp";
 
 /** Login of Sunshine's web UI for the companion on the PC; without it the companion cannot add or remove apps. */
@@ -10,17 +11,18 @@ export function SunshineLoginDialog(props: { app: LauncherApp })
     return null;
   }
   const [userFieldId, passwordFieldId] = LauncherApp.sunshineLoginFieldIds;
+  const t = UiText.current;
 
   return (
     <div className="dialog">
       <div className="dcard">
-        <div className="teyebrow">{app.hostDisplayName() + " · PC-Helfer"}</div>
-        <div className="tname">Sunshine-Login</div>
-        <div className="tsub">Benutzer und Passwort der Sunshine-Weboberfläche (https://{app.connectedHost()}:47990).</div>
+        <div className="teyebrow">{t.sunshineLogin.eyebrow(app.hostDisplayName())}</div>
+        <div className="tname">{t.common.sunshineLogin}</div>
+        <div className="tsub">{t.sunshineLogin.explanation(app.connectedHost())}</div>
 
         <div className="loginform">
           <label className={"loginfield" + (draft.row === 0 ? " f" : "")}>
-            <span className="msub">Benutzername</span>
+            <span className="msub">{t.sunshineLogin.user}</span>
             <input
               id={userFieldId}
               className="hostinput"
@@ -33,7 +35,7 @@ export function SunshineLoginDialog(props: { app: LauncherApp })
             />
           </label>
           <label className={"loginfield" + (draft.row === 1 ? " f" : "")}>
-            <span className="msub">Passwort</span>
+            <span className="msub">{t.sunshineLogin.password}</span>
             <input
               id={passwordFieldId}
               className="hostinput"
@@ -52,9 +54,9 @@ export function SunshineLoginDialog(props: { app: LauncherApp })
         <div className="actions dialogactions">
           <button className={"btn primary" + (draft.row === 2 ? " f" : "") + (draft.busy ? " dis" : "")} onClick={() => app.submitSunshineLogin()}>
             {draft.busy ? <span className="spin" /> : null}
-            {draft.busy ? "Prüfe mit Sunshine …" : "Speichern"}
+            {draft.busy ? t.sunshineLogin.checking : t.sunshineLogin.save}
           </button>
-          <button className="btn" onClick={() => app.closeSunshineLogin()}>Abbrechen</button>
+          <button className="btn" onClick={() => app.closeSunshineLogin()}>{t.common.cancel}</button>
         </div>
       </div>
     </div>

@@ -1,3 +1,4 @@
+use crate::ui_language::UiLanguage;
 use serde::Serialize;
 use tauri::AppHandle;
 use tauri_plugin_updater::UpdaterExt;
@@ -59,7 +60,7 @@ impl AppUpdater
             .check()
             .await
             .map_err(|error| error.to_string())?
-            .ok_or_else(|| "Kein Update mehr verfügbar".to_string())?;
+            .ok_or_else(|| UiLanguage::pick("Kein Update mehr verfügbar", "No update available anymore"))?;
         println!("[updater] installing {}", update.version);
         update
             .download_and_install(|_chunk_length, _content_length| {}, || {})

@@ -10,7 +10,9 @@ without anybody editing `apps.json` by hand.
   entries it discovered itself.
 - Talks to Sunshine through Sunshine's own web API (`https://localhost:47990/api/apps`, Basic Auth
   from the companion's config file), not by editing `apps.json`.
-- All texts the launcher shows (names, groups) come as they should be displayed (German UI).
+- All texts the launcher shows (names, groups, errors) come as they should be displayed, in the language of the
+  request's `Accept-Language` header: German if `de` comes before `en`, otherwise English. The launcher sends
+  its UI language; the phone upload page follows the phone browser.
 
 ## Endpoints
 
@@ -55,8 +57,8 @@ Everything that can be added, sorted by group, then name.
   because they need Steam's Proton setup.
 - `inSunshine`: a Sunshine app created from this entry exists (the companion recognises its own apps,
   e.g. by a marker in the app entry, and matches the old hand-made ones by name where it can).
-- `sunshineProblem`: `null` when the companion can reach Sunshine with its login, otherwise the German
-  reason (e.g. "Sunshine-Login fehlt im PC-Helfer", "Sunshine-Login falsch"). Adding/removing
+- `sunshineProblem`: `null` when the companion can reach Sunshine with its login, otherwise the
+  reason in the request language (e.g. "The PC companion has no Sunshine login", "Sunshine login wrong"). Adding/removing
   cannot work then; the launcher should say so before the user presses A, not only after.
 - `hasHero`: a wide title picture exists (`GET /api/hero/<id>`). Steam: `library_hero.jpg`,
   Heroic: `art_cover`. Not in the example lines above means `false`; every entry has both fields.
@@ -79,7 +81,7 @@ Moonlight UI, so newly added games would be missing.
 { "apps": ["Desktop", "Desktop (ohne Profilwechsel)", "ELDEN RING"] }
 ```
 
-`502` with the German reason (e.g. "Sunshine-Login fehlt im PC-Helfer") when Sunshine cannot be asked;
+`502` with the reason in the request language (e.g. "The PC companion has no Sunshine login") when Sunshine cannot be asked;
 the launcher then falls back to `moonlight list`.
 
 ### `GET /api/display-modes`
@@ -123,7 +125,7 @@ Moonlight may still show its cached old box art). Stored in
   `<host>` is the request's Host header, i.e. the address the launcher reached the companion
   through (home network or Tailscale); without a usable Host header the PC's hostname and port.
   `qrSvg` is the URL as QR code (black on white, with quiet zone, only a viewBox, no fixed size).
-- `GET /upload/<token>`: phone page (German) that names the game and the kind of picture.
+- `GET /upload/<token>`: phone page (German or English, from the browser's `Accept-Language`) that names the game and the kind of picture.
   Picking a file sends it as the raw body of `POST /upload/<token>` (no multipart).
 - `POST /upload/<token>`: raw image body, at most 15 MB (else 413). Anything ImageMagick reads;
   turned upright (`-auto-orient`) and converted (cover 600x900 PNG, hero JPEG ≤1920 px, logo PNG
@@ -176,4 +178,4 @@ nothing is saved. The password is never sent back or logged.
 
 ### Errors
 
-Non-2xx with `{ "error": "German message for the toast" }`.
+Non-2xx with `{ "error": "message for the toast, in the request language" }`.

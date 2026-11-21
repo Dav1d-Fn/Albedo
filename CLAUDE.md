@@ -26,6 +26,7 @@ Design source: Claude design canvas https://claude.ai/artifact/UpFs3Nat5Q983TyyA
   - `art_search.rs` – picture search for "Bild setzen": Steam shop (no key) + SteamGridDB (key in settings `steamGridDbKey`, never logged); the picked picture goes to the companion through an upload token like a phone upload
   - `companion_client.rs` – HTTP client for the companion service on the PC (`companion/API.md`), `library_entry.rs` is its list item
   - `app_updater.rs` – self-update from signed GitHub releases (`tauri-plugin-updater`, only when running as AppImage)
+  - `ui_language.rs` – language of Rust messages for the UI (`set_language` from the frontend); companion calls send it as `Accept-Language`
   - `host_environment.rs` – strips the AppImage's LD_LIBRARY_PATH etc. before starting host programs (flatpak)
 - `deck/install.sh` – Steam Deck installer: AppImage to `~/Applications/`, non-Steam entry with artwork in `shortcuts.vdf` (binary VDF, embedded Python), `--uninstall`
 - `artwork/steam/` – Steam pictures the installer copies (cover, wide, hero, logo, icon)
@@ -33,6 +34,7 @@ Design source: Claude design canvas https://claude.ai/artifact/UpFs3Nat5Q983TyyA
 - `src/` – frontend
   - `LauncherApp.tsx` – root class component, owns all state and the button logic
   - `model/` – settings types, defaults, text formatting, placeholder cover art
+  - `i18n/` – `UiText` (language in use, settings `language`, "" = system) and the text tables `GermanTexts`/`EnglishTexts`
   - `services/Backend.ts` – every `invoke`/`listen` call
   - `input/InputRouter.ts` – keyboard + `pad-button` events → launcher buttons
   - Rail ends with a "Hinzufügen" tile → `LibraryScreen` (games from the PC companion, L1/R1 group, A add, X remove)
@@ -64,6 +66,9 @@ or (on the device entry/rows) the device, second X confirms.
 - **Object-oriented and structured:** logic in classes with a clear job, not loose function collections;
   folders by area, one class per file. React views are function components without logic.
 - **Descriptive names:** `layerIndex` not `i`, `lineWidth` not `w`; long names are fine.
-- **Comments in English**, always. UI texts are German.
+- **Comments in English**, always. UI texts are German and English: every visible text goes through
+  `UiText.current` (`src/i18n/`); a new text goes into **both** `GermanTexts.ts` and `EnglishTexts.ts`
+  (`tsc` reports a key missing in English). Rust messages for the UI use `UiLanguage::pick(de, en)`
+  (launcher) or `RequestLanguage::pick(de, en)` (companion, from `Accept-Language`).
 - Language conventions enforced by the compiler stay (snake_case in Rust).
 - Formatter: `cargo +nightly fmt` uses `rustfmt.toml` (`brace_style = "AlwaysNextLine"`). No Prettier (can't do Allman).

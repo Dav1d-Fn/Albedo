@@ -1,3 +1,4 @@
+use crate::request_language::RequestLanguage;
 use std::process::Command;
 
 use serde_json::{json, Value};
@@ -23,13 +24,13 @@ impl DisplayModeReader
             .env("WAYLAND_DISPLAY", std::env::var("WAYLAND_DISPLAY").unwrap_or_else(|_| "wayland-1".into()))
             .env("QT_QPA_PLATFORM", "wayland")
             .output()
-            .map_err(|error| format!("kscreen-doctor nicht startbar: {}", error))?;
+            .map_err(|error| format!("{}: {}", RequestLanguage::pick("kscreen-doctor nicht startbar", "Cannot start kscreen-doctor"), error))?;
         if !output.status.success()
         {
-            return Err("kscreen-doctor antwortet nicht (KWin hängt?)".to_string());
+            return Err(RequestLanguage::pick("kscreen-doctor antwortet nicht (KWin hängt?)", "kscreen-doctor doesn't answer (KWin stuck?)"));
         }
-        let screens: Value = serde_json::from_slice(&output.stdout).map_err(|error| format!("kscreen-doctor-Ausgabe unlesbar: {}", error))?;
-        Self::modes_of(&screens, Self::VIRTUAL_OUTPUT).ok_or_else(|| format!("{} nicht gefunden", Self::VIRTUAL_OUTPUT))
+        let screens: Value = serde_json::from_slice(&output.stdout).map_err(|error| format!("{}: {}", RequestLanguage::pick("kscreen-doctor-Ausgabe unlesbar", "Cannot read kscreen-doctor output"), error))?;
+        Self::modes_of(&screens, Self::VIRTUAL_OUTPUT).ok_or_else(|| format!("{} {}", Self::VIRTUAL_OUTPUT, RequestLanguage::pick("nicht gefunden", "not found")))
     }
 
     fn modes_of(screens: &Value, output_name: &str) -> Option<Vec<Value>>

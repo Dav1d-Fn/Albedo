@@ -1,3 +1,4 @@
+import { UiText } from "../i18n/UiText";
 import type LauncherApp from "../LauncherApp";
 import { ModeText } from "../model/ModeText";
 import { DeviceId } from "../model/Types";
@@ -10,6 +11,7 @@ export function DetailScreen(props: { app: LauncherApp })
 {
   const app = props.app;
   const state = app.state;
+  const t = UiText.current;
   const gameName = app.selectedGame() ?? "";
   const art = app.artFor(gameName);
   const backdropArt = app.backdropArtFor(gameName);
@@ -18,8 +20,8 @@ export function DetailScreen(props: { app: LauncherApp })
   const devices: DeviceId[] = app.settings.deviceOrder;
   const afterStreamOverride = app.afterStreamOverride(gameName);
   const afterStreamLabel = afterStreamOverride === undefined
-    ? "Danach: Standard"
-    : "Danach: " + ModeText.afterStreamNames[afterStreamOverride];
+    ? t.detail.afterStreamDefault
+    : t.detail.afterStream(t.afterStreamNames[afterStreamOverride]);
 
   return (
     <div className="screen">
@@ -31,16 +33,16 @@ export function DetailScreen(props: { app: LauncherApp })
           {!art.hasImage && <span className="ctitle" style={{ color: art.ink }}>{gameName}</span>}
         </div>
         <div className="dcol">
-          <div className="eyebrow up d1">{remembered ? "Profil für dieses Spiel gemerkt" : "Sunshine-App"}</div>
+          <div className="eyebrow up d1">{remembered ? t.detail.rememberedForGame : t.common.sunshineApp}</div>
           {logo !== undefined
             ? <h1 className="dtitle up d2"><img className="glogo" src={logo} alt={gameName} /></h1>
             : <h1 className="dtitle up d2">{gameName}</h1>}
 
           <div className="scard up d3">
             <div className="shead">
-              Startet als <b>{app.profile().name + " · " + ModeText.label(app.activeMode()) + " FPS"}</b>
-              <span className="badge">{state.automatic ? "AUTO" : "MANUELL"}</span>
-              <span>{remembered ? "· für dieses Spiel gemerkt" : ""}</span>
+              {t.detail.startsAs} <b>{app.profile().name + " · " + ModeText.label(app.activeMode()) + " FPS"}</b>
+              <span className="badge">{state.automatic ? t.common.auto : t.common.manual}</span>
+              <span>{remembered ? t.detail.rememberedSuffix : ""}</span>
             </div>
             <div className="slayers">
               {devices.map((device) => app.profile(device).modes.map((mode, modeIndex) =>
@@ -48,11 +50,11 @@ export function DetailScreen(props: { app: LauncherApp })
                 const isActive = device === state.device && modeIndex === app.currentModeIndex(device);
                 const cells =
                 [
-                  { label: "Auflösung", value: ModeText.prettyResolution(mode.resolution) },
-                  { label: "Bildrate", value: mode.fps + " FPS" },
-                  { label: "Bitrate", value: mode.bitrateMbps + " Mbit/s" },
+                  { label: t.detail.resolution, value: ModeText.prettyResolution(mode.resolution) },
+                  { label: t.detail.frameRate, value: mode.fps + " FPS" },
+                  { label: t.detail.bitrate, value: ModeText.bitrate(mode.bitrateMbps) },
                   { label: "Codec", value: mode.codec },
-                  { label: "HDR", value: mode.hdr ? "An" : "Aus" },
+                  { label: "HDR", value: mode.hdr ? t.common.on : t.common.off },
                 ];
                 return (
                   <div key={device + modeIndex} className={"slayer" + (isActive ? " on" : "")}>
@@ -67,7 +69,7 @@ export function DetailScreen(props: { app: LauncherApp })
               <ModeStrip app={app} />
               <button className={"memo" + (remembered ? " on" : "")} onClick={() => app.toggleRemember()} role="checkbox" aria-checked={remembered}>
                 <span className="rbox"><CheckIcon /></span>
-                Für dieses Spiel merken
+                {t.common.rememberForGame}
                 <span className="glyph sm">Y</span>
               </button>
             </div>
@@ -76,25 +78,25 @@ export function DetailScreen(props: { app: LauncherApp })
           <div className="actions up d4">
             <button className={"btn primary" + (state.detailIndex === 0 ? " f" : "")} onClick={() => app.detailAction(0)}>
               <PlayIcon />
-              Spielen
+              {t.detail.play}
             </button>
             <button className={"btn" + (state.detailIndex === 1 ? " f" : "")} onClick={() => app.detailAction(1)}>
               <SwapIcon />
-              {"Gerät: " + app.profile().name}
+              {t.detail.deviceButton(app.profile().name)}
               <span className="glyph sm">X</span>
             </button>
             <button className={"btn" + (state.detailIndex === 2 ? " f" : "")} onClick={() => app.detailAction(2)}>
               <span className="stopmark" />
               {afterStreamLabel}
             </button>
-            <button className={"btn iconbtn" + (state.detailIndex === 3 ? " f" : "")} onClick={() => app.detailAction(3)} aria-label="Bild setzen">
+            <button className={"btn iconbtn" + (state.detailIndex === 3 ? " f" : "")} onClick={() => app.detailAction(3)} aria-label={t.detail.setImage}>
               <ImageIcon />
             </button>
           </div>
 
           {state.lastLaunchError
             ? <div className="dnote err up d5"><span className="dot err" /><code>{state.lastLaunchError}</code></div>
-            : <div className="dnote up d5"><span className="dot on" />{app.hostDisplayName() + " · Sunshine bereit"}</div>}
+            : <div className="dnote up d5"><span className="dot on" />{t.detail.sunshineReady(app.hostDisplayName())}</div>}
         </div>
       </div>
     </div>

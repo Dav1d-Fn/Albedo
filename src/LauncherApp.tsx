@@ -1,10 +1,11 @@
 import React, { CSSProperties } from "react";
+import { UiText } from "./i18n/UiText";
 import { InputRouter } from "./input/InputRouter";
 import { ModeText } from "./model/ModeText";
 import { DefaultSettings } from "./model/DefaultSettings";
 import { DevicePalette } from "./model/DevicePalette";
 import { GameArt } from "./model/GameArt";
-import { AfterStreamAction, ArtKind, BackdropKind, DeviceId, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, PcDisplayMode, Settings, StreamMode, SunshineLoginDraft, ImageDialogState, ImageDialogRow } from "./model/Types";
+import { AfterStreamAction, ArtKind, BackdropKind, DeviceId, UiLanguage, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, PcDisplayMode, Settings, StreamMode, SunshineLoginDraft, ImageDialogState, ImageDialogRow } from "./model/Types";
 import { AvailableUpdate, Backend } from "./services/Backend";
 import { CompanionArt } from "./services/CompanionArt";
 import { AfterStreamDialog } from "./views/AfterStreamDialog";
@@ -246,6 +247,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.unlistenStreamEnded = unlisten;
 
     const settings = await this.backend.loadSettings();
+    UiText.use(settings.language);
+    this.backend.setLanguage(UiText.language);
     const displayNames = await this.backend.externalDisplayNames();
     const device = this.detectedDevice(settings, displayNames) ?? settings.deviceOrder[0];
     const currentModes: Record<DeviceId, number> = {};
@@ -339,7 +342,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   public hostDisplayName(): string
   {
-    return this.settings.hostName || this.settings.host || "Kein PC";
+    return this.settings.hostName || this.settings.host || UiText.current.common.noPc;
   }
 
   /** All addresses of the PC in the order they are tried: home network first, then the extra ones. */
@@ -416,7 +419,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   public detectedDeviceName(): string
   {
     const detected = this.detectedDevice(this.settings, this.state.displayNames);
-    return detected === null ? "keins" : this.profile(detected).name;
+    return detected === null ? UiText.current.home.noDevice : this.profile(detected).name;
   }
 
   private async pollDisplay(): Promise<void>
@@ -438,7 +441,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     const detected = this.detectedDevice(this.settings, displayNames);
     if (this.state.automatic && detected !== null && detected !== this.state.device && this.state.screen !== "stream")
     {
-      this.setDevice(detected, displayNames.length > 0 ? "Bildschirm erkannt · automatisch" : "Bildschirm getrennt · automatisch", true);
+      this.setDevice(detected, displayNames.length > 0 ? UiText.current.toasts.screenDetected : UiText.current.toasts.screenDisconnected, true);
     }
   }
 
@@ -448,7 +451,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   {
     const settings = change(this.settings);
     this.setState({ settings });
-    this.backend.saveSettings(settings).catch((saveError) => this.showError("Speichern fehlgeschlagen", String(saveError)));
+    this.backend.saveSettings(settings).catch((saveError) => this.showError(UiText.current.toasts.saveFailed, String(saveError)));
   }
 
   private updateProfile(device: DeviceId, change: (profile: DeviceProfile) => DeviceProfile): void
@@ -465,7 +468,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   {
     if (settings.host === "")
     {
-      this.setState({ games: [], hostState: "error", hostError: "Noch kein PC eingerichtet · A auf dem PC-Feld" });
+      this.setState({ games: [], hostState: "error", hostError: UiText.current.home.noPcYet });
       return;
     }
     this.setState({ hostState: "loading", hostError: "" });
@@ -549,7 +552,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   private showError(title: string, message: string): void
   {
-    this.showToast({ kind: "error", eyebrow: "Fehler", name: title, spec: "", sub: message });
+    this.showToast({ kind: "error", eyebrow: UiText.current.common.error, name: title, spec: "", sub: message });
   }
 
   private deviceToast(device: DeviceId, eyebrow: string, modeIndex: number): void
@@ -609,7 +612,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     const order = this.settings.deviceOrder;
     const next = order[(order.indexOf(this.state.device) + 1) % order.length];
     const isAutomatic = next === this.detectedDevice(this.settings, this.state.displayNames);
-    this.setDevice(next, isAutomatic ? "Zurück auf automatisch" : "Manuell gewählt", isAutomatic);
+    this.setDevice(next, isAutomatic ? UiText.current.toasts.backToAutomatic : UiText.current.toasts.pickedManually, isAutomatic);
   }
 
   public setMode(modeIndex: number): void
@@ -630,9 +633,9 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     const mode = this.profile(device).modes[modeIndex];
     this.showToast({
       kind: this.profile(device).icon,
-      eyebrow: this.profile(device).name + " · Profil",
+      eyebrow: UiText.current.toasts.profileOf(this.profile(device).name),
       name: ModeText.label(mode) + " FPS",
-      spec: mode.bitrateMbps + " Mbit/s",
+      spec: ModeText.bitrate(mode.bitrateMbps),
       sub: ModeText.extra(mode),
     });
   }
@@ -952,7 +955,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     const entryId = this.companionArt.entryId(this.selectedGame() ?? "");
     if (entryId === undefined)
     {
-      this.changeImageDialog({ kind, token: null, loading: false, error: "Der PC-Helfer kennt dieses Spiel nicht (läuft er?)." });
+      this.changeImageDialog({ kind, token: null, loading: false, error: UiText.current.imageDialog.unknownToHelper });
       return;
     }
     this.changeImageDialog({ kind, token: null, loading: true, error: "" });
@@ -1017,7 +1020,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }
     catch (applyError)
     {
-      this.showError("Bild nicht übernommen", String(applyError));
+      this.showError(UiText.current.toasts.imageNotApplied, String(applyError));
     }
     finally
     {
@@ -1066,7 +1069,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       {
         this.changeImageDialog({ row: "pictures" });
       }
-      this.showToast({ kind: "ok", eyebrow: "Bild setzen", name: "Bild übernommen", spec: "", sub: this.selectedGame() ?? "" });
+      this.showToast({ kind: "ok", eyebrow: UiText.current.detail.setImage, name: UiText.current.toasts.imageApplied, spec: "", sub: this.selectedGame() ?? "" });
       // The page on the phone may have been used up; a new code for the next picture.
       this.loadUploadToken(this.state.imageDialog?.kind ?? dialog.kind);
     }
@@ -1093,7 +1096,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }
     catch (resetError)
     {
-      this.showError("Zurücksetzen fehlgeschlagen", String(resetError));
+      this.showError(UiText.current.toasts.resetFailed, String(resetError));
     }
   }
 
@@ -1200,9 +1203,9 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     const mode = this.activeMode(device);
     const steps =
     [
-      "Verbinde mit " + this.hostDisplayName(),
-      profile.name + " setzen · " + ModeText.spec(mode),
-      "Moonlight starten · " + gameName,
+      UiText.current.connect.connectingTo(this.hostDisplayName()),
+      UiText.current.connect.applyingProfile(profile.name, ModeText.spec(mode)),
+      UiText.current.connect.startingMoonlight(gameName),
     ];
 
     this.clearTimers();
@@ -1226,7 +1229,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
         }
         if (host === null)
         {
-          this.setState({ screen: "detail", lastLaunchError: "PC " + this.hostDisplayName() + " antwortet nicht. Ist er an und läuft Sunshine?" });
+          this.setState({ screen: "detail", lastLaunchError: UiText.current.detail.pcNotAnswering(this.hostDisplayName()) });
           return;
         }
         this.setState({ activeHost: host });
@@ -1277,7 +1280,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       this.streamAbortRequested = false;
       this.setState({ screen: "detail", lastLaunchError: "" });
-      this.showToast({ kind: "ok", eyebrow: this.hostDisplayName(), name: "Stream abgebrochen", spec: "", sub: "Moonlight wurde beendet, das Spiel läuft eventuell noch auf dem PC" });
+      this.showToast({ kind: "ok", eyebrow: this.hostDisplayName(), name: UiText.current.toasts.streamAborted, spec: "", sub: UiText.current.toasts.streamAbortedText });
       return;
     }
 
@@ -1286,7 +1289,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       this.setState({
         screen: "detail",
-        lastLaunchError: "Moonlight beendet mit Code " + exitCode + (errorTail ? ": " + errorTail : ""),
+        lastLaunchError: UiText.current.detail.moonlightExited(exitCode, errorTail),
       });
       return;
     }
@@ -1548,11 +1551,11 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     try
     {
       await this.backend.quitHostApp(this.settings, this.connectedHost());
-      this.showToast({ kind: "ok", eyebrow: this.hostDisplayName(), name: "Beendet", spec: "", sub: gameName + " läuft nicht mehr auf dem PC" });
+      this.showToast({ kind: "ok", eyebrow: this.hostDisplayName(), name: UiText.current.toasts.quit, spec: "", sub: UiText.current.toasts.noLongerRunning(gameName) });
     }
     catch (quitError)
     {
-      this.showError("Beenden fehlgeschlagen", String(quitError));
+      this.showError(UiText.current.toasts.quitFailed, String(quitError));
     }
   }
 
@@ -1856,7 +1859,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     const profile = this.profile(this.state.editDevice);
     if (profile.name.trim() === "")
     {
-      this.renameEditDevice("Gerät");
+      this.renameEditDevice(UiText.current.common.defaultDeviceName);
     }
   }
 
@@ -1866,11 +1869,11 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     const screenName = this.state.displayNames[0];
     if (screenName === undefined)
     {
-      this.showError("Kein Bildschirm", "Es ist gerade kein externer Bildschirm angeschlossen. Erst das Deck an den gewünschten Bildschirm hängen.");
+      this.showError(UiText.current.editor.noScreenTitle, UiText.current.editor.noScreenText);
       return;
     }
     this.updateProfile(this.state.editDevice, (profile) => ({ ...profile, autoRule: "Dieser Bildschirm", displayName: screenName }));
-    this.showToast({ kind: this.profile(this.state.editDevice).icon, eyebrow: "Automatisch bei", name: screenName, spec: "", sub: this.profile(this.state.editDevice).name + " wird bei diesem Bildschirm gewählt" });
+    this.showToast({ kind: this.profile(this.state.editDevice).icon, eyebrow: UiText.current.editor.automaticWith, name: screenName, spec: "", sub: UiText.current.editor.pickedForScreen(this.profile(this.state.editDevice).name) });
   }
 
   public makeDefault(): void
@@ -1903,7 +1906,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     const profile = this.profile(device);
     if (profile.modes.length <= 1)
     {
-      this.showError("Profil löschen", "Das letzte Profil eines Geräts bleibt.");
+      this.showError(UiText.current.editor.deleteProfile, UiText.current.editor.lastProfileStays);
       return;
     }
     if (this.state.editConfirmDelete !== "mode")
@@ -1948,7 +1951,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     const settings = this.settings;
     if (settings.deviceOrder.length >= LauncherApp.maximumDevices)
     {
-      this.showError("Gerät hinzufügen", "Mehr als " + LauncherApp.maximumDevices + " Geräte passen nicht auf den Schalter.");
+      this.showError(UiText.current.editor.addDeviceTitle, UiText.current.editor.tooManyDevices(LauncherApp.maximumDevices));
       return;
     }
     const template = this.profile(this.state.editDevice);
@@ -1957,7 +1960,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     const profile: DeviceProfile =
     {
       ...template,
-      name: "Gerät " + (settings.deviceOrder.length + 1),
+      name: UiText.current.common.numberedDeviceName(settings.deviceOrder.length + 1),
       color: DevicePalette.nextFreeColor(usedColors),
       icon: "tv",
       autoRule: "Nur manuell",
@@ -1987,7 +1990,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     const device = this.state.editDevice;
     if (settings.deviceOrder.length <= 1)
     {
-      this.showError("Gerät löschen", "Ein Gerät bleibt immer.");
+      this.showError(UiText.current.editor.deleteDevice, UiText.current.editor.oneDeviceStaysText);
       return;
     }
     if (this.state.editConfirmDelete !== "device")
@@ -2200,7 +2203,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }
     if (entry.inSunshine)
     {
-      this.showToast({ kind: "ok", eyebrow: "Schon in der Liste", name: entry.name, spec: "", sub: "X entfernt es wieder" });
+      this.showToast({ kind: "ok", eyebrow: UiText.current.toasts.alreadyInList, name: entry.name, spec: "", sub: UiText.current.toasts.xRemovesIt });
       return;
     }
 
@@ -2209,11 +2212,11 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       const appName = await this.backend.companionAddApp(this.connectedHost(), entry.id);
       this.markLibraryEntry(entry.id, true);
-      this.showToast({ kind: "ok", eyebrow: "Hinzugefügt", name: appName, spec: "", sub: "Steht jetzt in der Spieleliste" });
+      this.showToast({ kind: "ok", eyebrow: UiText.current.toasts.added, name: appName, spec: "", sub: UiText.current.toasts.nowInList });
     }
     catch (addError)
     {
-      this.showError("Hinzufügen fehlgeschlagen", String(addError));
+      this.showError(UiText.current.toasts.addFailed, String(addError));
     }
     finally
     {
@@ -2239,11 +2242,11 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       await this.backend.companionRemoveApp(this.connectedHost(), entry.name);
       this.markLibraryEntry(entry.id, false);
-      this.showToast({ kind: "ok", eyebrow: "Entfernt", name: entry.name, spec: "", sub: "Nicht mehr in der Spieleliste" });
+      this.showToast({ kind: "ok", eyebrow: UiText.current.toasts.removed, name: entry.name, spec: "", sub: UiText.current.toasts.noLongerInList });
     }
     catch (removeError)
     {
-      this.showError("Entfernen fehlgeschlagen", String(removeError));
+      this.showError(UiText.current.toasts.removeFailed, String(removeError));
     }
     finally
     {
@@ -2353,7 +2356,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }
     if (draft.user.trim() === "" || draft.password === "")
     {
-      this.changeSunshineLogin({ error: "Benutzername und Passwort eintragen." });
+      this.changeSunshineLogin({ error: UiText.current.sunshineLogin.enterBoth });
       return;
     }
 
@@ -2365,7 +2368,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       await this.backend.companionSetSunshineLogin(this.connectedHost(), user, draft.password);
       this.updateSettings((settings) => ({ ...settings, sunshineUser: user, sunshinePassword: draft.password }));
       this.setState({ sunshineLogin: null });
-      this.showToast({ kind: "ok", eyebrow: "PC-Helfer", name: "Sunshine-Login gespeichert", spec: "", sub: "Spiele können jetzt hinzugefügt werden" });
+      this.showToast({ kind: "ok", eyebrow: UiText.current.common.pcHelper, name: UiText.current.toasts.loginSaved, spec: "", sub: UiText.current.toasts.gamesCanBeAdded });
       // Ask the companion again, so the hint only disappears once it really reaches Sunshine.
       this.loadLibrary();
     }
@@ -2388,7 +2391,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   // ---------------------------------------------------------------- connection and pairing
 
   /** Rows on the right side of the connection screen. */
-  public static readonly connectionRows = ["pair", "addresses", "moonlight", "afterStream", "backdrop", "steamGridDb"] as const;
+  public static readonly connectionRows = ["pair", "addresses", "moonlight", "afterStream", "backdrop", "steamGridDb", "language"] as const;
 
   public openConnection(): void
   {
@@ -2410,7 +2413,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }
     catch (searchError)
     {
-      this.showError("Suche fehlgeschlagen", String(searchError));
+      this.showError(UiText.current.toasts.searchFailed, String(searchError));
     }
     finally
     {
@@ -2447,6 +2450,23 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   public static readonly steamGridDbRowIndex = LauncherApp.connectionRows.indexOf("steamGridDb");
 
+  public static readonly languageRowIndex = LauncherApp.connectionRows.indexOf("language");
+
+  /** Stores the language and applies it right away; the Rust side and the companion follow. */
+  public setLanguage(language: UiLanguage): void
+  {
+    UiText.use(language);
+    this.backend.setLanguage(language);
+    this.updateSettings((settings) => ({ ...settings, language }));
+  }
+
+  /** A on the language row: the next language. */
+  private cycleLanguage(): void
+  {
+    const languages = UiText.languages;
+    this.setLanguage(languages[(languages.indexOf(UiText.language) + 1) % languages.length]);
+  }
+
   /** The key field; A focuses it, so the Deck's on-screen keyboard (Steam + X) can type into it. */
   public focusSteamGridDbKey(): void
   {
@@ -2464,7 +2484,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       return;
     }
     this.updateSettings((settings) => ({ ...settings, steamGridDbKey }));
-    this.showToast({ kind: "ok", eyebrow: "SteamGridDB", name: "Schlüssel gespeichert", spec: "", sub: "Bild setzen sucht jetzt auch dort." });
+    this.showToast({ kind: "ok", eyebrow: "SteamGridDB", name: UiText.current.toasts.keySaved, spec: "", sub: UiText.current.toasts.keySavedText });
   }
 
   public removeSteamGridDbKey(): void
@@ -2657,6 +2677,10 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     else if (row === "steamGridDb")
     {
       this.focusSteamGridDbKey();
+    }
+    else if (row === "language")
+    {
+      this.cycleLanguage();
     }
   }
 

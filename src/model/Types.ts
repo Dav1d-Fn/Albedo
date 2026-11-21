@@ -15,10 +15,13 @@ export type VideoCodec = "H.264" | "HEVC" | "AV1";
 
 export type AudioLayout = "Stereo" | "5.1 Surround" | "7.1 Surround";
 
+/** Language of the UI; the settings store "" until one is picked (= system language). */
+export type UiLanguage = "de" | "en";
+
 /** What happens to the game on the PC after Moonlight disconnects. */
 export type AfterStreamAction = "ask" | "keep" | "quit";
 
-/** When a device profile may be picked automatically. */
+/** When a device profile may be picked automatically. The German values are stored in settings.json; the UI translates them. */
 export type AutoRule = "Deck ohne Dock" | "Dock mit Bildschirm" | "Dieser Bildschirm" | "Nur manuell";
 
 /**
@@ -82,6 +85,8 @@ export interface Settings
   backdropKindPerGame: Record<string, BackdropKind>;
   /** Optional API key for SteamGridDB (picture search in "Bild setzen"); empty = only the Steam shop. */
   steamGridDbKey: string;
+  /** UI language; "" = follow the system language (German if it is German, else English). */
+  language: UiLanguage | "";
   /** "<game name>|<device>" -> mode index remembered for that game. */
   rememberedModes: Record<string, number>;
 }
@@ -110,7 +115,7 @@ export interface LibraryEntry
 export interface CompanionLibrary
 {
   entries: LibraryEntry[];
-  /** null when the companion can reach Sunshine, otherwise the German reason (adding cannot work then). */
+  /** null when the companion can reach Sunshine, otherwise the reason in the UI language (adding cannot work then). */
   sunshineProblem: string | null;
 }
 
@@ -140,7 +145,7 @@ export interface ArtCandidate
 export interface ArtSearchResult
 {
   candidates: ArtCandidate[];
-  /** German reason a source failed (e.g. a wrong SteamGridDB key), null when all answered. */
+  /** Reason (in the UI language) a source failed (e.g. a wrong SteamGridDB key), null when all answered. */
   problem: string | null;
 }
 

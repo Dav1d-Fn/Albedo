@@ -19,6 +19,7 @@ mod moonlight_pairing;
 mod pc_display_mode;
 mod settings_store;
 mod stream_session;
+mod ui_language;
 mod upload_token;
 
 use std::collections::HashMap;
@@ -43,9 +44,16 @@ use moonlight_pairing::MoonlightPairing;
 use pc_display_mode::PcDisplayMode;
 use settings_store::SettingsStore;
 use stream_session::StreamSession;
+use ui_language::UiLanguage;
 use upload_token::UploadToken;
 
 // Tauri commands must be free functions; each one only forwards to its class.
+
+#[tauri::command]
+fn set_language(language: String)
+{
+    UiLanguage::set(&language);
+}
 
 #[tauri::command]
 fn load_settings(app_handle: AppHandle) -> Result<Option<String>, String>
@@ -285,6 +293,7 @@ pub fn run()
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            set_language,
             load_settings,
             save_settings,
             has_external_display,

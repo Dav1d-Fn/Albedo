@@ -1,3 +1,4 @@
+import { UiText } from "../i18n/UiText";
 import type LauncherApp from "../LauncherApp";
 
 /** Shown at start when GitHub has a newer release: A installs it (the launcher restarts), B later. */
@@ -10,21 +11,22 @@ export function UpdateDialog(props: { app: LauncherApp })
     return null;
   }
 
-  let sub = "Version " + update.currentVersion + " ist installiert.";
+  const t = UiText.current;
+  let sub = t.update.installed(update.currentVersion);
   if (update.installing)
   {
-    sub = "Wird geladen und installiert … Der Launcher startet danach neu.";
+    sub = t.update.installing;
   }
   else if (update.error !== "")
   {
-    sub = "Fehlgeschlagen: " + update.error;
+    sub = t.update.failed(update.error);
   }
 
   return (
     <div className="dialog">
       <div className="dcard">
-        <div className="teyebrow">Update verfügbar</div>
-        <div className="tname">{"Version " + update.version}</div>
+        <div className="teyebrow">{t.update.available}</div>
+        <div className="tname">{t.update.version(update.version)}</div>
         <div className="tsub">{sub}</div>
         {update.notes !== "" && !update.installing && <div className="tsub">{update.notes}</div>}
 
@@ -32,11 +34,11 @@ export function UpdateDialog(props: { app: LauncherApp })
           <div className="actions dialogactions">
             <button className="btn primary f" onClick={() => app.installUpdate()}>
               <span className="glyph sm">A</span>
-              {update.error === "" ? "Installieren" : "Nochmal"}
+              {update.error === "" ? t.update.install : t.update.retry}
             </button>
             <button className="btn" onClick={() => app.closeUpdate()}>
               <span className="glyph sm">B</span>
-              Später
+              {t.update.later}
             </button>
           </div>
         )}

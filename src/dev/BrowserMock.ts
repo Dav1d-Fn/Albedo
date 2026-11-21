@@ -1,5 +1,6 @@
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { emit } from "@tauri-apps/api/event";
+import { UiText } from "../i18n/UiText";
 
 /**
  * Fake backend for `npm run dev` in a plain browser (no Tauri), so the UI can be
@@ -11,21 +12,29 @@ let streamRunning = false;
 /** Goes up when the fake phone "uploads" a picture. */
 let artVersion = 0;
 
+/** The fake companion and Rust side answer in the UI language, like the real ones. */
+function pick(german: string, english: string): string
+{
+  return UiText.language === "de" ? german : english;
+}
+
 export class BrowserMock
 {
   private static readonly sampleGames = ["Cyberpunk 2077", "Elden Ring", "Hades II", "Forza Horizon 5", "Baldur's Gate 3", "Stardew Valley", "Portal 2"];
 
-  private static readonly sampleLibrary =
-  [
-    { id: "preset:desktop-auto", name: "Desktop", group: "Voreinstellungen", hasCover: false, inSunshine: true, hasHero: false, hasLogo: false, screenshotCount: 0 },
-    { id: "preset:big-picture", name: "Steam Big Picture", group: "Voreinstellungen", hasCover: false, inSunshine: false, hasHero: false, hasLogo: false, screenshotCount: 0 },
+  private static sampleLibrary()
+  {
+    return [
+    { id: "preset:desktop-auto", name: "Desktop", group: pick("Voreinstellungen", "Presets"), hasCover: false, inSunshine: true, hasHero: false, hasLogo: false, screenshotCount: 0 },
+    { id: "preset:big-picture", name: "Steam Big Picture", group: pick("Voreinstellungen", "Presets"), hasCover: false, inSunshine: false, hasHero: false, hasLogo: false, screenshotCount: 0 },
     { id: "steam:1245620", name: "ELDEN RING", group: "Steam", hasCover: false, inSunshine: true, hasHero: false, hasLogo: false, screenshotCount: 0 },
     { id: "steam:1086940", name: "Baldur's Gate 3", group: "Steam", hasCover: false, inSunshine: false, hasHero: false, hasLogo: false, screenshotCount: 0 },
     { id: "steam:1551360", name: "Forza Horizon 5", group: "Steam", hasCover: false, inSunshine: false, hasHero: false, hasLogo: false, screenshotCount: 0 },
     { id: "heroic:Crow", name: "Dead Island 2", group: "Heroic", hasCover: false, inSunshine: false, hasHero: false, hasLogo: false, screenshotCount: 0 },
     { id: "steam:1145350", name: "Hades II", group: "Steam", hasCover: true, inSunshine: true, hasHero: true, hasLogo: true, screenshotCount: 3 },
     { id: "prism:26.3 Modpack Test", name: "Minecraft 26.3 Modpack Test", group: "Minecraft", hasCover: false, inSunshine: false, hasHero: false, hasLogo: false, screenshotCount: 0 },
-  ];
+    ];
+  }
 
   /** A wide SVG standing in for a title image or screenshot. */
   private static widePicture(colour: string, label: string): string
@@ -44,14 +53,15 @@ export class BrowserMock
     const count = hasKey ? colours.length : 2;
     const candidates = colours.slice(0, count).map((colour, pictureIndex) =>
     {
-      const source = pictureIndex < 2 ? "Steam-Shop" : "SteamGridDB";
+      const shopSource = pick("Steam-Shop", "Steam store");
+      const source = pictureIndex < 2 ? shopSource : "SteamGridDB";
       const background = kind === "logo" ? "" : `<rect width='${size[0]}' height='${size[1]}' fill='${colour}'/>`;
       const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${size[0]}' height='${size[1]}'>${background}`
-        + `<text x='50%' y='55%' font-size='${size[1] / 5}' fill='${kind === "logo" ? colour : "white"}' font-weight='900' text-anchor='middle' font-family='sans-serif'>${source === "Steam-Shop" ? "Shop" : "SGDB"} ${pictureIndex + 1}</text></svg>`;
+        + `<text x='50%' y='55%' font-size='${size[1] / 5}' fill='${kind === "logo" ? colour : "white"}' font-weight='900' text-anchor='middle' font-family='sans-serif'>${source === shopSource ? "Shop" : "SGDB"} ${pictureIndex + 1}</text></svg>`;
       const url = "data:image/svg+xml," + encodeURIComponent(svg);
-      return { imageUrl: url, thumbnailUrl: url, source, label: source === "Steam-Shop" ? "Hades II" : "Künstler " + pictureIndex };
+      return { imageUrl: url, thumbnailUrl: url, source, label: source === shopSource ? "Hades II" : pick("Künstler ", "Artist ") + pictureIndex };
     });
-    return { candidates, problem: hasKey && steamGridDbKey.trim() === "falsch" ? "SteamGridDB-Schlüssel ungültig" : null };
+    return { candidates, problem: hasKey && steamGridDbKey.trim() === "falsch" ? pick("SteamGridDB-Schlüssel ungültig", "SteamGridDB key invalid") : null };
   }
 
   /** A QR-looking pattern; the real one comes from the companion. */
@@ -89,7 +99,7 @@ export class BrowserMock
     const hang = urlParameters.has("hang");
     const offline = urlParameters.has("offline");
     // Like a fresh companion: no Sunshine login until the launcher hands one over.
-    let sunshineProblem: string | null = "Sunshine-Login fehlt im PC-Helfer";
+    let sunshineLoginMissing = true;
     // Entry id -> picture kinds set by hand; "?customHero" starts with a title image set for Hades II.
     const customArt: Record<string, string[]> = urlParameters.has("customHero") ? { "steam:1145350": ["hero"] } : {};
     const setCustomArt = (entryId: string, kind: string, isSet: boolean) =>
@@ -173,32 +183,32 @@ export class BrowserMock
           // `?companionOffline` in the dev URL: as if the companion were not running on the PC.
           if (new URLSearchParams(window.location.search).has("companionOffline"))
           {
-            return Promise.reject("PC-Helfer nicht erreichbar (Port 47995). Läuft der Companion auf dem PC?");
+            return Promise.reject(pick("PC-Helfer nicht erreichbar (Port 47995). Läuft der Companion auf dem PC?", "PC companion unreachable (port 47995). Is it running on the PC?"));
           }
-          return { entries: BrowserMock.sampleLibrary.map((entry) => ({ ...entry, customArt: customArt[entry.id] ?? [] })), sunshineProblem };
+          return { entries: BrowserMock.sampleLibrary().map((entry) => ({ ...entry, customArt: customArt[entry.id] ?? [] })), sunshineProblem: sunshineLoginMissing ? pick("Sunshine-Login fehlt im PC-Helfer", "The PC companion has no Sunshine login") : null };
         case "companion_set_sunshine_login":
           if (args.password !== "sunshine")
           {
-            return Promise.reject("Sunshine-Login falsch (im Browser-Mock ist das Passwort „sunshine“)");
+            return Promise.reject(pick("Sunshine-Login falsch (im Browser-Mock ist das Passwort „sunshine“)", "Wrong Sunshine login (the browser mock's password is \"sunshine\")"));
           }
-          sunshineProblem = null;
+          sunshineLoginMissing = false;
           return null;
         case "companion_cover":
           // A plain coloured cover, like one the companion converted to PNG.
-          return "data:image/svg+xml," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='600' height='900'><rect width='600' height='900' fill='#7c2d12'/><text x='300' y='470' font-size='64' fill='white' text-anchor='middle' font-family='sans-serif'>PC-Helfer</text></svg>");
+          return "data:image/svg+xml," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='600' height='900'><rect width='600' height='900' fill='#7c2d12'/><text x='300' y='470' font-size='64' fill='white' text-anchor='middle' font-family='sans-serif'>Companion</text></svg>");
         case "companion_hero":
-          return BrowserMock.widePicture("#1e3a8a", "Titelbild");
+          return BrowserMock.widePicture("#1e3a8a", pick("Titelbild", "Title art"));
         case "companion_screenshot":
           return BrowserMock.widePicture(["#065f46", "#7c2d12", "#581c87"][(args.index as number) % 3], "Screenshot " + (args.index as number));
         case "companion_add_app":
-          return new Promise((resolve) => window.setTimeout(() => resolve("Neues Spiel"), 800));
+          return new Promise((resolve) => window.setTimeout(() => resolve(pick("Neues Spiel", "New game")), 800));
         case "companion_remove_app":
           return null;
         case "check_for_update":
           // Open http://localhost:1430/?update to see the update dialog.
-          return new URLSearchParams(window.location.search).has("update") ? { version: "0.2.0", currentVersion: "0.1.0", notes: "Neue Bilder, Fehler behoben." } : null;
+          return new URLSearchParams(window.location.search).has("update") ? { version: "0.2.0", currentVersion: "0.1.0", notes: pick("Neue Bilder, Fehler behoben.", "New pictures, bugs fixed.") } : null;
         case "install_update":
-          return new Promise((_resolve, reject) => window.setTimeout(() => reject("Testfehler im Browser"), 1500));
+          return new Promise((_resolve, reject) => window.setTimeout(() => reject(pick("Testfehler im Browser", "Test error in the browser")), 1500));
         default:
           return null;
       }

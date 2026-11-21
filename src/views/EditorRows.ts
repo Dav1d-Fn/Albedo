@@ -1,3 +1,4 @@
+import { UiText } from "../i18n/UiText";
 import { DevicePalette } from "../model/DevicePalette";
 import { DeviceProfile, StreamMode } from "../model/Types";
 
@@ -6,10 +7,13 @@ export type RowType = "list" | "range" | "bool" | "seg" | "text" | "screen" | "d
 
 type DeviceRowKey = "name" | "color" | "icon" | "audio" | "autoRule" | "displayName" | "deleteDevice";
 
+/** Key of a row label in the "editor" part of the text tables. */
+type RowLabelKey = "rowResolution" | "rowFrameRate" | "rowBitrate" | "rowHdr" | "rowCodec" | "rowName" | "rowColor" | "rowIcon" | "rowAudio" | "rowAutoRule" | "rowScreen" | "deleteDevice";
+
 export interface EditorRow
 {
   key: keyof StreamMode | DeviceRowKey;
-  label: string;
+  labelKey: RowLabelKey;
   type: RowType;
   /** "mode" = value of the selected profile (a `StreamMode`), "device" = device settings shared by all its profiles. */
   scope: "mode" | "device";
@@ -28,19 +32,25 @@ export class EditorRows
 
   public static readonly rows: readonly EditorRow[] =
   [
-    { key: "resolution", label: "Auflösung", type: "list", scope: "mode", options: EditorRows.resolutions, heading: true },
-    { key: "fps", label: "Bildrate", type: "list", scope: "mode", options: [30, 40, 60, 90, 120] },
-    { key: "bitrateMbps", label: "Bitrate", type: "range", scope: "mode", minimum: 5, maximum: 150, stepSize: 5 },
-    { key: "hdr", label: "HDR", type: "bool", scope: "mode" },
-    { key: "codec", label: "Codec", type: "seg", scope: "mode", options: ["H.264", "HEVC", "AV1"] },
-    { key: "name", label: "Name", type: "text", scope: "device", heading: true },
-    { key: "color", label: "Farbe", type: "list", scope: "device", options: DevicePalette.colorOrder },
-    { key: "icon", label: "Symbol", type: "list", scope: "device", options: DevicePalette.iconOrder },
-    { key: "audio", label: "Ton", type: "list", scope: "device", options: ["Stereo", "5.1 Surround", "7.1 Surround"] },
-    { key: "autoRule", label: "Automatisch aktiv bei", type: "list", scope: "device", options: ["Deck ohne Dock", "Dock mit Bildschirm", "Dieser Bildschirm", "Nur manuell"] },
-    { key: "displayName", label: "Bildschirm", type: "screen", scope: "device" },
-    { key: "deleteDevice", label: "Gerät löschen", type: "delete", scope: "device" },
+    { key: "resolution", labelKey: "rowResolution", type: "list", scope: "mode", options: EditorRows.resolutions, heading: true },
+    { key: "fps", labelKey: "rowFrameRate", type: "list", scope: "mode", options: [30, 40, 60, 90, 120] },
+    { key: "bitrateMbps", labelKey: "rowBitrate", type: "range", scope: "mode", minimum: 5, maximum: 150, stepSize: 5 },
+    { key: "hdr", labelKey: "rowHdr", type: "bool", scope: "mode" },
+    { key: "codec", labelKey: "rowCodec", type: "seg", scope: "mode", options: ["H.264", "HEVC", "AV1"] },
+    { key: "name", labelKey: "rowName", type: "text", scope: "device", heading: true },
+    { key: "color", labelKey: "rowColor", type: "list", scope: "device", options: DevicePalette.colorOrder },
+    { key: "icon", labelKey: "rowIcon", type: "list", scope: "device", options: DevicePalette.iconOrder },
+    { key: "audio", labelKey: "rowAudio", type: "list", scope: "device", options: ["Stereo", "5.1 Surround", "7.1 Surround"] },
+    { key: "autoRule", labelKey: "rowAutoRule", type: "list", scope: "device", options: ["Deck ohne Dock", "Dock mit Bildschirm", "Dieser Bildschirm", "Nur manuell"] },
+    { key: "displayName", labelKey: "rowScreen", type: "screen", scope: "device" },
+    { key: "deleteDevice", labelKey: "deleteDevice", type: "delete", scope: "device" },
   ];
+
+  /** The row's label in the UI language. */
+  public static label(row: EditorRow): string
+  {
+    return UiText.current.editor[row.labelKey];
+  }
 
   /** Indices into `rows` of one scope, in display order. */
   public static indices(scope: EditorRow["scope"]): number[]

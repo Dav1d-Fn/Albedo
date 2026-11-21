@@ -1,3 +1,4 @@
+use crate::request_language::RequestLanguage;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -47,7 +48,7 @@ impl CoverConverter
         };
         let mut arguments = vec!["-auto-orient"];
         arguments.extend_from_slice(output_arguments);
-        Self::run_magick(upload_bytes, &arguments).map_err(|_| "Das ist kein lesbares Bild".to_string())
+        Self::run_magick(upload_bytes, &arguments).map_err(|_| RequestLanguage::pick("Das ist kein lesbares Bild", "That is not a readable image"))
     }
 
     /// Drops a cached conversion, e.g. when its override was replaced or removed.
@@ -107,9 +108,9 @@ impl CoverConverter
     {
         match picture
         {
-            CoverSource::None => Err("Kein Bild vorhanden".into()),
+            CoverSource::None => Err(RequestLanguage::pick("Kein Bild vorhanden", "No image available")),
             CoverSource::File(picture_path) => fs::read(picture_path)
-                .map_err(|error| format!("Bild {} nicht lesbar: {}", picture_path.display(), error)),
+                .map_err(|error| format!("{} {}: {}", RequestLanguage::pick("Bild nicht lesbar:", "Cannot read image:"), picture_path.display(), error)),
             CoverSource::Url(picture_url) => Self::download(picture_url),
         }
     }
@@ -124,7 +125,7 @@ impl CoverConverter
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
-            .map_err(|error| format!("ImageMagick (magick) nicht startbar: {}", error))?;
+            .map_err(|error| format!("{}: {}", RequestLanguage::pick("ImageMagick (magick) nicht startbar", "Cannot start ImageMagick (magick)"), error))?;
         // Feed stdin from a thread so a big output cannot block the pipe.
         let mut magick_input = magick_process.stdin.take().expect("stdin is piped");
         let writer_thread = std::thread::spawn(move || magick_input.write_all(&source_bytes));
@@ -133,7 +134,7 @@ impl CoverConverter
 
         if !magick_output.status.success() || magick_output.stdout.is_empty()
         {
-            return Err("Bild konnte nicht umgewandelt werden".into());
+            return Err(RequestLanguage::pick("Bild konnte nicht umgewandelt werden", "Image could not be converted"));
         }
         Ok(magick_output.stdout)
     }
@@ -147,7 +148,7 @@ impl CoverConverter
         {
             fs::create_dir_all(covers_directory).map_err(|error| error.to_string())?;
         }
-        fs::write(&cover_path, png_bytes).map_err(|error| format!("Cover nicht speicherbar: {}", error))?;
+        fs::write(&cover_path, png_bytes).map_err(|error| format!("{}: {}", RequestLanguage::pick("Cover nicht speicherbar", "Cannot store cover"), error))?;
         Ok(cover_path)
     }
 
@@ -172,10 +173,10 @@ impl CoverConverter
         let curl_output = Command::new("curl")
             .args(["-sfL", "--max-time", "15", cover_url])
             .output()
-            .map_err(|error| format!("curl nicht startbar: {}", error))?;
+            .map_err(|error| format!("{}: {}", RequestLanguage::pick("curl nicht startbar", "Cannot start curl"), error))?;
         if !curl_output.status.success()
         {
-            return Err("Bild konnte nicht heruntergeladen werden".into());
+            return Err(RequestLanguage::pick("Bild konnte nicht heruntergeladen werden", "Image could not be downloaded"));
         }
         Ok(curl_output.stdout)
     }

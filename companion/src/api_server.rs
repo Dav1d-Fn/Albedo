@@ -11,6 +11,7 @@ use crate::cover_converter::CoverConverter;
 use crate::cover_source::CoverSource;
 use crate::display_mode_reader::DisplayModeReader;
 use crate::library_scanner::LibraryScanner;
+use crate::request_language::RequestLanguage;
 use crate::sunshine_app_builder::SunshineAppBuilder;
 use crate::sunshine_client::SunshineClient;
 use crate::upload_page::UploadPage;
@@ -56,13 +57,20 @@ impl ApiServer
 
     fn answer(&mut self, request: &mut Request) -> ApiAnswer
     {
+        let accept_language = request
+            .headers()
+            .iter()
+            .find(|header| header.field.equiv("Accept-Language"))
+            .map(|header| header.value.as_str().to_string());
+        RequestLanguage::set_from_header(accept_language.as_deref());
+
         let client_allowed = request
             .remote_addr()
             .map(|address| ClientAddressFilter::is_allowed(address.ip()))
             .unwrap_or(false);
         if !client_allowed
         {
-            return Self::error(403, "Nur aus dem Heimnetz oder über Tailscale erreichbar");
+            return Self::error(403, &RequestLanguage::pick("Nur aus dem Heimnetz oder über Tailscale erreichbar", "Only reachable from the home network or via Tailscale"));
         }
 
         let path = request.url().split('?').next().unwrap_or_default().to_string();
@@ -114,7 +122,7 @@ impl ApiServer
             (Method::Post, "/api/apps") => Self::read_body(request).and_then(|body| self.add_app(&body)),
             (Method::Delete, "/api/apps") => Self::read_body(request).and_then(|body| self.delete_app(&body)),
             (Method::Put, "/api/sunshine-login") => Self::read_body(request).and_then(|body| self.set_sunshine_login(&body)),
-            _ => Err((404, "Unbekannter Pfad".to_string())),
+            _ => Err((404, RequestLanguage::pick("Unbekannter Pfad", "Unknown path"))),
         };
         match result
         {
@@ -172,10 +180,10 @@ impl ApiServer
 
     fn cover(&self, entry_id: &str) -> Result<ApiAnswer, (u16, String)>
     {
-        let entry = LibraryScanner.find(entry_id).ok_or((404, "Eintrag nicht gefunden".to_string()))?;
+        let entry = LibraryScanner.find(entry_id).ok_or_else(|| (404, RequestLanguage::pick("Eintrag nicht gefunden", "Entry not found")))?;
         if !entry.has_cover()
         {
-            return Err((404, "Kein Cover vorhanden".into()));
+            return Err((404, RequestLanguage::pick("Kein Cover vorhanden", "No cover available")));
         }
         let png_bytes = CoverConverter.to_png(&entry.cover).map_err(|message| (502, message))?;
         Ok((200, png_bytes, "image/png"))
@@ -183,10 +191,10 @@ impl ApiServer
 
     fn hero(&self, entry_id: &str) -> Result<ApiAnswer, (u16, String)>
     {
-        let entry = LibraryScanner.find(entry_id).ok_or((404, "Eintrag nicht gefunden".to_string()))?;
+        let entry = LibraryScanner.find(entry_id).ok_or_else(|| (404, RequestLanguage::pick("Eintrag nicht gefunden", "Entry not found")))?;
         if matches!(entry.hero, CoverSource::None)
         {
-            return Err((404, "Kein Titelbild vorhanden".into()));
+            return Err((404, RequestLanguage::pick("Kein Titelbild vorhanden", "No title art available")));
         }
         let jpeg_bytes = CoverConverter
             .to_background_jpeg(&entry.hero, &format!("hero-{}", entry.id))
@@ -196,10 +204,10 @@ impl ApiServer
 
     fn logo(&self, entry_id: &str) -> Result<ApiAnswer, (u16, String)>
     {
-        let entry = LibraryScanner.find(entry_id).ok_or((404, "Eintrag nicht gefunden".to_string()))?;
+        let entry = LibraryScanner.find(entry_id).ok_or_else(|| (404, RequestLanguage::pick("Eintrag nicht gefunden", "Entry not found")))?;
         if matches!(entry.logo, CoverSource::None)
         {
-            return Err((404, "Kein Logo vorhanden".into()));
+            return Err((404, RequestLanguage::pick("Kein Logo vorhanden", "No logo available")));
         }
         let png_bytes = CoverConverter
             .to_logo_png(&entry.logo, &format!("logo-{}", entry.id))
@@ -210,10 +218,10 @@ impl ApiServer
     /// `<id>/<kind>`: back to the automatic picture.
     fn delete_art_override(&mut self, id_and_kind: &str) -> Result<ApiAnswer, (u16, String)>
     {
-        let (encoded_entry_id, art_kind) = id_and_kind.rsplit_once('/').ok_or((404, "Bildart fehlt".to_string()))?;
+        let (encoded_entry_id, art_kind) = id_and_kind.rsplit_once('/').ok_or_else(|| (404, RequestLanguage::pick("Bildart fehlt", "Image kind missing")))?;
         if !ArtOverrideStore::is_art_kind(art_kind)
         {
-            return Err((400, "Bildart muss cover, hero oder logo sein".into()));
+            return Err((400, RequestLanguage::pick("Bildart muss cover, hero oder logo sein", "Image kind must be cover, hero or logo")));
         }
         let entry_id = percent_decode_str(encoded_entry_id).decode_utf8_lossy().to_string();
         ArtOverrideStore.remove(&entry_id, art_kind);
@@ -225,13 +233,13 @@ impl ApiServer
     /// so a phone in the same network can open it.
     fn issue_upload_token(&mut self, body: &Value, request_host: Option<String>) -> Result<ApiAnswer, (u16, String)>
     {
-        let entry_id = body["id"].as_str().ok_or((400, "Feld „id“ fehlt".to_string()))?;
+        let entry_id = body["id"].as_str().ok_or_else(|| (400, RequestLanguage::pick("Feld „id“ fehlt", "Field \"id\" missing")))?;
         let art_kind = body["kind"].as_str().unwrap_or_default();
         if !ArtOverrideStore::is_art_kind(art_kind)
         {
-            return Err((400, "Feld „kind“ muss cover, hero oder logo sein".into()));
+            return Err((400, RequestLanguage::pick("Feld „kind“ muss cover, hero oder logo sein", "Field \"kind\" must be cover, hero or logo")));
         }
-        LibraryScanner.find(entry_id).ok_or((404, "Eintrag nicht gefunden".to_string()))?;
+        LibraryScanner.find(entry_id).ok_or_else(|| (404, RequestLanguage::pick("Eintrag nicht gefunden", "Entry not found")))?;
 
         let token = self.upload_tokens.issue(entry_id, art_kind).map_err(|message| (500, message))?;
         let host = request_host.unwrap_or_else(||
@@ -250,7 +258,7 @@ impl ApiServer
 
     fn upload_page(&self, token: &str) -> Result<ApiAnswer, (u16, String)>
     {
-        let ticket = self.upload_tokens.find(token).ok_or((410, "Link abgelaufen oder schon benutzt".to_string()))?;
+        let ticket = self.upload_tokens.find(token).ok_or_else(|| (410, RequestLanguage::pick("Link abgelaufen oder schon benutzt", "Link expired or already used")))?;
         let entry_name = LibraryScanner
             .find(&ticket.entry_id)
             .map(|entry| entry.name)
@@ -262,7 +270,7 @@ impl ApiServer
     /// The link is used up only when the picture was stored, so a wrong file can be retried.
     fn receive_upload(&mut self, token: &str, upload_bytes: Vec<u8>) -> Result<ApiAnswer, (u16, String)>
     {
-        let ticket = self.upload_tokens.find(token).ok_or((410, "Link abgelaufen oder schon benutzt".to_string()))?;
+        let ticket = self.upload_tokens.find(token).ok_or_else(|| (410, RequestLanguage::pick("Link abgelaufen oder schon benutzt", "Link expired or already used")))?;
         ArtOverrideStore
             .save(&ticket.entry_id, &ticket.art_kind, upload_bytes)
             .map_err(|message| (400, message))?;
@@ -297,14 +305,14 @@ impl ApiServer
     /// `<id>/<index>`: the id is URL-encoded, so the last '/' separates the index.
     fn screenshot(&self, id_and_index: &str) -> Result<ApiAnswer, (u16, String)>
     {
-        let (encoded_entry_id, index_text) = id_and_index.rsplit_once('/').ok_or((404, "Index fehlt".to_string()))?;
-        let screenshot_index: usize = index_text.parse().map_err(|_| (404, "Index ist keine Zahl".to_string()))?;
+        let (encoded_entry_id, index_text) = id_and_index.rsplit_once('/').ok_or_else(|| (404, RequestLanguage::pick("Index fehlt", "Index missing")))?;
+        let screenshot_index: usize = index_text.parse().map_err(|_| (404, RequestLanguage::pick("Index ist keine Zahl", "Index is not a number")))?;
         let entry_id = percent_decode_str(encoded_entry_id).decode_utf8_lossy().to_string();
-        let entry = LibraryScanner.find(&entry_id).ok_or((404, "Eintrag nicht gefunden".to_string()))?;
+        let entry = LibraryScanner.find(&entry_id).ok_or_else(|| (404, RequestLanguage::pick("Eintrag nicht gefunden", "Entry not found")))?;
         let screenshot_path = entry
             .screenshots
             .get(screenshot_index)
-            .ok_or((404, "Kein Screenshot mit diesem Index".to_string()))?;
+            .ok_or_else(|| (404, RequestLanguage::pick("Kein Screenshot mit diesem Index", "No screenshot with this index")))?;
 
         // Cached by file name, so a new screenshot shifting the indices does not mix them up.
         let file_stem = screenshot_path.file_stem().unwrap_or_default().to_string_lossy();
@@ -317,14 +325,14 @@ impl ApiServer
 
     fn add_app(&self, body: &Value) -> Result<ApiAnswer, (u16, String)>
     {
-        let entry_id = body["id"].as_str().ok_or((400, "Feld „id“ fehlt".to_string()))?;
-        let entry = LibraryScanner.find(entry_id).ok_or((404, "Eintrag nicht gefunden".to_string()))?;
+        let entry_id = body["id"].as_str().ok_or_else(|| (400, RequestLanguage::pick("Feld „id“ fehlt", "Field \"id\" missing")))?;
+        let entry = LibraryScanner.find(entry_id).ok_or_else(|| (404, RequestLanguage::pick("Eintrag nicht gefunden", "Entry not found")))?;
 
         let sunshine = SunshineClient::new(self.config.clone());
         let existing_names = sunshine.app_names().map_err(|message| (502, message))?;
         if existing_names.contains(&entry.name)
         {
-            return Err((409, format!("„{}“ ist schon in Sunshine", entry.name)));
+            return Err((409, RequestLanguage::pick(&format!("„{}“ ist schon in Sunshine", entry.name), &format!("\"{}\" is already in Sunshine", entry.name))));
         }
 
         // A missing cover is not worth failing over: Sunshine shows its default box then.
@@ -344,7 +352,7 @@ impl ApiServer
 
     fn delete_app(&self, body: &Value) -> Result<ApiAnswer, (u16, String)>
     {
-        let app_name = body["name"].as_str().ok_or((400, "Feld „name“ fehlt".to_string()))?;
+        let app_name = body["name"].as_str().ok_or_else(|| (400, RequestLanguage::pick("Feld „name“ fehlt", "Field \"name\" missing")))?;
         SunshineClient::new(self.config.clone()).delete_app(app_name).map_err(|message| (502, message))?;
         eprintln!("Entfernt: {}", app_name);
         Ok((204, Vec::new(), "application/json"))
@@ -358,7 +366,7 @@ impl ApiServer
         let password = body["password"].as_str().unwrap_or_default();
         if user.is_empty() || password.is_empty()
         {
-            return Err((400, "Benutzername und Passwort eingeben".to_string()));
+            return Err((400, RequestLanguage::pick("Benutzername und Passwort eingeben", "Enter username and password")));
         }
 
         let mut new_config = self.config.clone();
@@ -368,7 +376,7 @@ impl ApiServer
 
         new_config
             .write_to(&CompanionConfig::config_path())
-            .map_err(|message| (500, format!("Config nicht speicherbar: {}", message)))?;
+            .map_err(|message| (500, format!("{}: {}", RequestLanguage::pick("Config nicht speicherbar", "Cannot store config"), message)))?;
         self.config = new_config;
         eprintln!("Sunshine-Login gespeichert");
         Ok((204, Vec::new(), "application/json"))
@@ -396,14 +404,14 @@ impl ApiServer
             .as_reader()
             .take(MAXIMUM_UPLOAD_BYTES + 1)
             .read_to_end(&mut upload_bytes)
-            .map_err(|_| (400, "Upload nicht lesbar".to_string()))?;
+            .map_err(|_| (400, RequestLanguage::pick("Upload nicht lesbar", "Cannot read upload")))?;
         if upload_bytes.len() as u64 > MAXIMUM_UPLOAD_BYTES
         {
-            return Err((413, "Bild zu groß (höchstens 15 MB)".into()));
+            return Err((413, RequestLanguage::pick("Bild zu groß (höchstens 15 MB)", "Image too large (15 MB at most)")));
         }
         if upload_bytes.is_empty()
         {
-            return Err((400, "Kein Bild empfangen".into()));
+            return Err((400, RequestLanguage::pick("Kein Bild empfangen", "No image received")));
         }
         Ok(upload_bytes)
     }
@@ -415,8 +423,8 @@ impl ApiServer
             .as_reader()
             .take(64 * 1024)
             .read_to_string(&mut body_text)
-            .map_err(|_| (400, "Anfrage nicht lesbar".to_string()))?;
-        serde_json::from_str(&body_text).map_err(|_| (400, "Anfrage ist kein gültiges JSON".to_string()))
+            .map_err(|_| (400, RequestLanguage::pick("Anfrage nicht lesbar", "Cannot read request")))?;
+        serde_json::from_str(&body_text).map_err(|_| (400, RequestLanguage::pick("Anfrage ist kein gültiges JSON", "Request is not valid JSON")))
     }
 
     fn json(status_code: u16, body: Value) -> ApiAnswer

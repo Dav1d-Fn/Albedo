@@ -1,3 +1,4 @@
+use crate::ui_language::UiLanguage;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -26,7 +27,7 @@ impl MoonlightBoxArt
     /// Paths for the Flatpak or the system install, depending on the configured Moonlight command.
     pub fn for_command(moonlight_command: &[String]) -> Result<Self, String>
     {
-        let home = std::env::var_os("HOME").map(PathBuf::from).ok_or("HOME ist nicht gesetzt")?;
+        let home = std::env::var_os("HOME").map(PathBuf::from).ok_or_else(|| UiLanguage::pick("HOME ist nicht gesetzt", "HOME is not set"))?;
         let uses_flatpak = moonlight_command.iter().any(|argument| argument == Self::FLATPAK_ID);
 
         let (config_root, cache_root) = if uses_flatpak
@@ -51,7 +52,10 @@ impl MoonlightBoxArt
     pub fn load(&self, addresses: &[String]) -> Result<HashMap<String, String>, String>
     {
         let config_text = fs::read_to_string(&self.config_file)
-            .map_err(|error| format!("Moonlight.conf nicht lesbar ({}): {}", self.config_file.display(), error))?;
+            .map_err(|error|
+            {
+                format!("{} ({}): {}", UiLanguage::pick("Moonlight.conf nicht lesbar", "Cannot read Moonlight.conf"), self.config_file.display(), error)
+            })?;
         let host_entries = MoonlightHostEntries::parse(&config_text);
 
         let host_number = addresses

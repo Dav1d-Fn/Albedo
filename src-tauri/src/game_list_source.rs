@@ -1,3 +1,4 @@
+use crate::ui_language::UiLanguage;
 use std::process::Command;
 use std::time::Duration;
 
@@ -75,15 +76,15 @@ impl GameListSource
             .basic_auth(&self.sunshine_user, Some(&self.sunshine_password))
             .send()
             .await
-            .map_err(|error| format!("Sunshine nicht erreichbar: {}", error))?;
+            .map_err(|error| format!("{}: {}", UiLanguage::pick("Sunshine nicht erreichbar", "Sunshine unreachable"), error))?;
 
         if response.status() == reqwest::StatusCode::UNAUTHORIZED
         {
-            return Err("Sunshine-Login falsch oder nicht eingetragen".into());
+            return Err(UiLanguage::pick("Sunshine-Login falsch oder nicht eingetragen", "Sunshine login wrong or missing"));
         }
         if !response.status().is_success()
         {
-            return Err(format!("Sunshine antwortet mit {}", response.status()));
+            return Err(format!("{} {}", UiLanguage::pick("Sunshine antwortet mit", "Sunshine answered with"), response.status()));
         }
 
         let app_list: SunshineAppList = response.json().await.map_err(|error| error.to_string())?;
@@ -93,7 +94,7 @@ impl GameListSource
     /// The configured API URL, pointed at the address that is reachable right now.
     fn sunshine_api_base_url(&self) -> Result<String, String>
     {
-        let mut url = reqwest::Url::parse(self.sunshine_api_url.trim()).map_err(|error| format!("Sunshine-API-Adresse ungültig: {}", error))?;
+        let mut url = reqwest::Url::parse(self.sunshine_api_url.trim()).map_err(|error| format!("{}: {}", UiLanguage::pick("Sunshine-API-Adresse ungültig", "Invalid Sunshine API address"), error))?;
         let host = self.host.trim().trim_start_matches('[').trim_end_matches(']');
         if !host.is_empty()
         {
@@ -105,7 +106,7 @@ impl GameListSource
             {
                 host.to_string()
             };
-            url.set_host(Some(&host_for_url)).map_err(|error| format!("Sunshine-API-Adresse ungültig: {}", error))?;
+            url.set_host(Some(&host_for_url)).map_err(|error| format!("{}: {}", UiLanguage::pick("Sunshine-API-Adresse ungültig", "Invalid Sunshine API address"), error))?;
         }
         Ok(url.to_string())
     }
@@ -113,7 +114,7 @@ impl GameListSource
     /// `moonlight list <host>` prints one app name per line; needs a paired client.
     fn fetch_with_moonlight(&self) -> Result<Vec<String>, String>
     {
-        let (program, base_arguments) = self.moonlight_command.split_first().ok_or("Moonlight-Befehl ist leer")?;
+        let (program, base_arguments) = self.moonlight_command.split_first().ok_or_else(|| UiLanguage::pick("Moonlight-Befehl ist leer", "Moonlight command is empty"))?;
 
         let mut command = Command::new(program);
         HostEnvironment::apply_to(&mut command);
@@ -122,14 +123,14 @@ impl GameListSource
             .arg("list")
             .arg(&self.host)
             .output()
-            .map_err(|error| format!("Moonlight nicht gefunden ({}): {}", program, error))?;
+            .map_err(|error| format!("{} ({}): {}", UiLanguage::pick("Moonlight nicht gefunden", "Moonlight not found"), program, error))?;
 
         if !output.status.success()
         {
             // Moonlight logs driver noise first; the actual reason is the last line.
             let error_text = String::from_utf8_lossy(&output.stderr);
             let last_line = error_text.lines().rev().find(|line| !line.trim().is_empty()).unwrap_or("").trim();
-            return Err(format!("moonlight list fehlgeschlagen: {}", last_line));
+            return Err(format!("{}: {}", UiLanguage::pick("moonlight list fehlgeschlagen", "moonlight list failed"), last_line));
         }
 
         Ok(String::from_utf8_lossy(&output.stdout)

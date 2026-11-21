@@ -15,28 +15,7 @@ export class DevicePalette
     red: "#F87171",
   };
 
-  public static readonly colorNames: Record<DeviceColor, string> =
-  {
-    blue: "Blau",
-    orange: "Orange",
-    green: "Grün",
-    violet: "Violett",
-    pink: "Pink",
-    teal: "Türkis",
-    yellow: "Gelb",
-    red: "Rot",
-  };
-
   public static readonly colorOrder: DeviceColor[] = ["blue", "orange", "green", "violet", "pink", "teal", "yellow", "red"];
-
-  public static readonly iconNames: Record<DeviceIconKind, string> =
-  {
-    handheld: "Handheld",
-    tv: "Fernseher",
-    monitor: "Monitor",
-    laptop: "Laptop",
-    projector: "Beamer",
-  };
 
   public static readonly iconOrder: DeviceIconKind[] = ["handheld", "tv", "monitor", "laptop", "projector"];
 

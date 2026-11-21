@@ -14,6 +14,7 @@ mod library_scanner;
 mod lutris_source;
 mod preset_source;
 mod process_quitter;
+mod request_language;
 mod prism_source;
 mod steam_shortcut_source;
 mod steam_source;

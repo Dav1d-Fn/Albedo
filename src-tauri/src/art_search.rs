@@ -1,3 +1,4 @@
+use crate::ui_language::UiLanguage;
 use std::time::Duration;
 
 use reqwest::{Client, StatusCode, Url};
@@ -57,7 +58,6 @@ pub struct ArtSearch
 
 impl ArtSearch
 {
-    const SHOP_SOURCE: &'static str = "Steam-Shop";
     const GRID_DB_SOURCE: &'static str = "SteamGridDB";
     const GRID_DB_API: &'static str = "https://www.steamgriddb.com/api/v2/";
     /// Shop games tried per search; each costs one request to check its picture exists.
@@ -131,18 +131,18 @@ impl ArtSearch
             .get(image_url)
             .send()
             .await
-            .map_err(|error| format!("Bild nicht ladbar: {}", error))?;
+            .map_err(|error| format!("{}: {}", UiLanguage::pick("Bild nicht ladbar", "Cannot load image"), error))?;
         if !response.status().is_success()
         {
-            return Err(format!("Bild nicht ladbar ({})", response.status()));
+            return Err(format!("{} ({})", UiLanguage::pick("Bild nicht ladbar", "Cannot load image"), response.status()));
         }
         let image_bytes = response
             .bytes()
             .await
-            .map_err(|error| format!("Bild nicht ladbar: {}", error))?;
+            .map_err(|error| format!("{}: {}", UiLanguage::pick("Bild nicht ladbar", "Cannot load image"), error))?;
         if image_bytes.len() > Self::MAXIMUM_DOWNLOAD_BYTES
         {
-            return Err("Bild zu groß (höchstens 15 MB)".into());
+            return Err(UiLanguage::pick("Bild zu groß (höchstens 15 MB)", "Image too large (15 MB at most)"));
         }
         Ok(image_bytes.to_vec())
     }
@@ -181,7 +181,7 @@ impl ArtSearch
                 {
                     thumbnail_url: image_url.clone(),
                     image_url,
-                    source: Self::SHOP_SOURCE.into(),
+                    source: UiLanguage::pick("Steam-Shop", "Steam store"),
                     label: shop_name,
                 });
             }
@@ -197,10 +197,10 @@ impl ArtSearch
             .query(&[("term", game_name), ("cc", "de"), ("l", "german")])
             .send()
             .await
-            .map_err(|_| "Steam-Shop nicht erreichbar".to_string())?;
+            .map_err(|_| UiLanguage::pick("Steam-Shop nicht erreichbar", "Steam store unreachable"))?;
         if !response.status().is_success()
         {
-            return Err(format!("Steam-Shop antwortet mit {}", response.status()));
+            return Err(format!("{} {}", UiLanguage::pick("Steam-Shop antwortet mit", "Steam store answered with"), response.status()));
         }
         let search: ShopSearchResponse =
             response.json().await.map_err(|error| error.to_string())?;
@@ -320,18 +320,18 @@ impl ArtSearch
             .bearer_auth(key)
             .send()
             .await
-            .map_err(|_| "SteamGridDB nicht erreichbar".to_string())?;
+            .map_err(|_| UiLanguage::pick("SteamGridDB nicht erreichbar", "SteamGridDB unreachable"))?;
         match response.status()
         {
             StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN =>
             {
-                return Err("SteamGridDB-Schlüssel ungültig".into());
+                return Err(UiLanguage::pick("SteamGridDB-Schlüssel ungültig", "SteamGridDB key invalid"));
             }
             // Unknown game (e.g. a Steam appid SteamGridDB does not have): simply nothing found.
-            StatusCode::NOT_FOUND => return Err("SteamGridDB kennt das Spiel nicht".into()),
+            StatusCode::NOT_FOUND => return Err(UiLanguage::pick("SteamGridDB kennt das Spiel nicht", "SteamGridDB doesn't know this game")),
             status if !status.is_success() =>
             {
-                return Err(format!("SteamGridDB antwortet mit {}", status));
+                return Err(format!("{} {}", UiLanguage::pick("SteamGridDB antwortet mit", "SteamGridDB answered with"), status));
             }
             _ =>
             {}

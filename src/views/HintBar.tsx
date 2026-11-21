@@ -1,3 +1,4 @@
+import { UiText } from "../i18n/UiText";
 import LauncherApp from "../LauncherApp";
 import { PadButton } from "../model/Types";
 import { EditorRows } from "./EditorRows";
@@ -16,73 +17,74 @@ export function HintBar(props: { app: LauncherApp })
   const app = props.app;
   const state = app.state;
   const hints: Hint[] = [];
+  const t = UiText.current;
 
   if (state.screen === "home")
   {
     const onAddTile = state.zone === "games" && app.isAddTileSelected();
-    hints.push({ glyph: "A", label: state.zone === "games" ? (onAddTile ? "Hinzufügen" : "Details") : "Auswählen", button: "A" });
-    hints.push({ glyph: "X", label: "Gerät", button: "X" });
-    hints.push({ glyph: "L1 · R1", label: "Profil", button: "R1", pill: true });
-    hints.push({ glyph: "Y", label: "Neu laden", button: "Y" });
-    hints.push({ glyph: "☰", label: "Geräte", button: "MENU", pill: true });
+    hints.push({ glyph: "A", label: state.zone === "games" ? (onAddTile ? t.common.add : t.home.details) : t.home.select, button: "A" });
+    hints.push({ glyph: "X", label: t.common.device, button: "X" });
+    hints.push({ glyph: "L1 · R1", label: t.common.profile, button: "R1", pill: true });
+    hints.push({ glyph: "Y", label: t.common.reload, button: "Y" });
+    hints.push({ glyph: "☰", label: t.common.devices, button: "MENU", pill: true });
   }
   else if (state.screen === "detail" && state.imageDialog !== null)
   {
-    hints.push({ glyph: "◀ ▶", label: "Wählen", button: "RIGHT", pill: true });
-    hints.push({ glyph: "▲ ▼", label: "Zeile", button: "DOWN", pill: true });
+    hints.push({ glyph: "◀ ▶", label: t.common.choose, button: "RIGHT", pill: true });
+    hints.push({ glyph: "▲ ▼", label: t.common.row, button: "DOWN", pill: true });
     if (state.imageDialog.row === "pictures" && state.imageDialog.candidates.length > 0)
     {
-      hints.push({ glyph: "A", label: "Übernehmen", button: "A" });
+      hints.push({ glyph: "A", label: t.imageDialog.apply, button: "A" });
     }
     if (state.imageDialog.row !== "backdrop")
     {
-      hints.push({ glyph: "X", label: "Automatisches Bild", button: "X" });
+      hints.push({ glyph: "X", label: t.imageDialog.automaticImage, button: "X" });
     }
-    hints.push({ glyph: "B", label: "Schließen", button: "B" });
+    hints.push({ glyph: "B", label: t.common.close, button: "B" });
   }
   else if (state.screen === "detail")
   {
-    const detailLabels = ["Spielen", "Gerät wechseln", "Danach umschalten", "Bild setzen"];
-    hints.push({ glyph: "A", label: detailLabels[state.detailIndex] ?? "Spielen", button: "A" });
-    hints.push({ glyph: "X", label: "Gerät", button: "X" });
-    hints.push({ glyph: "L1 · R1", label: "Profil", button: "R1", pill: true });
-    hints.push({ glyph: "Y", label: app.isRemembered(app.selectedGame()) ? "Vergessen" : "Merken", button: "Y" });
-    hints.push({ glyph: "B", label: "Zurück", button: "B" });
+    const detailLabels = [t.detail.play, t.detail.switchDevice, t.detail.cycleAfterStream, t.detail.setImage];
+    hints.push({ glyph: "A", label: detailLabels[state.detailIndex] ?? t.detail.play, button: "A" });
+    hints.push({ glyph: "X", label: t.common.device, button: "X" });
+    hints.push({ glyph: "L1 · R1", label: t.common.profile, button: "R1", pill: true });
+    hints.push({ glyph: "Y", label: app.isRemembered(app.selectedGame()) ? t.common.forget : t.common.remember, button: "Y" });
+    hints.push({ glyph: "B", label: t.common.back, button: "B" });
   }
   else if (state.screen === "editor")
   {
-    hints.push({ glyph: "L1 · R1", label: "Gerät", button: "R1", pill: true });
+    hints.push({ glyph: "L1 · R1", label: t.common.device, button: "R1", pill: true });
     if (state.editZone === "modes")
     {
       const onDeviceEntry = state.editSection === "device";
-      hints.push({ glyph: "A", label: "Bearbeiten", button: "A" });
+      hints.push({ glyph: "A", label: t.editor.edit, button: "A" });
       if (!onDeviceEntry)
       {
-        hints.push({ glyph: "Y", label: "Als Standard", button: "Y" });
+        hints.push({ glyph: "Y", label: t.editor.makeDefault, button: "Y" });
       }
-      const deleteLabel = onDeviceEntry ? "Gerät löschen" : "Profil löschen";
-      hints.push({ glyph: "X", label: state.editConfirmDelete !== "" ? "Wirklich löschen" : deleteLabel, button: "X" });
-      hints.push({ glyph: "B", label: "Fertig", button: "B" });
+      const deleteLabel = onDeviceEntry ? t.editor.deleteDevice : t.editor.deleteProfile;
+      hints.push({ glyph: "X", label: state.editConfirmDelete !== "" ? t.editor.reallyDelete : deleteLabel, button: "X" });
+      hints.push({ glyph: "B", label: t.common.done, button: "B" });
     }
     else if (state.editZone === "actions")
     {
-      hints.push({ glyph: "◀ ▶", label: "Wählen", button: "RIGHT", pill: true });
-      hints.push({ glyph: "A", label: state.editConfirmDelete !== "" ? "Wirklich löschen" : "Ausführen", button: "A" });
-      hints.push({ glyph: "B", label: "Fertig", button: "B" });
+      hints.push({ glyph: "◀ ▶", label: t.common.choose, button: "RIGHT", pill: true });
+      hints.push({ glyph: "A", label: state.editConfirmDelete !== "" ? t.editor.reallyDelete : t.editor.run, button: "A" });
+      hints.push({ glyph: "B", label: t.common.done, button: "B" });
     }
     else
     {
       const rowType = EditorRows.rows[state.editRow]?.type;
-      const rowActionLabels: Partial<Record<string, string>> = { text: "Umbenennen", screen: "Bildschirm übernehmen", delete: "Gerät löschen" };
-      const rowActionLabel = rowActionLabels[rowType ?? ""] ?? "Umschalten";
+      const rowActionLabels: Partial<Record<string, string>> = { text: t.editor.rename, screen: t.editor.takeScreen, delete: t.editor.deleteDevice };
+      const rowActionLabel = rowActionLabels[rowType ?? ""] ?? t.common.toggle;
       if (rowType !== "delete")
       {
-        hints.push({ glyph: "◀ ▶", label: "Wert ändern", button: "RIGHT", pill: true });
+        hints.push({ glyph: "◀ ▶", label: t.editor.changeValue, button: "RIGHT", pill: true });
       }
-      hints.push({ glyph: "A", label: state.editConfirmDelete !== "" && rowType === "delete" ? "Wirklich löschen" : rowActionLabel, button: "A" });
-      const deleteLabel = EditorRows.rows[state.editRow]?.scope === "mode" ? "Profil löschen" : "Gerät löschen";
-      hints.push({ glyph: "X", label: state.editConfirmDelete !== "" ? "Wirklich löschen" : deleteLabel, button: "X" });
-      hints.push({ glyph: "B", label: "Zur Liste", button: "B" });
+      hints.push({ glyph: "A", label: state.editConfirmDelete !== "" && rowType === "delete" ? t.editor.reallyDelete : rowActionLabel, button: "A" });
+      const deleteLabel = EditorRows.rows[state.editRow]?.scope === "mode" ? t.editor.deleteProfile : t.editor.deleteDevice;
+      hints.push({ glyph: "X", label: state.editConfirmDelete !== "" ? t.editor.reallyDelete : deleteLabel, button: "X" });
+      hints.push({ glyph: "B", label: t.editor.toList, button: "B" });
     }
   }
   else if (state.screen === "connection")
@@ -90,61 +92,61 @@ export function HintBar(props: { app: LauncherApp })
     const onPairRow = state.connectionZone === "rows" && state.connectionRow === 0;
     const onAddressesRow = state.connectionZone === "rows" && state.connectionRow === LauncherApp.addressesRowIndex;
     const onKeyRow = state.connectionZone === "rows" && state.connectionRow === LauncherApp.steamGridDbRowIndex;
-    const rowLabel = onPairRow ? "Koppeln" : onAddressesRow ? "Adresse eintippen" : onKeyRow ? "Schlüssel eintippen" : "Umschalten";
-    hints.push({ glyph: "A", label: state.connectionZone === "hosts" ? "Verwenden" : rowLabel, button: "A" });
+    const rowLabel = onPairRow ? t.connection.pair : onAddressesRow ? t.connection.typeAddress : onKeyRow ? t.connection.typeKey : t.common.toggle;
+    hints.push({ glyph: "A", label: state.connectionZone === "hosts" ? t.connection.use : rowLabel, button: "A" });
     if (onAddressesRow && app.settings.extraHostAddresses.length > 0)
     {
-      hints.push({ glyph: "X", label: "Letzte entfernen", button: "X" });
+      hints.push({ glyph: "X", label: t.connection.removeLast, button: "X" });
     }
     if (onKeyRow && app.settings.steamGridDbKey !== "")
     {
-      hints.push({ glyph: "X", label: "Schlüssel löschen", button: "X" });
+      hints.push({ glyph: "X", label: t.connection.deleteKey, button: "X" });
     }
-    hints.push({ glyph: "Y", label: "Neu suchen", button: "Y" });
-    hints.push({ glyph: "B", label: "Fertig", button: "B" });
+    hints.push({ glyph: "Y", label: t.connection.searchAgain, button: "Y" });
+    hints.push({ glyph: "B", label: t.common.done, button: "B" });
   }
   else if (state.screen === "library" && state.sunshineLogin !== null)
   {
-    hints.push({ glyph: "▲ ▼", label: "Feld", button: "DOWN", pill: true });
-    hints.push({ glyph: "A", label: state.sunshineLogin.row === 0 ? "Weiter" : "Speichern", button: "A" });
-    hints.push({ glyph: "B", label: "Abbrechen", button: "B" });
+    hints.push({ glyph: "▲ ▼", label: t.sunshineLogin.field, button: "DOWN", pill: true });
+    hints.push({ glyph: "A", label: state.sunshineLogin.row === 0 ? t.sunshineLogin.next : t.sunshineLogin.save, button: "A" });
+    hints.push({ glyph: "B", label: t.common.cancel, button: "B" });
   }
   else if (state.screen === "library")
   {
     const entry = app.selectedLibraryEntry();
-    hints.push({ glyph: "L1 · R1", label: "Gruppe", button: "R1", pill: true });
+    hints.push({ glyph: "L1 · R1", label: t.library.group, button: "R1", pill: true });
     const loginMissing = state.librarySunshineProblem !== null;
     if (entry !== undefined && !entry.inSunshine)
     {
-      hints.push({ glyph: "A", label: loginMissing ? "Login eintragen" : "Hinzufügen", button: "A" });
+      hints.push({ glyph: "A", label: loginMissing ? t.library.enterLogin : t.library.addEntry, button: "A" });
     }
     if (entry !== undefined && entry.inSunshine)
     {
-      hints.push({ glyph: "X", label: loginMissing ? "Login eintragen" : "Entfernen", button: "X" });
+      hints.push({ glyph: "X", label: loginMissing ? t.library.enterLogin : t.library.remove, button: "X" });
     }
-    hints.push({ glyph: "Y", label: "Neu laden", button: "Y" });
-    hints.push({ glyph: "☰", label: "Sunshine-Login", button: "MENU", pill: true });
-    hints.push({ glyph: "B", label: "Fertig", button: "B" });
+    hints.push({ glyph: "Y", label: t.common.reload, button: "Y" });
+    hints.push({ glyph: "☰", label: t.common.sunshineLogin, button: "MENU", pill: true });
+    hints.push({ glyph: "B", label: t.common.done, button: "B" });
   }
   else if (state.screen === "afterStream")
   {
-    hints.push({ glyph: "◀ ▶", label: "Wählen", button: "RIGHT", pill: true });
-    hints.push({ glyph: "A", label: state.afterStreamIndex === 0 ? "Pausieren" : "Beenden", button: "A" });
-    hints.push({ glyph: "Y", label: state.afterStreamRemember ? "Nicht merken" : "Merken", button: "Y" });
-    hints.push({ glyph: "B", label: "Pausieren", button: "B" });
+    hints.push({ glyph: "◀ ▶", label: t.common.choose, button: "RIGHT", pill: true });
+    hints.push({ glyph: "A", label: state.afterStreamIndex === 0 ? t.afterStreamNames.keep : t.afterStreamNames.quit, button: "A" });
+    hints.push({ glyph: "Y", label: state.afterStreamRemember ? t.common.dontRemember : t.common.remember, button: "Y" });
+    hints.push({ glyph: "B", label: t.afterStreamNames.keep, button: "B" });
   }
   else if (state.screen === "stream")
   {
-    hints.push({ glyph: "B", label: "Stream beenden", button: "B" });
+    hints.push({ glyph: "B", label: t.stream.endStream, button: "B" });
   }
   else if (state.screen === "connect")
   {
-    hints.push({ glyph: "B", label: "Abbrechen", button: "B" });
+    hints.push({ glyph: "B", label: t.common.cancel, button: "B" });
   }
 
   return (
     <div className="hints">
-      <span className="keys">Pfeile · Enter A · Esc B · X · Y · Q/E L1/R1 · M ☰</span>
+      <span className="keys">{t.common.keyboardKeys}</span>
       <span className="hspacer" />
       {hints.map((hint) => (
         <button key={state.screen + hint.glyph + hint.label} className="hint" onClick={() => app.press(hint.button)}>

@@ -1,3 +1,4 @@
+use crate::request_language::RequestLanguage;
 use qrcode::render::svg;
 use qrcode::QrCode;
 
@@ -9,7 +10,7 @@ impl UploadQrCode
 {
     pub fn svg_for(url: &str) -> Result<String, String>
     {
-        let qr_code = QrCode::new(url.as_bytes()).map_err(|error| format!("QR-Code nicht erstellbar: {}", error))?;
+        let qr_code = QrCode::new(url.as_bytes()).map_err(|error| format!("{}: {}", RequestLanguage::pick("QR-Code nicht erstellbar", "Cannot create QR code"), error))?;
         let rendered_svg = qr_code
             .render::<svg::Color>()
             .quiet_zone(true)

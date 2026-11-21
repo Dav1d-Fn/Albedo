@@ -1,11 +1,9 @@
-import { AfterStreamAction, StreamMode } from "./Types";
+import { UiText } from "../i18n/UiText";
+import { StreamMode } from "./Types";
 
 /** Formats stream modes and devices for display, e.g. "1440p · 120 FPS · 60 Mbit/s". */
 export class ModeText
 {
-
-  /** After a disconnect: ask, leave the game running on the PC, or end it. */
-  public static readonly afterStreamNames: Record<AfterStreamAction, string> = { ask: "Fragen", keep: "Pausieren", quit: "Beenden" };
 
   /** "2560x1440" -> "1440p", "3840x2160" -> "4K". */
   public static shortResolution(resolution: string): string
@@ -35,7 +33,13 @@ export class ModeText
   /** "1440p · 120 FPS · 60 Mbit/s" */
   public static spec(mode: StreamMode): string
   {
-    return ModeText.label(mode) + " FPS · " + mode.bitrateMbps + " Mbit/s";
+    return ModeText.label(mode) + " FPS · " + ModeText.bitrate(mode.bitrateMbps);
+  }
+
+  /** "60 Mbit/s" (German) or "60 Mbps" (English). */
+  public static bitrate(bitrateMbps: number): string
+  {
+    return bitrateMbps + " " + UiText.current.units.mbps;
   }
 
   /** "HEVC · HDR" */
