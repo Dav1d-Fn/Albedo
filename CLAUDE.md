@@ -13,7 +13,7 @@ Design source: Claude design canvas https://claude.ai/artifact/UpFs3Nat5Q983TyyA
 - `src-tauri/src/` – Rust side, one struct per file
   - `lib.rs` – Tauri commands (thin wrappers) and app setup
   - `settings_store.rs` – reads/writes `settings.json` in the app config dir (`~/.config/de.davidf.streaminglauncher/`)
-  - `game_list_source.rs` – app list via Sunshine web API (port 47990, Basic Auth) or `moonlight list <host>`
+  - `game_list_source.rs` – app list from the companion (`GET /api/apps`, live from Sunshine), else Sunshine web API (port 47990, Basic Auth) or `moonlight list <host>` (only Moonlight's cache)
   - `moonlight_command.rs` – builds the Moonlight argument list (has the unit test)
   - `stream_session.rs` – spawns Moonlight, emits `stream-ended`
   - `gamepad_listener.rs` – reads controllers with `gilrs`, emits `pad-button`

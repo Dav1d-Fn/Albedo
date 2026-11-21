@@ -9,6 +9,12 @@ use serde_json::json;
 use crate::companion_library::CompanionLibrary;
 
 #[derive(Deserialize)]
+struct SunshineAppsResponse
+{
+    apps: Vec<String>,
+}
+
+#[derive(Deserialize)]
 struct AddedAppResponse
 {
     name: String,
@@ -50,6 +56,14 @@ impl CompanionClient
             .map_err(|error| error.to_string())?;
 
         Ok(Self { base_url, http_client })
+    }
+
+    /// App names Sunshine offers right now (`GET /api/apps`), unlike `moonlight list` never a stale cache.
+    pub async fn sunshine_apps(&self) -> Result<Vec<String>, String>
+    {
+        let response = self.send(self.http_client.get(self.url(&["api", "apps"]))).await?;
+        let sunshine_apps: SunshineAppsResponse = response.json().await.map_err(|error| error.to_string())?;
+        Ok(sunshine_apps.apps)
     }
 
     pub async fn library(&self) -> Result<CompanionLibrary, String>

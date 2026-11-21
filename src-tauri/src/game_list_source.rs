@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use serde::Deserialize;
 
+use crate::companion_client::CompanionClient;
 use crate::host_environment::HostEnvironment;
 
 /// Where the app list comes from, sent by the frontend.
@@ -34,8 +35,16 @@ struct SunshineApp
 impl GameListSource
 {
     /// Returns the app names offered by the host.
+    /// The companion on the PC comes first: it asks Sunshine live. `moonlight list` only prints
+    /// Moonlight's cache, which misses newly added games until the Moonlight UI refreshed it.
     pub async fn fetch(&self) -> Result<Vec<String>, String>
     {
+        match self.fetch_from_companion().await
+        {
+            Ok(games) => return Ok(games),
+            Err(error) => eprintln!("[games] companion not usable, falling back: {}", error),
+        }
+
         if self.sunshine_api_url.trim().is_empty()
         {
             self.fetch_with_moonlight()
@@ -44,6 +53,11 @@ impl GameListSource
         {
             self.fetch_from_sunshine_api().await
         }
+    }
+
+    async fn fetch_from_companion(&self) -> Result<Vec<String>, String>
+    {
+        CompanionClient::for_host(&self.host)?.sunshine_apps().await
     }
 
     /// Sunshine web API. Needs the web UI login; the certificate is self-signed.
