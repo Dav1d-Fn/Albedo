@@ -759,15 +759,18 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }));
   }
 
+  /** Spielen, Gerät, Danach. */
+  public static readonly detailButtonCount = 3;
+
   private detailButton(button: PadButton): void
   {
     if (button === "LEFT")
     {
-      this.setState({ detailIndex: 0 });
+      this.setState({ detailIndex: Math.max(0, this.state.detailIndex - 1) });
     }
     else if (button === "RIGHT")
     {
-      this.setState({ detailIndex: 1 });
+      this.setState({ detailIndex: Math.min(LauncherApp.detailButtonCount - 1, this.state.detailIndex + 1) });
     }
     else if (button === "A")
     {
@@ -790,9 +793,13 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       this.startStream();
     }
-    else
+    else if (detailIndex === 1)
     {
       this.toggleDevice();
+    }
+    else
+    {
+      this.cycleAfterStreamForGame();
     }
   }
 
@@ -916,7 +923,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       return;
     }
 
-    const afterStream = this.settings.afterStream;
+    const afterStream = this.afterStreamFor(this.selectedGame());
     if (afterStream === "ask")
     {
       this.setState({ screen: "afterStream", afterStreamIndex: 0, afterStreamRemember: false, lastLaunchError: "" });
@@ -967,9 +974,11 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   public chooseAfterStream(choiceIndex: number): void
   {
     const choice = LauncherApp.afterStreamChoices[choiceIndex];
-    if (this.state.afterStreamRemember)
+    const gameName = this.selectedGame();
+    if (this.state.afterStreamRemember && gameName !== undefined)
     {
-      this.setAfterStream(choice);
+      // "Entscheidung merken" only applies to this game; the default stays "ask".
+      this.setAfterStreamForGame(gameName, choice);
     }
     this.setState({ screen: "detail", afterStreamIndex: choiceIndex });
     if (choice === "quit")
@@ -1058,6 +1067,57 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   public setAfterStream(afterStream: AfterStreamAction): void
   {
     this.updateSettings((settings) => ({ ...settings, afterStream }));
+  }
+
+  /** What happens after this game's stream: its own setting, else the default. */
+  public afterStreamFor(gameName: string | undefined): AfterStreamAction
+  {
+    if (gameName !== undefined && gameName in this.settings.afterStreamPerGame)
+    {
+      return this.settings.afterStreamPerGame[gameName];
+    }
+    return this.settings.afterStream;
+  }
+
+  /** The game's own after-stream setting, undefined = it follows the default. */
+  public afterStreamOverride(gameName: string | undefined): AfterStreamAction | undefined
+  {
+    if (gameName === undefined)
+    {
+      return undefined;
+    }
+    return this.settings.afterStreamPerGame[gameName];
+  }
+
+  /** `undefined` removes the game's own setting, so it follows the default again. */
+  public setAfterStreamForGame(gameName: string, afterStream: AfterStreamAction | undefined): void
+  {
+    this.updateSettings((settings) =>
+    {
+      const afterStreamPerGame = { ...settings.afterStreamPerGame };
+      if (afterStream === undefined)
+      {
+        delete afterStreamPerGame[gameName];
+      }
+      else
+      {
+        afterStreamPerGame[gameName] = afterStream;
+      }
+      return { ...settings, afterStreamPerGame };
+    });
+  }
+
+  /** Detail page button: Standard → Fragen → Pausieren → Beenden → Standard. */
+  public cycleAfterStreamForGame(): void
+  {
+    const gameName = this.selectedGame();
+    if (gameName === undefined)
+    {
+      return;
+    }
+    const order: (AfterStreamAction | undefined)[] = [undefined, "ask", "keep", "quit"];
+    const nextIndex = (order.indexOf(this.afterStreamOverride(gameName)) + 1) % order.length;
+    this.setAfterStreamForGame(gameName, order[nextIndex]);
   }
 
   private async quitHostApp(): Promise<void>

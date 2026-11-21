@@ -54,7 +54,10 @@ export interface Settings
   sunshinePassword: string;
   profiles: Record<DeviceId, DeviceProfile>;
   /** "ask" shows the pause/quit dialog, "keep" leaves the game running, "quit" ends it. */
+  /** Default after a normal disconnect; a game can override it in `afterStreamPerGame`. */
   afterStream: AfterStreamAction;
+  /** Game name -> after-stream action for that game, missing = the default above. */
+  afterStreamPerGame: Record<string, AfterStreamAction>;
   backdropKind: BackdropKind;
   /** "<game name>|<device>" -> mode index remembered for that game. */
   rememberedModes: Record<string, number>;

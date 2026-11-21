@@ -33,7 +33,7 @@ export function AfterStreamDialog(props: { app: LauncherApp })
           aria-checked={state.afterStreamRemember}
         >
           <span className="rbox"><CheckIcon /></span>
-          Entscheidung merken
+          Für dieses Spiel merken
           <span className="glyph sm">Y</span>
         </button>
       </div>

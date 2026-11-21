@@ -15,6 +15,10 @@ export function DetailScreen(props: { app: LauncherApp })
   const backdropArt = app.backdropArtFor(gameName);
   const remembered = app.isRemembered(gameName);
   const devices: DeviceId[] = ["handheld", "tv"];
+  const afterStreamOverride = app.afterStreamOverride(gameName);
+  const afterStreamLabel = afterStreamOverride === undefined
+    ? "Danach: Standard (" + ModeText.afterStreamNames[app.settings.afterStream] + ")"
+    : "Danach: " + ModeText.afterStreamNames[afterStreamOverride];
 
   return (
     <div className="screen">
@@ -75,6 +79,10 @@ export function DetailScreen(props: { app: LauncherApp })
               <SwapIcon />
               {"Gerät: " + ModeText.deviceNames[state.device]}
               <span className="glyph sm">X</span>
+            </button>
+            <button className={"btn" + (state.detailIndex === 2 ? " f" : "")} onClick={() => app.detailAction(2)}>
+              <span className="stopmark" />
+              {afterStreamLabel}
             </button>
           </div>
 

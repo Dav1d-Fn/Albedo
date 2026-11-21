@@ -18,6 +18,7 @@ export class DefaultSettings
       sunshineUser: "",
       sunshinePassword: "",
       afterStream: "ask",
+      afterStreamPerGame: {},
       backdropKind: "hero",
       profiles:
       {
@@ -60,6 +61,7 @@ export class DefaultSettings
       ...stored,
       profiles: { ...defaults.profiles, ...(stored.profiles ?? {}) },
       rememberedModes: stored.rememberedModes ?? {},
+      afterStreamPerGame: stored.afterStreamPerGame ?? {},
     };
   }
 }

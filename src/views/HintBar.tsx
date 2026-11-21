@@ -27,7 +27,8 @@ export function HintBar(props: { app: LauncherApp })
   }
   else if (state.screen === "detail")
   {
-    hints.push({ glyph: "A", label: state.detailIndex === 0 ? "Spielen" : "Gerät wechseln", button: "A" });
+    const detailLabels = ["Spielen", "Gerät wechseln", "Danach umschalten"];
+    hints.push({ glyph: "A", label: detailLabels[state.detailIndex] ?? "Spielen", button: "A" });
     hints.push({ glyph: "X", label: "Gerät", button: "X" });
     hints.push({ glyph: "L1 · R1", label: "Modus", button: "R1", pill: true });
     hints.push({ glyph: "Y", label: app.isRemembered(app.selectedGame()) ? "Vergessen" : "Merken", button: "Y" });

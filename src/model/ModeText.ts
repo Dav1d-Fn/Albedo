@@ -1,9 +1,12 @@
-import { DeviceId, StreamMode } from "./Types";
+import { AfterStreamAction, DeviceId, StreamMode } from "./Types";
 
 /** Formats stream modes and devices for display, e.g. "1440p · 120 FPS · 60 Mbit/s". */
 export class ModeText
 {
   public static readonly deviceNames: Record<DeviceId, string> = { handheld: "Handheld", tv: "TV" };
+
+  /** After a disconnect: ask, leave the game running on the PC, or end it. */
+  public static readonly afterStreamNames: Record<AfterStreamAction, string> = { ask: "Fragen", keep: "Pausieren", quit: "Beenden" };
 
   public static readonly accentColors: Record<DeviceId, string> = { handheld: "#5AA9FF", tv: "#FF9F45" };
 
