@@ -41,7 +41,7 @@ Design source: Claude design canvas https://claude.ai/artifact/UpFs3Nat5Q983TyyA
 ## Controls
 
 Keyboard = controller: arrows, Enter/Space = A, Esc/Backspace = B, X, Y, Q/E = L1/R1, M = ☰.
-X switches device everywhere (home/detail), L1/R1 switch the mode, Y remembers the mode for a game
+X switches device on home/detail (in the editor X deletes the mode or device, second X confirms), L1/R1 switch the mode, Y remembers the mode for a game
 (detail) or reloads the list (home), ☰ opens the profile editor.
 
 ## Commands
