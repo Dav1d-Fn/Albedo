@@ -94,18 +94,19 @@ impl ApiServer
 
     fn library(&self) -> ApiAnswer
     {
-        // Without the Sunshine login the list still works, only inSunshine stays false.
-        let sunshine_app_names = SunshineClient::new(self.config.clone()).app_names().unwrap_or_else(|message|
+        // Without the Sunshine login the list still works: inSunshine stays false and
+        // sunshineProblem tells the launcher why adding cannot work right now.
+        let (sunshine_app_names, sunshine_problem) = match SunshineClient::new(self.config.clone()).app_names()
         {
-            eprintln!("inSunshine unbekannt: {}", message);
-            Vec::new()
-        });
+            Ok(app_names) => (app_names, None),
+            Err(message) => (Vec::new(), Some(message)),
+        };
         let entries: Vec<Value> = LibraryScanner
             .scan_all()
             .iter()
             .map(|entry| json!(entry.to_response(sunshine_app_names.contains(&entry.name))))
             .collect();
-        Self::json(200, json!({ "entries": entries }))
+        Self::json(200, json!({ "entries": entries, "sunshineProblem": sunshine_problem }))
     }
 
     fn cover(&self, entry_id: &str) -> Result<ApiAnswer, (u16, String)>

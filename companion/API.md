@@ -36,13 +36,17 @@ Everything that can be added, sorted by group, then name.
     { "id": "lutris:black-desert-online", "name": "Black Desert Online", "group": "Lutris", "hasCover": false, "inSunshine": false },
     { "id": "prism:26.3 Modpack Test", "name": "Minecraft 26.3 Modpack Test", "group": "Minecraft", "hasCover": true, "inSunshine": true },
     { "id": "desktop:org.kde.dolphin", "name": "Dolphin", "group": "Programme", "hasCover": false, "inSunshine": false }
-  ]
+  ],
+  "sunshineProblem": null
 }
 ```
 
 - `id` is stable: `<source>:<source id>`. Sources: `preset`, `steam`, `heroic`, `lutris`, `prism`, `desktop`.
 - `inSunshine`: a Sunshine app created from this entry exists (the companion recognises its own apps,
   e.g. by a marker in the app entry, and matches the old hand-made ones by name where it can).
+- `sunshineProblem`: `null` when the companion can reach Sunshine with its login, otherwise the German
+  reason (e.g. "Sunshine-Login fehlt in …/config.json", "Sunshine-Login falsch"). Adding/removing
+  cannot work then; the launcher should say so before the user presses A, not only after.
 - Not listed: tools like Proton, Steam Linux Runtime, Steamworks Redist, Wallpaper Engine, VR-only games.
 
 ### `GET /api/cover/<id>`
