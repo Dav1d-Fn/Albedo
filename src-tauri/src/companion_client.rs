@@ -72,9 +72,28 @@ impl CompanionClient
     /// The entry's cover as `data:image/png;base64,…`, or None when the PC has none.
     pub async fn cover(&self, entry_id: &str) -> Result<Option<String>, String>
     {
+        self.image(&["api", "cover", entry_id], "image/png").await
+    }
+
+    /// The entry's wide title image for the backdrop as `data:image/jpeg;base64,…`, or None.
+    pub async fn hero(&self, entry_id: &str) -> Result<Option<String>, String>
+    {
+        self.image(&["api", "hero", entry_id], "image/jpeg").await
+    }
+
+    /// One of the user's screenshots of the entry (0 = newest) as `data:image/jpeg;base64,…`, or None.
+    pub async fn screenshot(&self, entry_id: &str, index: u32) -> Result<Option<String>, String>
+    {
+        let index_text = index.to_string();
+        self.image(&["api", "screenshot", entry_id, &index_text], "image/jpeg").await
+    }
+
+    /// GETs an image as `data:` URL; 404 means the PC has none and gives None.
+    async fn image(&self, path_segments: &[&str], mime_type: &str) -> Result<Option<String>, String>
+    {
         let response = self
             .http_client
-            .get(self.url(&["api", "cover", entry_id]))
+            .get(self.url(path_segments))
             .send()
             .await
             .map_err(|error| Self::connection_error(&error))?;
@@ -85,7 +104,7 @@ impl CompanionClient
         }
         let response = Self::check_status(response).await?;
         let image_bytes = response.bytes().await.map_err(|error| error.to_string())?;
-        Ok(Some(format!("data:image/png;base64,{}", BASE64.encode(image_bytes))))
+        Ok(Some(format!("data:{};base64,{}", mime_type, BASE64.encode(image_bytes))))
     }
 
     /// Creates the Sunshine app; returns its name as Sunshine lists it.

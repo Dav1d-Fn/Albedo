@@ -93,6 +93,18 @@ export class Backend
     return invoke<void>("companion_set_sunshine_login", { host, user, password });
   }
 
+  /** Wide title image of a library entry as `data:` URL, null when the PC has none. */
+  public companionHero(host: string, entryId: string): Promise<string | null>
+  {
+    return invoke<string | null>("companion_hero", { host, entryId });
+  }
+
+  /** One of the user's screenshots of a library entry (0 = newest) as `data:` URL, null when there is none. */
+  public companionScreenshot(host: string, entryId: string, index: number): Promise<string | null>
+  {
+    return invoke<string | null>("companion_screenshot", { host, entryId, index });
+  }
+
   /** Cover of a library entry as `data:` URL, null when the PC has none. */
   public companionCover(host: string, entryId: string): Promise<string | null>
   {

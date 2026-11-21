@@ -12,4 +12,10 @@ pub struct LibraryEntry
     pub group: String,
     pub has_cover: bool,
     pub in_sunshine: bool,
+    /// A wide title image for the backdrop exists (`GET /api/hero/<id>`).
+    #[serde(default)]
+    pub has_hero: bool,
+    /// Number of the user's screenshots (`GET /api/screenshot/<id>/<index>`, 0 = newest).
+    #[serde(default)]
+    pub screenshot_count: u32,
 }

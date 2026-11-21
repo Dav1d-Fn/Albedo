@@ -2,6 +2,7 @@ import type LauncherApp from "../LauncherApp";
 import { ModeText } from "../model/ModeText";
 import { DeviceId } from "../model/Types";
 import { CheckIcon, PlayIcon, SwapIcon } from "./Icons";
+import { GameBackdrop } from "./GameBackdrop";
 import { ModeStrip } from "./ModeStrip";
 
 /** Game detail: stream values of the active mode, mode strip, "remember", play. */
@@ -11,12 +12,14 @@ export function DetailScreen(props: { app: LauncherApp })
   const state = app.state;
   const gameName = app.selectedGame() ?? "";
   const art = app.artFor(gameName);
+  const backdropArt = app.backdropArtFor(gameName);
   const remembered = app.isRemembered(gameName);
   const devices: DeviceId[] = ["handheld", "tv"];
 
   return (
     <div className="screen">
-      <div className={"bd on" + art.backdropClass} style={{ background: art.backdrop }} />
+      <div className={"bd on" + backdropArt.backdropClass} style={{ background: backdropArt.backdrop }} />
+      <GameBackdrop app={app} gameName={gameName} />
       <div className="scrim" />
       <div className="detail">
         <div className="dcover" style={{ background: art.cover }}>

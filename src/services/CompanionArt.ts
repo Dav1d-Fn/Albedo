@@ -1,0 +1,140 @@
+import { BackdropKind, LibraryEntry } from "../model/Types";
+import { Backend } from "./Backend";
+
+/**
+ * Pictures of the home games from the PC companion: covers for games Moonlight has none for,
+ * and the backdrop behind the menu (title image or screenshots).
+ * Moonlight only fills its box art cache when its own UI loads the app list, which the
+ * launcher never does, so games added through "Hinzufügen" would stay without a cover.
+ * Games are matched to companion entries by name.
+ */
+export class CompanionArt
+{
+  /** Backdrop images kept in memory; a title image is a few hundred kB as `data:` URL. */
+  private static readonly maximumCachedImages = 24;
+
+  /** Sunshine app name -> companion entry, from the last library load. */
+  private entriesByName = new Map<string, LibraryEntry>();
+
+  /** "<kind>|<entry id>|<index>" -> `data:` URL or null (the PC has none). */
+  private readonly imageCache = new Map<string, string | null>();
+
+  public constructor(private readonly backend: Backend)
+  {
+  }
+
+  /** Game name -> cover `data:` URL for the games not in `knownCovers`. Empty when the companion is not reachable. */
+  public async missingCovers(host: string, gameNames: string[], knownCovers: Record<string, string>): Promise<Record<string, string>>
+  {
+    const covers: Record<string, string> = {};
+    try
+    {
+      await this.loadLibrary(host);
+      const missingNames = gameNames.filter((gameName) => !(gameName in knownCovers));
+      for (const gameName of missingNames)
+      {
+        const entry = this.entriesByName.get(gameName);
+        if (entry === undefined || !entry.hasCover)
+        {
+          continue;
+        }
+        const cover = await this.backend.companionCover(host, entry.id);
+        if (cover !== null)
+        {
+          covers[gameName] = cover;
+        }
+      }
+    }
+    catch (companionError)
+    {
+      // The companion is optional; without it the placeholders stay.
+      console.warn("no companion covers", companionError);
+    }
+    return covers;
+  }
+
+  /** How many backdrop pictures the game has for this kind; more than one means they rotate. */
+  public backdropCount(gameName: string, kind: BackdropKind): number
+  {
+    const entry = this.entriesByName.get(gameName);
+    if (entry === undefined)
+    {
+      return 0;
+    }
+    if (kind === "screenshots" && entry.screenshotCount > 0)
+    {
+      return entry.screenshotCount;
+    }
+    // Screenshots fall back to the title image when the game has none.
+    if ((kind === "hero" || kind === "screenshots") && entry.hasHero)
+    {
+      return 1;
+    }
+    return 0;
+  }
+
+  /** Backdrop picture number `step` (wraps around) as `data:` URL, or null: then the blurred cover stays. */
+  public async backdropImage(host: string, gameName: string, kind: BackdropKind, step: number): Promise<string | null>
+  {
+    const entry = this.entriesByName.get(gameName);
+    const count = this.backdropCount(gameName, kind);
+    if (entry === undefined || count === 0)
+    {
+      return null;
+    }
+
+    const useScreenshots = kind === "screenshots" && entry.screenshotCount > 0;
+    const index = step % count;
+    const cacheKey = (useScreenshots ? "screenshot" : "hero") + "|" + entry.id + "|" + index;
+    const cached = this.imageCache.get(cacheKey);
+    if (cached !== undefined)
+    {
+      return cached;
+    }
+
+    let image: string | null = null;
+    try
+    {
+      image = useScreenshots
+        ? await this.backend.companionScreenshot(host, entry.id, index)
+        : await this.backend.companionHero(host, entry.id);
+    }
+    catch (imageError)
+    {
+      console.warn("no backdrop image", gameName, imageError);
+      return null;
+    }
+    this.remember(cacheKey, image);
+    return image;
+  }
+
+  private async loadLibrary(host: string): Promise<void>
+  {
+    const library = await this.backend.companionLibrary(host);
+    const entriesByName = new Map<string, LibraryEntry>();
+    for (const entry of library.entries)
+    {
+      if (entry.inSunshine)
+      {
+        entriesByName.set(entry.name, entry);
+      }
+    }
+    this.entriesByName = entriesByName;
+    // Screenshot indices shift when a new one is taken, so pictures are fetched again.
+    this.imageCache.clear();
+  }
+
+  private remember(cacheKey: string, image: string | null): void
+  {
+    this.imageCache.set(cacheKey, image);
+    if (this.imageCache.size > CompanionArt.maximumCachedImages)
+    {
+      // Map keeps insertion order: the first key is the oldest.
+      const oldestKey = this.imageCache.keys().next().value;
+      if (oldestKey !== undefined)
+      {
+        this.imageCache.delete(oldestKey);
+      }
+    }
+  }
+}

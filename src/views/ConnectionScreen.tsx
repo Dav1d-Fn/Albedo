@@ -1,5 +1,13 @@
 import LauncherApp from "../LauncherApp";
-import { AfterStreamAction } from "../model/Types";
+import { AfterStreamAction, BackdropKind } from "../model/Types";
+
+const backdropOptions: { value: BackdropKind; label: string }[] =
+[
+  { value: "hero", label: "Titelbild" },
+  { value: "screenshots", label: "Screenshots" },
+  { value: "cover", label: "Cover" },
+  { value: "none", label: "Kein Bild" },
+];
 
 const afterStreamOptions: { value: AfterStreamAction; label: string }[] =
 [
@@ -122,8 +130,8 @@ export function ConnectionScreen(props: { app: LauncherApp })
           </div>
 
           <div className="rhead clabel">Moonlight</div>
-          <div className={"row" + rowFocus(2)}>
-            <button className="rlabel" onClick={() => app.activateConnectionRow(2)}>Moonlight-Version</button>
+          <div className={"row" + rowFocus(LauncherApp.connectionRows.indexOf("moonlight"))}>
+            <button className="rlabel" onClick={() => app.activateConnectionRow(LauncherApp.connectionRows.indexOf("moonlight"))}>Moonlight-Version</button>
             <div className="ctrl">
               <div className="seg">
                 <button className={"segb" + (usesFlatpak ? " on" : "")} onClick={() => usesFlatpak || app.toggleMoonlightCommand()}>Flatpak</button>
@@ -136,8 +144,8 @@ export function ConnectionScreen(props: { app: LauncherApp })
           </div>
 
           <div className="rhead clabel">Nach dem Stream</div>
-          <div className={"row" + rowFocus(3)}>
-            <button className="rlabel" onClick={() => app.activateConnectionRow(3)}>Spiel auf dem PC</button>
+          <div className={"row" + rowFocus(LauncherApp.connectionRows.indexOf("afterStream"))}>
+            <button className="rlabel" onClick={() => app.activateConnectionRow(LauncherApp.connectionRows.indexOf("afterStream"))}>Spiel auf dem PC</button>
             <div className="ctrl">
               <div className="seg">
                 {afterStreamOptions.map((option) => (
@@ -145,6 +153,24 @@ export function ConnectionScreen(props: { app: LauncherApp })
                     key={option.value}
                     className={"segb" + (settings.afterStream === option.value ? " on" : "")}
                     onClick={() => app.setAfterStream(option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="rhead clabel">Hintergrund</div>
+          <div className={"row" + rowFocus(LauncherApp.backdropRowIndex)}>
+            <button className="rlabel" onClick={() => app.activateConnectionRow(LauncherApp.backdropRowIndex)}>Bild hinter dem Menü</button>
+            <div className="ctrl">
+              <div className="seg">
+                {backdropOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    className={"segb" + (settings.backdropKind === option.value ? " on" : "")}
+                    onClick={() => app.setBackdropKind(option.value)}
                   >
                     {option.label}
                   </button>

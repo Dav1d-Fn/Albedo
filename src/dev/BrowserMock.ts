@@ -11,15 +11,23 @@ export class BrowserMock
 
   private static readonly sampleLibrary =
   [
-    { id: "preset:desktop-auto", name: "Desktop", group: "Voreinstellungen", hasCover: false, inSunshine: true },
-    { id: "preset:big-picture", name: "Steam Big Picture", group: "Voreinstellungen", hasCover: false, inSunshine: false },
-    { id: "steam:1245620", name: "ELDEN RING", group: "Steam", hasCover: false, inSunshine: true },
-    { id: "steam:1086940", name: "Baldur's Gate 3", group: "Steam", hasCover: false, inSunshine: false },
-    { id: "steam:1551360", name: "Forza Horizon 5", group: "Steam", hasCover: false, inSunshine: false },
-    { id: "heroic:Crow", name: "Dead Island 2", group: "Heroic", hasCover: false, inSunshine: false },
-    { id: "steam:1145350", name: "Hades II", group: "Steam", hasCover: true, inSunshine: true },
-    { id: "prism:26.3 Modpack Test", name: "Minecraft 26.3 Modpack Test", group: "Minecraft", hasCover: false, inSunshine: false },
+    { id: "preset:desktop-auto", name: "Desktop", group: "Voreinstellungen", hasCover: false, inSunshine: true, hasHero: false, screenshotCount: 0 },
+    { id: "preset:big-picture", name: "Steam Big Picture", group: "Voreinstellungen", hasCover: false, inSunshine: false, hasHero: false, screenshotCount: 0 },
+    { id: "steam:1245620", name: "ELDEN RING", group: "Steam", hasCover: false, inSunshine: true, hasHero: false, screenshotCount: 0 },
+    { id: "steam:1086940", name: "Baldur's Gate 3", group: "Steam", hasCover: false, inSunshine: false, hasHero: false, screenshotCount: 0 },
+    { id: "steam:1551360", name: "Forza Horizon 5", group: "Steam", hasCover: false, inSunshine: false, hasHero: false, screenshotCount: 0 },
+    { id: "heroic:Crow", name: "Dead Island 2", group: "Heroic", hasCover: false, inSunshine: false, hasHero: false, screenshotCount: 0 },
+    { id: "steam:1145350", name: "Hades II", group: "Steam", hasCover: true, inSunshine: true, hasHero: true, screenshotCount: 3 },
+    { id: "prism:26.3 Modpack Test", name: "Minecraft 26.3 Modpack Test", group: "Minecraft", hasCover: false, inSunshine: false, hasHero: false, screenshotCount: 0 },
   ];
+
+  /** A wide SVG standing in for a title image or screenshot. */
+  private static widePicture(colour: string, label: string): string
+  {
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1920' height='1080'><rect width='1920' height='1080' fill='${colour}'/>`
+      + `<circle cx='1400' cy='420' r='260' fill='white' opacity='.35'/><text x='1400' y='440' font-size='72' fill='white' text-anchor='middle' font-family='sans-serif'>${label}</text></svg>`;
+    return "data:image/svg+xml," + encodeURIComponent(svg);
+  }
 
   public static installIfNeeded(): void
   {
@@ -75,6 +83,10 @@ export class BrowserMock
         case "companion_cover":
           // A plain coloured cover, like one the companion converted to PNG.
           return "data:image/svg+xml," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='600' height='900'><rect width='600' height='900' fill='#7c2d12'/><text x='300' y='470' font-size='64' fill='white' text-anchor='middle' font-family='sans-serif'>PC-Helfer</text></svg>");
+        case "companion_hero":
+          return BrowserMock.widePicture("#1e3a8a", "Titelbild");
+        case "companion_screenshot":
+          return BrowserMock.widePicture(["#065f46", "#7c2d12", "#581c87"][(args.index as number) % 3], "Screenshot " + (args.index as number));
         case "companion_add_app":
           return new Promise((resolve) => window.setTimeout(() => resolve("Neues Spiel"), 800));
         case "companion_remove_app":

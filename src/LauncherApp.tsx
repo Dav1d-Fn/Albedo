@@ -3,9 +3,9 @@ import { InputRouter } from "./input/InputRouter";
 import { ModeText } from "./model/ModeText";
 import { DefaultSettings } from "./model/DefaultSettings";
 import { GameArt } from "./model/GameArt";
-import { AfterStreamAction, DeviceId, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, Settings, StreamMode, SunshineLoginDraft } from "./model/Types";
+import { AfterStreamAction, BackdropKind, DeviceId, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, Settings, StreamMode, SunshineLoginDraft } from "./model/Types";
 import { Backend } from "./services/Backend";
-import { CompanionCovers } from "./services/CompanionCovers";
+import { CompanionArt } from "./services/CompanionArt";
 import { AfterStreamDialog } from "./views/AfterStreamDialog";
 import { ConnectScreen } from "./views/ConnectScreen";
 import { ConnectionScreen } from "./views/ConnectionScreen";
@@ -85,8 +85,18 @@ export interface LauncherState
   librarySunshineProblem: string | null;
   /** Open Sunshine login dialog on the "Hinzufügen" screen, null = closed. */
   sunshineLogin: SunshineLoginDraft | null;
+  /** Title image or screenshots behind home and detail; the last one is on top and fades in. */
+  backdropLayers: BackdropLayer[];
   /** Design is drawn at 1280px width and zoomed to the window. */
   zoom: number;
+}
+
+export interface BackdropLayer
+{
+  id: number;
+  gameName: string;
+  /** `data:` URL of the picture. */
+  image: string;
 }
 
 /** Root component: owns all state and turns controller buttons into actions. */
@@ -100,7 +110,16 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   public readonly backend = new Backend();
 
-  private readonly companionCovers = new CompanionCovers(this.backend);
+  private readonly companionArt = new CompanionArt(this.backend);
+
+  /** Rotates the screenshot backdrop. */
+  private backdropTimer = 0;
+
+  /** Counts backdrop loads, so a slow answer for a game that is no longer selected is dropped. */
+  private backdropRequest = 0;
+
+  /** Gives each backdrop layer its own React key, so a new picture fades in over the old one. */
+  private backdropLayerCounter = 0;
 
   private readonly inputRouter = new InputRouter(this.backend, (button) => this.press(button));
 
@@ -165,6 +184,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       libraryChanged: false,
       librarySunshineProblem: null,
       sunshineLogin: null,
+      backdropLayers: [],
       zoom: Math.max(window.innerWidth, 320) / LauncherApp.designWidth,
     };
   }
@@ -210,9 +230,20 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.displayPollTimer = window.setInterval(() => this.pollDisplay(), LauncherApp.displayPollMilliseconds);
   }
 
+  public componentDidUpdate(_previousProps: object, previousState: LauncherState): void
+  {
+    const previousGame = previousState.games[previousState.gameIndex];
+    const previousKind = previousState.settings?.backdropKind;
+    if (this.selectedGame() !== previousGame || this.state.settings?.backdropKind !== previousKind)
+    {
+      this.updateBackdrop();
+    }
+  }
+
   public componentWillUnmount(): void
   {
     this.mounted = false;
+    window.clearTimeout(this.backdropTimer);
     this.inputRouter.detach();
     window.removeEventListener("resize", this.handleResize);
     window.clearInterval(this.displayPollTimer);
@@ -394,8 +425,10 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }
     this.setState({ boxArt });
 
-    const companionCovers = await this.companionCovers.missingCovers(host, games, boxArt);
+    const companionCovers = await this.companionArt.missingCovers(host, games, boxArt);
     this.setState((state) => ({ boxArt: { ...companionCovers, ...state.boxArt } }));
+    // The companion's library is known now, so the selected game can get its backdrop.
+    this.updateBackdrop(host);
   }
 
   public artFor(gameName: string): GameArt
@@ -852,6 +885,75 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       this.quitHostApp();
     }
+  }
+
+  // ---------------------------------------------------------------- backdrop picture behind the menu
+
+  public static readonly backdropKinds: BackdropKind[] = ["hero", "screenshots", "cover", "none"];
+
+  /** Screenshots change this often while a game stays selected. */
+  private static readonly backdropRotationMilliseconds = 8000;
+
+  /** Art for the large backdrop: "Kein Bild" drops the cover there, the rail keeps it. */
+  public backdropArtFor(gameName: string): GameArt
+  {
+    if (this.settings.backdropKind === "none")
+    {
+      return new GameArt(gameName);
+    }
+    return this.artFor(gameName);
+  }
+
+  /** Loads the title image or first screenshot of the selected game; the blurred cover shows until it is there. */
+  private updateBackdrop(host: string = this.connectedHost()): void
+  {
+    window.clearTimeout(this.backdropTimer);
+    this.backdropRequest += 1;
+    const gameName = this.selectedGame();
+    const kind = this.settings.backdropKind;
+    if (gameName === undefined || kind === "cover" || kind === "none")
+    {
+      this.setState({ backdropLayers: [] });
+      return;
+    }
+    this.showBackdropStep(host, gameName, 0, this.backdropRequest);
+  }
+
+  private async showBackdropStep(host: string, gameName: string, step: number, request: number): Promise<void>
+  {
+    const kind = this.settings.backdropKind;
+    const image = await this.companionArt.backdropImage(host, gameName, kind, step);
+    if (request !== this.backdropRequest || !this.mounted)
+    {
+      return;
+    }
+    if (image !== null)
+    {
+      this.backdropLayerCounter += 1;
+      const layer = { id: this.backdropLayerCounter, gameName, image };
+      // Keep the previous picture underneath while the new one fades in.
+      this.setState((state) => ({ backdropLayers: [...state.backdropLayers.slice(-1), layer] }));
+    }
+    if (this.companionArt.backdropCount(gameName, kind) > 1)
+    {
+      this.backdropTimer = window.setTimeout(
+        () => this.showBackdropStep(host, gameName, step + 1, request),
+        LauncherApp.backdropRotationMilliseconds,
+      );
+    }
+  }
+
+  /** Connection screen row: Titelbild → Screenshots → Cover → Kein Bild. */
+  private cycleBackdropKind(): void
+  {
+    const order = LauncherApp.backdropKinds;
+    const nextIndex = (order.indexOf(this.settings.backdropKind) + 1) % order.length;
+    this.setBackdropKind(order[nextIndex]);
+  }
+
+  public setBackdropKind(backdropKind: BackdropKind): void
+  {
+    this.updateSettings((settings) => ({ ...settings, backdropKind }));
   }
 
   /** Connection screen row: ask → keep → quit → ask. */
@@ -1360,7 +1462,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   // ---------------------------------------------------------------- connection and pairing
 
   /** Rows on the right side of the connection screen. */
-  public static readonly connectionRows = ["pair", "addresses", "moonlight", "afterStream"] as const;
+  public static readonly connectionRows = ["pair", "addresses", "moonlight", "afterStream", "backdrop"] as const;
 
   public openConnection(): void
   {
@@ -1414,6 +1516,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   /** Row index of the extra addresses on the connection screen. */
   public static readonly addressesRowIndex = LauncherApp.connectionRows.indexOf("addresses");
+
+  public static readonly backdropRowIndex = LauncherApp.connectionRows.indexOf("backdrop");
 
   public focusExtraAddress(): void
   {
@@ -1581,9 +1685,13 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       this.toggleMoonlightCommand();
     }
-    else
+    else if (row === "afterStream")
     {
       this.cycleAfterStream();
+    }
+    else if (row === "backdrop")
+    {
+      this.cycleBackdropKind();
     }
   }
 

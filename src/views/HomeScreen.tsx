@@ -1,6 +1,7 @@
 import type LauncherApp from "../LauncherApp";
 import { ModeText } from "../model/ModeText";
 import { HandheldIcon, PlusIcon, SlidersIcon, TvIcon } from "./Icons";
+import { GameBackdrop } from "./GameBackdrop";
 import { ModeStrip } from "./ModeStrip";
 
 /** Library: host chip, device switch with mode strip, hero text and the cover rail. */
@@ -25,8 +26,9 @@ export function HomeScreen(props: { app: LauncherApp })
   return (
     <div className="screen">
       {state.games.map((gameName, gameIndex) => (
-        <div key={gameName} className={"bd" + (gameIndex === state.gameIndex ? " on" : "") + app.artFor(gameName).backdropClass} style={{ background: app.artFor(gameName).backdrop }} />
+        <div key={gameName} className={"bd" + (gameIndex === state.gameIndex ? " on" : "") + app.backdropArtFor(gameName).backdropClass} style={{ background: app.backdropArtFor(gameName).backdrop }} />
       ))}
+      <GameBackdrop app={app} gameName={app.selectedGame() ?? ""} />
       <div className="scrim" />
 
       <div className="top">

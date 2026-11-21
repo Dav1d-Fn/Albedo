@@ -293,3 +293,6 @@ body { cursor: default; user-select: none; }
 .addr { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px 0 4px; border-radius: 999px; background: rgba(255,255,255,.07); font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; color: #D4D4D8; }
 .addr.on { background: color-mix(in oklab, var(--acc) 18%, rgba(255,255,255,.05)); color: #F5F5F7; }
 .addrnum { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; background: rgba(255,255,255,.12); font-size: 11px; font-weight: 800; }
+
+/* Title image or screenshot of the selected game: slightly blurred and darkened, fades in above the blurred cover */
+.bd.bdimage { background-position: center; background-size: cover; background-repeat: no-repeat; filter: blur(6px) brightness(.45); transform: scale(1.04); animation: fadein 1.2s ease both; }

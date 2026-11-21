@@ -147,6 +147,18 @@ async fn companion_cover(host: String, entry_id: String) -> Result<Option<String
 }
 
 #[tauri::command]
+async fn companion_hero(host: String, entry_id: String) -> Result<Option<String>, String>
+{
+    CompanionClient::for_host(&host)?.hero(&entry_id).await
+}
+
+#[tauri::command]
+async fn companion_screenshot(host: String, entry_id: String, index: u32) -> Result<Option<String>, String>
+{
+    CompanionClient::for_host(&host)?.screenshot(&entry_id, index).await
+}
+
+#[tauri::command]
 async fn companion_add_app(host: String, entry_id: String) -> Result<String, String>
 {
     let result = CompanionClient::for_host(&host)?.add_app(&entry_id).await;
@@ -193,6 +205,8 @@ pub fn run()
             load_box_art,
             companion_library,
             companion_cover,
+            companion_hero,
+            companion_screenshot,
             companion_add_app,
             companion_remove_app,
             companion_set_sunshine_login

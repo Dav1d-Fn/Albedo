@@ -18,6 +18,7 @@ export class DefaultSettings
       sunshineUser: "",
       sunshinePassword: "",
       afterStream: "ask",
+      backdropKind: "hero",
       profiles:
       {
         handheld:

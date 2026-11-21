@@ -32,6 +32,9 @@ export interface DeviceProfile
   modes: StreamMode[];
 }
 
+/** Picture behind the menu for the selected game: Steam title image, rotating screenshots, blurred cover or none. */
+export type BackdropKind = "hero" | "screenshots" | "cover" | "none";
+
 export interface Settings
 {
   /** IP or host name of the Sunshine PC in the home network, as Moonlight knows it. Empty = not set up yet. */
@@ -52,6 +55,7 @@ export interface Settings
   profiles: Record<DeviceId, DeviceProfile>;
   /** "ask" shows the pause/quit dialog, "keep" leaves the game running, "quit" ends it. */
   afterStream: AfterStreamAction;
+  backdropKind: BackdropKind;
   /** "<game name>|<device>" -> mode index remembered for that game. */
   rememberedModes: Record<string, number>;
 }
@@ -66,6 +70,10 @@ export interface LibraryEntry
   group: string;
   hasCover: boolean;
   inSunshine: boolean;
+  /** A wide title image for the backdrop exists (Steam hero, Epic key art). */
+  hasHero: boolean;
+  /** The user's screenshots of this game, 0 = newest; only Steam games have them. */
+  screenshotCount: number;
 }
 
 /** Answer of the companion's `GET /api/library`. */
