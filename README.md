@@ -1,4 +1,4 @@
-# Streaming-Launcher
+# Albedo
 
 Per Controller bedienbares Menü für Moonlight auf dem Steam Deck. Zeigt die Spiele (Sunshine-Apps)
 vom Gaming-PC und startet Moonlight mit Auflösung, FPS, Bitrate, Codec und HDR des aktiven

@@ -13,10 +13,10 @@ set -euo pipefail
 
 # ------------------------------------------------------------------ names and paths
 
-APP_NAME="Streaming-Launcher"
+APP_NAME="Albedo"
 # Earlier names and file name parts: an existing Steam entry with one of these is taken over.
-KNOWN_NAMES="Streaming-Launcher"
-KNOWN_EXE_PARTS="streaming-launcher streaming_launcher"
+KNOWN_NAMES="Streaming-Launcher Albedo"
+KNOWN_EXE_PARTS="streaming-launcher streaming_launcher albedo.appimage albedo_"
 REPO="Dav1d-Fn/streaming-launcher"
 CONFIG_DIR="$HOME/.config/de.davidf.streaminglauncher"
 MOONLIGHT_FLATPAK="com.moonlight_stream.Moonlight"

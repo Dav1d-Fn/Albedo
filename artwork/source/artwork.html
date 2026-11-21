@@ -1,0 +1,93 @@
+<!doctype html>
+<!-- Source of the Steam pictures and the app icon; artwork/render.sh screenshots it per ?kind=…  -->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: "Inter"; src: url("../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2") format("woff2"); font-weight: 100 900; }
+  :root { --blue: #5AA9FF; --orange: #FF9F45; --ground: #08080B; }
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; }
+  body { background: var(--ground); font-family: "Inter", sans-serif; color: #F5F5F7; -webkit-font-smoothing: antialiased; }
+  body.transparent { background: transparent; }
+
+  /* Blue light from the upper left (handheld), orange from the lower right (TV), like the launcher's ambient glow. */
+  .ambient { position: absolute; inset: 0; background:
+      radial-gradient(70% 55% at 8% 0%, color-mix(in oklab, var(--blue) 34%, transparent), transparent 70%),
+      radial-gradient(70% 55% at 100% 100%, color-mix(in oklab, var(--orange) 30%, transparent), transparent 70%); }
+  .grain { position: absolute; inset: 0; opacity: .5; background: radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(0,0,0,.65)); }
+
+  /* The emblem: a dark moon lit from two sides, the blue and the orange device light. */
+  .moon { position: relative; width: var(--size); height: var(--size); border-radius: 50%; flex: none;
+    background:
+      radial-gradient(circle at 30% 30%, color-mix(in oklab, var(--blue) 26%, #121219), transparent 62%),
+      radial-gradient(circle at 72% 72%, color-mix(in oklab, var(--orange) 24%, #121219), transparent 62%),
+      #0E0E14;
+    box-shadow:
+      inset calc(var(--size) * .07) calc(var(--size) * .03) calc(var(--size) * .08) calc(var(--size) * -.03) var(--blue),
+      inset calc(var(--size) * -.07) calc(var(--size) * -.03) calc(var(--size) * .08) calc(var(--size) * -.03) var(--orange); }
+  /* Outer glow as gradients: large blurred box-shadows render in visible tiles in headless Chrome. */
+  .moon::before { content: ""; position: absolute; inset: -55%; z-index: -1; background:
+      radial-gradient(closest-side at 42% 44%, color-mix(in oklab, var(--blue) 38%, transparent), transparent),
+      radial-gradient(closest-side at 58% 56%, color-mix(in oklab, var(--orange) 32%, transparent), transparent); }
+  /* Thin highlight ring, gives the sphere its edge. */
+  .moon::after { content: ""; position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 0 calc(var(--size) * .006) rgba(255,255,255,.18); }
+
+  .word { font-weight: 800; letter-spacing: -0.045em; line-height: 1; }
+  .center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .row { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  .tag { font-weight: 600; letter-spacing: .32em; text-transform: uppercase; color: #9A9AA6; }
+  .dot { display: inline-block; width: .5em; height: .5em; border-radius: 50%; vertical-align: middle; margin: 0 .5em; }
+
+  /* Rounded tile for the app icon. */
+  .tile { position: absolute; inset: 6%; border-radius: 22%; background: #0B0B10; overflow: hidden; box-shadow: inset 0 0 0 2px rgba(255,255,255,.06); }
+</style>
+</head>
+<body>
+<script>
+  const kind = new URLSearchParams(location.search).get("kind") || "cover";
+  const pages =
+  {
+    // 600x900 portrait cover in the library grid.
+    cover: `
+      <div class="ambient"></div><div class="grain"></div>
+      <div class="center" style="gap: 70px; padding-bottom: 40px;">
+        <div class="moon" style="--size: 300px;"></div>
+        <div class="word" style="font-size: 118px;">Albedo</div>
+      </div>
+      <div class="center" style="justify-content: flex-end; padding-bottom: 64px;">
+        <div class="tag" style="font-size: 17px;"><span class="dot" style="background: var(--blue)"></span>Handheld<span style="display: inline-block; width: 1.6em;"></span><span class="dot" style="background: var(--orange)"></span>TV</div>
+      </div>`,
+    // 920x430 landscape capsule (recently played, some views).
+    wide: `
+      <div class="ambient"></div><div class="grain"></div>
+      <div class="row" style="gap: 52px;">
+        <div class="moon" style="--size: 200px;"></div>
+        <div class="word" style="font-size: 112px;">Albedo</div>
+      </div>`,
+    // 1920x620 hero behind the game page (rendered at 2x = 3840x1240). Steam puts the logo on top, so no text.
+    hero: `
+      <div class="ambient" style="background:
+        radial-gradient(45% 80% at 0% 0%, color-mix(in oklab, var(--blue) 40%, transparent), transparent 70%),
+        radial-gradient(45% 80% at 100% 100%, color-mix(in oklab, var(--orange) 36%, transparent), transparent 70%);"></div>
+      <div class="moon" style="--size: 900px; position: absolute; right: 180px; top: -140px;"></div>
+      <div class="grain"></div>`,
+    // Logo over the hero, transparent background.
+    logo: `
+      <div class="row" style="gap: 40px;">
+        <div class="moon" style="--size: 170px;"></div>
+        <div class="word" style="font-size: 170px; text-shadow: 0 2px 12px rgba(0,0,0,.35);">Albedo</div>
+      </div>`,
+    // Square icon (Steam list, app icon), transparent outside the tile.
+    icon: `
+      <div class="tile"><div class="ambient"></div>
+        <div class="center"><div class="moon" style="--size: 56vmin;"></div></div>
+      </div>`,
+  };
+  document.body.innerHTML = pages[kind];
+  if (kind === "logo" || kind === "icon")
+  {
+    document.body.classList.add("transparent");
+  }
+</script>
+</body>
+</html>

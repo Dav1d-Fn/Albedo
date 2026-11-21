@@ -1,4 +1,4 @@
-# Streaming-Launcher
+# Albedo
 
 Controller-friendly launcher for Moonlight on the Steam Deck (Tauri 2 + React + TypeScript).
 The app is only the menu: it lists the games (Sunshine apps) of the gaming PC and starts
