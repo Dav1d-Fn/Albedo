@@ -56,10 +56,8 @@ impl SunshineClient
     {
         if !self.config.has_sunshine_login()
         {
-            return Err(format!(
-                "Sunshine-Login fehlt in {}",
-                CompanionConfig::config_path().display()
-            ));
+            // Shown on the Deck, so no PC file path here.
+            return Err("Sunshine-Login fehlt im PC-Helfer".into());
         }
 
         let base_url = self.config.sunshine_url.trim_end_matches('/');
