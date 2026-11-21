@@ -344,15 +344,34 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   // ---------------------------------------------------------------- toasts and timers
 
+  /** Matches the 1.9 s pop animation of normal toasts in styles.css. */
+  private static readonly toastMilliseconds = 1950;
+
+  /** Errors need time to be read on the Deck; A or B closes them earlier. */
+  private static readonly errorToastMilliseconds = 6000;
+
   private showToast(toast: ToastContent): void
   {
     this.toastTimers.forEach((timer) => window.clearTimeout(timer));
     this.setState({ toast: null });
+    const visibleMilliseconds = toast.kind === "error" ? LauncherApp.errorToastMilliseconds : LauncherApp.toastMilliseconds;
     this.toastTimers =
     [
       window.setTimeout(() => this.setState({ toast }), 30),
-      window.setTimeout(() => this.setState({ toast: null }), 1950),
+      window.setTimeout(() => this.setState({ toast: null }), visibleMilliseconds),
     ];
+  }
+
+  private closeToast(): void
+  {
+    this.toastTimers.forEach((timer) => window.clearTimeout(timer));
+    this.toastTimers = [];
+    this.setState({ toast: null });
+  }
+
+  public isErrorToastShown(): boolean
+  {
+    return this.state.toast !== null && this.state.toast.kind === "error";
   }
 
   private showError(title: string, message: string): void
@@ -480,6 +499,12 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       return;
     }
+    // An open error toast takes A and B, so closing it does not also start or leave something.
+    if (this.isErrorToastShown() && (button === "A" || button === "B"))
+    {
+      return this.closeToast();
+    }
+
     const screen = this.state.screen;
     const quickSwitch = screen === "home" || screen === "detail";
 

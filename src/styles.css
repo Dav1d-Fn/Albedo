@@ -107,6 +107,14 @@ body { cursor: default; user-select: none; }
 .tname { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; }
 .tspec { font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; }
 .tsub { font-size: 13px; color: #A1A1AA; }
+/* Error toasts stay until A/B or a timeout: no blur, no scale and an opaque card, gamescope renders backdrop-filter badly. */
+.toast.err { animation: fadein .15s ease both; background: rgba(8,8,11,.7); }
+.toast.err .tcard { background: #16161C; backdrop-filter: none; border-color: rgba(248,113,113,.45); animation: fadein .15s ease both; }
+.toast.err .ticon { background: #F87171; animation: none; }
+.toast.err .teyebrow { color: #FCA5A5; }
+.toast.err .tname { font-size: 30px; }
+.toast.err .tsub { font-size: 17px; line-height: 1.4; color: #E4E4E7; }
+.tclose { margin-top: 12px; display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #A1A1AA; }
 
 .detail { position: relative; z-index: 4; flex: 1; min-height: 0; display: flex; align-items: center; gap: 52px; padding: 24px 64px; }
 .dcover { width: 230px; height: 345px; flex: none; border-radius: 20px; display: flex; align-items: flex-end; padding: 20px; box-shadow: 0 40px 80px -20px rgba(0,0,0,.9), 0 0 0 1px rgba(255,255,255,.08); animation: coverIn .8s cubic-bezier(.2,1.2,.3,1) both; }
