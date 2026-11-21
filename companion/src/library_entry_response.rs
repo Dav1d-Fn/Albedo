@@ -13,4 +13,6 @@ pub struct LibraryEntryResponse
     pub has_logo: bool,
     pub screenshot_count: usize,
     pub in_sunshine: bool,
+    /// Picture kinds set by hand ("cover", "hero", "logo").
+    pub custom_art: Vec<String>,
 }

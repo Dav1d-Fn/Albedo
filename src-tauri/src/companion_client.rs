@@ -133,6 +133,16 @@ impl CompanionClient
         self.send(request).await?.json().await.map_err(|error| error.to_string())
     }
 
+    /// Sets a picture the way the phone does: a fresh upload page, then the image as raw body.
+    /// The companion converts and stores it like any phone upload.
+    pub async fn upload_art(&self, entry_id: &str, kind: &str, image_bytes: Vec<u8>) -> Result<(), String>
+    {
+        let upload_token = self.upload_token(entry_id, kind).await?;
+        let upload_url = Url::parse(&upload_token.url).map_err(|error| error.to_string())?;
+        self.send(self.http_client.post(upload_url).body(image_bytes)).await?;
+        Ok(())
+    }
+
     /// Goes up whenever a picture of any entry was set or reset.
     pub async fn art_version(&self) -> Result<u64, String>
     {

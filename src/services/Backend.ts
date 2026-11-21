@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { DefaultSettings } from "../model/DefaultSettings";
 import { ModeText } from "../model/ModeText";
-import { ArtKind, CompanionLibrary, UploadToken, DeviceProfile, DiscoveredHost, PadButton, PcDisplayMode, Settings, StreamMode } from "../model/Types";
+import { ArtKind, ArtSearchResult, CompanionLibrary, UploadToken, DeviceProfile, DiscoveredHost, PadButton, PcDisplayMode, Settings, StreamMode } from "../model/Types";
 
 export interface StreamEnded
 {
@@ -135,6 +135,18 @@ export class Backend
   public companionUploadToken(host: string, entryId: string, kind: ArtKind): Promise<UploadToken>
   {
     return invoke<UploadToken>("companion_upload_token", { host, entryId, kind });
+  }
+
+  /** Pictures of this kind from the Steam shop and, with a key, SteamGridDB. */
+  public searchArt(gameName: string, entryId: string, kind: ArtKind, steamGridDbKey: string): Promise<ArtSearchResult>
+  {
+    return invoke<ArtSearchResult>("search_art", { gameName, entryId, kind, steamGridDbKey });
+  }
+
+  /** Downloads a found picture and sets it on the PC like a phone upload. */
+  public applyArt(host: string, entryId: string, kind: ArtKind, imageUrl: string): Promise<void>
+  {
+    return invoke<void>("apply_art", { host, entryId, kind, imageUrl });
   }
 
   /** Goes up whenever a picture was set or reset on the PC. */

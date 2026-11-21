@@ -21,6 +21,7 @@ export class DefaultSettings
       afterStreamPerGame: {},
       backdropKind: "hero",
       backdropKindPerGame: {},
+      steamGridDbKey: "",
       profiles:
       {
         handheld:

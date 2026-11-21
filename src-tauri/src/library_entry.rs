@@ -21,4 +21,7 @@ pub struct LibraryEntry
     /// Number of the user's screenshots (`GET /api/screenshot/<id>/<index>`, 0 = newest).
     #[serde(default)]
     pub screenshot_count: u32,
+    /// Picture kinds set by hand on the PC ("cover", "hero", "logo"); older companions send none.
+    #[serde(default)]
+    pub custom_art: Vec<String>,
 }
