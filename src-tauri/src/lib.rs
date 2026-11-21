@@ -1,4 +1,5 @@
 mod companion_client;
+mod companion_library;
 mod display_detector;
 mod game_list_source;
 mod gamepad_listener;
@@ -19,11 +20,11 @@ use std::time::Duration;
 use tauri::AppHandle;
 
 use companion_client::CompanionClient;
+use companion_library::CompanionLibrary;
 use display_detector::DisplayDetector;
 use game_list_source::GameListSource;
 use gamepad_listener::GamepadListener;
 use host_discovery::{DiscoveredHost, HostDiscovery};
-use library_entry::LibraryEntry;
 use moonlight_app_quit::MoonlightAppQuit;
 use moonlight_box_art::MoonlightBoxArt;
 use moonlight_command::MoonlightCommand;
@@ -114,12 +115,12 @@ async fn load_box_art(moonlight_command: Vec<String>, host: String) -> Result<Ha
 }
 
 #[tauri::command]
-async fn companion_library(host: String) -> Result<Vec<LibraryEntry>, String>
+async fn companion_library(host: String) -> Result<CompanionLibrary, String>
 {
     let result = CompanionClient::for_host(&host)?.library().await;
     match &result
     {
-        Ok(entries) => println!("[companion] {} library entries", entries.len()),
+        Ok(library) => println!("[companion] {} library entries, Sunshine problem: {:?}", library.entries.len(), library.sunshine_problem),
         Err(error) => eprintln!("[companion] {}", error),
     }
     result
@@ -147,6 +148,15 @@ async fn companion_remove_app(host: String, app_name: String) -> Result<(), Stri
     result
 }
 
+#[tauri::command]
+async fn companion_set_sunshine_login(host: String, user: String, password: String) -> Result<(), String>
+{
+    let result = CompanionClient::for_host(&host)?.set_sunshine_login(&user, &password).await;
+    // The password itself is never logged.
+    println!("[companion] Sunshine login for {} -> {:?}", user, result);
+    result
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run()
 {
@@ -169,7 +179,8 @@ pub fn run()
             companion_library,
             companion_cover,
             companion_add_app,
-            companion_remove_app
+            companion_remove_app,
+            companion_set_sunshine_login
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

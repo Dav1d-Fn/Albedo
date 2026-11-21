@@ -3,7 +3,7 @@ import { InputRouter } from "./input/InputRouter";
 import { ModeText } from "./model/ModeText";
 import { DefaultSettings } from "./model/DefaultSettings";
 import { GameArt } from "./model/GameArt";
-import { AfterStreamAction, DeviceId, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, Settings, StreamMode } from "./model/Types";
+import { AfterStreamAction, DeviceId, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, Settings, StreamMode, SunshineLoginDraft } from "./model/Types";
 import { Backend } from "./services/Backend";
 import { AfterStreamDialog } from "./views/AfterStreamDialog";
 import { ConnectScreen } from "./views/ConnectScreen";
@@ -15,6 +15,7 @@ import { HintBar } from "./views/HintBar";
 import { HomeScreen } from "./views/HomeScreen";
 import { LibraryScreen } from "./views/LibraryScreen";
 import { StreamScreen } from "./views/StreamScreen";
+import { SunshineLoginDialog } from "./views/SunshineLoginDialog";
 import { ToastCard, ToastContent } from "./views/ToastCard";
 
 export type ScreenName = "home" | "detail" | "connect" | "stream" | "afterStream" | "editor" | "connection" | "library";
@@ -75,6 +76,10 @@ export interface LauncherState
   libraryBusyId: string;
   /** Something was added or removed, the game list needs a reload on the way back. */
   libraryChanged: boolean;
+  /** Why the companion cannot add or remove right now (e.g. its Sunshine login is missing); null = it can. */
+  librarySunshineProblem: string | null;
+  /** Open Sunshine login dialog on the "Hinzufügen" screen, null = closed. */
+  sunshineLogin: SunshineLoginDraft | null;
   /** Design is drawn at 1280px width and zoomed to the window. */
   zoom: number;
 }
@@ -149,6 +154,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       libraryCovers: {},
       libraryBusyId: "",
       libraryChanged: false,
+      librarySunshineProblem: null,
+      sunshineLogin: null,
       zoom: Math.max(window.innerWidth, 320) / LauncherApp.designWidth,
     };
   }
@@ -919,7 +926,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   public openLibrary(): void
   {
-    this.setState({ screen: "library", libraryGroupIndex: 0, libraryItemIndex: 0, libraryChanged: false });
+    this.setState({ screen: "library", libraryGroupIndex: 0, libraryItemIndex: 0, libraryChanged: false, sunshineLogin: null });
     this.loadLibrary();
   }
 
@@ -928,8 +935,12 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.setState({ libraryState: "loading", libraryError: "" });
     try
     {
-      const library = await this.backend.companionLibrary(this.settings);
-      this.setState({ library, libraryState: "ready" });
+      const companionLibrary = await this.backend.companionLibrary(this.settings);
+      this.setState({
+        library: companionLibrary.entries,
+        librarySunshineProblem: companionLibrary.sunshineProblem,
+        libraryState: "ready",
+      });
       this.loadLibraryCovers();
     }
     catch (libraryError)
@@ -1008,9 +1019,19 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     const entryCount = this.libraryEntriesOfGroup().length;
     const columns = LauncherApp.libraryColumns;
 
+    if (state.sunshineLogin !== null)
+    {
+      this.sunshineLoginButton(button);
+      return;
+    }
+
     if (button === "B")
     {
       this.closeLibrary();
+    }
+    else if (button === "MENU")
+    {
+      this.openSunshineLogin();
     }
     else if (button === "Y")
     {
@@ -1054,6 +1075,12 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       return;
     }
+    if (this.state.librarySunshineProblem !== null && !entry.inSunshine)
+    {
+      // Adding would fail anyway; let the user fix the login first.
+      this.openSunshineLogin();
+      return;
+    }
     if (entry.inSunshine)
     {
       this.showToast({ kind: "ok", eyebrow: "Schon in der Liste", name: entry.name, spec: "", sub: "X entfernt es wieder" });
@@ -1084,6 +1111,11 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       return;
     }
+    if (this.state.librarySunshineProblem !== null)
+    {
+      this.openSunshineLogin();
+      return;
+    }
 
     this.setState({ libraryBusyId: entry.id });
     try
@@ -1108,6 +1140,122 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       library: state.library.map((entry) => (entry.id === entryId ? { ...entry, inSunshine } : entry)),
       libraryChanged: true,
     }));
+  }
+
+  // ---------------------------------------------------------------- Sunshine login for the PC companion
+
+  /** Element ids of the dialog's two text fields, by row. */
+  public static readonly sunshineLoginFieldIds = ["sunshine-login-user", "sunshine-login-password"];
+
+  /** Prefilled with the login from settings.json, which is usually the same Sunshine web UI login. */
+  public openSunshineLogin(): void
+  {
+    const draft: SunshineLoginDraft =
+    {
+      user: this.settings.sunshineUser,
+      password: this.settings.sunshinePassword,
+      row: 0,
+      busy: false,
+      error: "",
+    };
+    this.setState({ sunshineLogin: draft }, () => this.focusSunshineLoginRow(0));
+  }
+
+  public closeSunshineLogin(): void
+  {
+    (document.activeElement as HTMLElement | null)?.blur();
+    this.setState({ sunshineLogin: null });
+  }
+
+  public changeSunshineLogin(change: Partial<SunshineLoginDraft>): void
+  {
+    this.setState((state) => (state.sunshineLogin === null ? null : { sunshineLogin: { ...state.sunshineLogin, ...change } }));
+  }
+
+  /** Rows 0 and 1 are text fields and get the keyboard focus; row 2 is the save button. */
+  public focusSunshineLoginRow(row: number): void
+  {
+    this.changeSunshineLogin({ row });
+    const fieldId = LauncherApp.sunshineLoginFieldIds[row];
+    if (fieldId === undefined)
+    {
+      (document.activeElement as HTMLElement | null)?.blur();
+      return;
+    }
+    document.getElementById(fieldId)?.focus();
+  }
+
+  private sunshineLoginButton(button: PadButton): void
+  {
+    const draft = this.state.sunshineLogin;
+    if (draft === null || draft.busy)
+    {
+      return;
+    }
+    const typing = document.activeElement instanceof HTMLInputElement;
+
+    if (button === "UP")
+    {
+      this.focusSunshineLoginRow(Math.max(0, draft.row - 1));
+    }
+    else if (button === "DOWN")
+    {
+      this.focusSunshineLoginRow(Math.min(2, draft.row + 1));
+    }
+    else if (button === "A")
+    {
+      // Enter in the user field moves on to the password, everywhere else it saves.
+      if (draft.row === 0)
+      {
+        this.focusSunshineLoginRow(1);
+      }
+      else
+      {
+        this.submitSunshineLogin();
+      }
+    }
+    else if (button === "B")
+    {
+      if (typing)
+      {
+        (document.activeElement as HTMLInputElement).blur();
+      }
+      else
+      {
+        this.closeSunshineLogin();
+      }
+    }
+  }
+
+  public async submitSunshineLogin(): Promise<void>
+  {
+    const draft = this.state.sunshineLogin;
+    if (draft === null || draft.busy)
+    {
+      return;
+    }
+    if (draft.user.trim() === "" || draft.password === "")
+    {
+      this.changeSunshineLogin({ error: "Benutzername und Passwort eintragen." });
+      return;
+    }
+
+    (document.activeElement as HTMLElement | null)?.blur();
+    this.changeSunshineLogin({ busy: true, error: "", row: 2 });
+    try
+    {
+      const user = draft.user.trim();
+      await this.backend.companionSetSunshineLogin(this.settings, user, draft.password);
+      this.updateSettings((settings) => ({ ...settings, sunshineUser: user, sunshinePassword: draft.password }));
+      this.setState({ sunshineLogin: null });
+      this.showToast({ kind: "ok", eyebrow: "PC-Helfer", name: "Sunshine-Login gespeichert", spec: "", sub: "Spiele können jetzt hinzugefügt werden" });
+      // Ask the companion again, so the hint only disappears once it really reaches Sunshine.
+      this.loadLibrary();
+    }
+    catch (loginError)
+    {
+      this.changeSunshineLogin({ busy: false, error: String(loginError) });
+    }
   }
 
   private closeLibrary(): void
@@ -1328,6 +1476,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
           {state.screen === "library" && <LibraryScreen app={this} />}
           <div className="ambient" />
           {state.screen === "afterStream" && <AfterStreamDialog app={this} />}
+          {state.screen === "library" && state.sunshineLogin !== null && <SunshineLoginDialog app={this} />}
           <HintBar app={this} />
           {state.toast !== null && <ToastCard toast={state.toast} />}
         </div>

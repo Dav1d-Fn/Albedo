@@ -265,3 +265,13 @@ body { cursor: default; user-select: none; }
 .lbadge .i { width: 16px; height: 16px; stroke-width: 3; }
 .lbusy { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(8,8,11,.6); }
 .lempty { display: flex; flex-direction: column; gap: 12px; max-width: 900px; }
+
+/* Hint on the "Hinzufügen" screen when the companion cannot reach Sunshine */
+.lwarn { position: relative; z-index: 4; display: flex; align-items: center; gap: 10px; margin: 0 48px 4px; padding: 10px 16px; border-radius: 12px; background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.35); color: #FCA5A5; font-size: 14px; flex: none; }
+.lwarn b { color: #FECACA; font-weight: 700; }
+
+/* Sunshine login dialog */
+.loginform { display: flex; flex-direction: column; gap: 12px; width: 420px; margin-top: 14px; text-align: left; }
+.loginfield { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-radius: 14px; border: 1.5px solid transparent; transition: border-color .3s; }
+.loginfield.f { border-color: color-mix(in oklab, var(--acc) 50%, transparent); }
+.loginerr { color: #FCA5A5; font-size: 13px; max-width: 420px; }

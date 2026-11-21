@@ -27,6 +27,8 @@ export class BrowserMock
       return;
     }
     let storedSettings: string | null = null;
+    // Like a fresh companion: no Sunshine login until the launcher hands one over.
+    let sunshineProblem: string | null = "Sunshine-Login fehlt im PC-Helfer";
 
     mockIPC((command, payload) =>
     {
@@ -54,7 +56,14 @@ export class BrowserMock
         case "load_box_art":
           return {};
         case "companion_library":
-          return BrowserMock.sampleLibrary;
+          return { entries: BrowserMock.sampleLibrary, sunshineProblem };
+        case "companion_set_sunshine_login":
+          if (args.password !== "sunshine")
+          {
+            return Promise.reject("Sunshine-Login falsch (im Browser-Mock ist das Passwort „sunshine“)");
+          }
+          sunshineProblem = null;
+          return null;
         case "companion_cover":
           return null;
         case "companion_add_app":

@@ -48,6 +48,16 @@ export function LibraryScreen(props: { app: LauncherApp })
         <span className="glyph pill sm">R1</span>
       </div>
 
+      {state.libraryState === "ready" && state.librarySunshineProblem !== null && (
+        <div className="lwarn">
+          <span className="dot err" />
+          <span>
+            <b>{state.librarySunshineProblem}</b>
+            {" · Hinzufügen und Entfernen gehen erst mit Login. A oder ☰ trägt ihn ein."}
+          </span>
+        </div>
+      )}
+
       <div className="lgrid-wrap">
         <div className="lgrid" style={{ transform: `translateY(-${gridOffset}px)` }}>
           {entries.map((entry, itemIndex) =>

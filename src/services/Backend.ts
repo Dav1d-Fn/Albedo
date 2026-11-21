@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { DefaultSettings } from "../model/DefaultSettings";
 import { ModeText } from "../model/ModeText";
-import { DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, Settings, StreamMode } from "../model/Types";
+import { CompanionLibrary, DeviceProfile, DiscoveredHost, PadButton, Settings, StreamMode } from "../model/Types";
 
 export interface StreamEnded
 {
@@ -75,9 +75,15 @@ export class Backend
   }
 
   /** Games and programs installed on the PC, from the companion service. */
-  public companionLibrary(settings: Settings): Promise<LibraryEntry[]>
+  public companionLibrary(settings: Settings): Promise<CompanionLibrary>
   {
-    return invoke<LibraryEntry[]>("companion_library", { host: settings.host });
+    return invoke<CompanionLibrary>("companion_library", { host: settings.host });
+  }
+
+  /** Hands the Sunshine web UI login to the companion; rejects with its German message when Sunshine refuses it. */
+  public companionSetSunshineLogin(settings: Settings, user: string, password: string): Promise<void>
+  {
+    return invoke<void>("companion_set_sunshine_login", { host: settings.host, user, password });
   }
 
   /** Cover of a library entry as `data:` URL, null when the PC has none. */

@@ -63,6 +63,25 @@ export interface LibraryEntry
   inSunshine: boolean;
 }
 
+/** Answer of the companion's `GET /api/library`. */
+export interface CompanionLibrary
+{
+  entries: LibraryEntry[];
+  /** null when the companion can reach Sunshine, otherwise the German reason (adding cannot work then). */
+  sunshineProblem: string | null;
+}
+
+/** Dialog on the "Hinzufügen" screen that hands the Sunshine web UI login to the companion. */
+export interface SunshineLoginDraft
+{
+  user: string;
+  password: string;
+  /** 0 = user field, 1 = password field, 2 = "Speichern". */
+  row: number;
+  busy: boolean;
+  error: string;
+}
+
 export interface DiscoveredHost
 {
   name: string;

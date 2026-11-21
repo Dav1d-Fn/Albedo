@@ -57,19 +57,27 @@ export function HintBar(props: { app: LauncherApp })
     hints.push({ glyph: "Y", label: "Neu suchen", button: "Y" });
     hints.push({ glyph: "B", label: "Fertig", button: "B" });
   }
+  else if (state.screen === "library" && state.sunshineLogin !== null)
+  {
+    hints.push({ glyph: "▲ ▼", label: "Feld", button: "DOWN", pill: true });
+    hints.push({ glyph: "A", label: state.sunshineLogin.row === 0 ? "Weiter" : "Speichern", button: "A" });
+    hints.push({ glyph: "B", label: "Abbrechen", button: "B" });
+  }
   else if (state.screen === "library")
   {
     const entry = app.selectedLibraryEntry();
     hints.push({ glyph: "L1 · R1", label: "Gruppe", button: "R1", pill: true });
+    const loginMissing = state.librarySunshineProblem !== null;
     if (entry !== undefined && !entry.inSunshine)
     {
-      hints.push({ glyph: "A", label: "Hinzufügen", button: "A" });
+      hints.push({ glyph: "A", label: loginMissing ? "Login eintragen" : "Hinzufügen", button: "A" });
     }
     if (entry !== undefined && entry.inSunshine)
     {
-      hints.push({ glyph: "X", label: "Entfernen", button: "X" });
+      hints.push({ glyph: "X", label: loginMissing ? "Login eintragen" : "Entfernen", button: "X" });
     }
     hints.push({ glyph: "Y", label: "Neu laden", button: "Y" });
+    hints.push({ glyph: "☰", label: "Sunshine-Login", button: "MENU", pill: true });
     hints.push({ glyph: "B", label: "Fertig", button: "B" });
   }
   else if (state.screen === "afterStream")

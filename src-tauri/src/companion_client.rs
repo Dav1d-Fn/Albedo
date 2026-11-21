@@ -6,13 +6,7 @@ use reqwest::{Client, RequestBuilder, Response, Url};
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::library_entry::LibraryEntry;
-
-#[derive(Deserialize)]
-struct LibraryResponse
-{
-    entries: Vec<LibraryEntry>,
-}
+use crate::companion_library::CompanionLibrary;
 
 #[derive(Deserialize)]
 struct AddedAppResponse
@@ -58,11 +52,21 @@ impl CompanionClient
         Ok(Self { base_url, http_client })
     }
 
-    pub async fn library(&self) -> Result<Vec<LibraryEntry>, String>
+    pub async fn library(&self) -> Result<CompanionLibrary, String>
     {
         let response = self.send(self.http_client.get(self.url(&["api", "library"]))).await?;
-        let library: LibraryResponse = response.json().await.map_err(|error| error.to_string())?;
-        Ok(library.entries)
+        response.json().await.map_err(|error| error.to_string())
+    }
+
+    /// Hands the Sunshine web UI login to the companion; it checks it against Sunshine before saving.
+    pub async fn set_sunshine_login(&self, user: &str, password: &str) -> Result<(), String>
+    {
+        let request = self
+            .http_client
+            .put(self.url(&["api", "sunshine-login"]))
+            .json(&json!({ "user": user, "password": password }));
+        self.send(request).await?;
+        Ok(())
     }
 
     /// The entry's cover as `data:image/png;base64,…`, or None when the PC has none.
