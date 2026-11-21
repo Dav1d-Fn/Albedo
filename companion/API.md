@@ -31,7 +31,7 @@ Everything that can be added, sorted by group, then name.
     { "id": "preset:desktop-auto", "name": "Desktop", "group": "Voreinstellungen", "hasCover": true, "inSunshine": true },
     { "id": "preset:desktop-plain", "name": "Desktop (ohne Profilwechsel)", "group": "Voreinstellungen", "hasCover": true, "inSunshine": true },
     { "id": "preset:big-picture", "name": "Steam Big Picture", "group": "Voreinstellungen", "hasCover": true, "inSunshine": false },
-    { "id": "steam:1245620", "name": "ELDEN RING", "group": "Steam", "hasCover": true, "inSunshine": false },
+    { "id": "steam:1245620", "name": "ELDEN RING", "group": "Steam", "hasCover": true, "hasHero": true, "screenshotCount": 3, "inSunshine": false },
     { "id": "heroic:Crow", "name": "Dead Island 2", "group": "Heroic", "hasCover": true, "inSunshine": false },
     { "id": "lutris:black-desert-online", "name": "Black Desert Online", "group": "Lutris", "hasCover": false, "inSunshine": false },
     { "id": "prism:26.3 Modpack Test", "name": "Minecraft 26.3 Modpack Test", "group": "Minecraft", "hasCover": true, "inSunshine": true },
@@ -47,11 +47,24 @@ Everything that can be added, sorted by group, then name.
 - `sunshineProblem`: `null` when the companion can reach Sunshine with its login, otherwise the German
   reason (e.g. "Sunshine-Login fehlt im PC-Helfer", "Sunshine-Login falsch"). Adding/removing
   cannot work then; the launcher should say so before the user presses A, not only after.
+- `hasHero`: a wide title picture exists (`GET /api/hero/<id>`). Steam: `library_hero.jpg`,
+  Heroic: `art_cover`. Not in the example lines above means `false`; every entry has both fields.
+- `screenshotCount`: Steam screenshots of all Steam accounts on the PC (`GET /api/screenshot/<id>/<index>`),
+  `0` for everything else. A new screenshot shifts the indices, so reload the library to see it.
 - Not listed: tools like Proton, Steam Linux Runtime, Steamworks Redist, Wallpaper Engine, VR-only games.
 
 ### `GET /api/cover/<id>`
 
 PNG (portrait, ideally 600x900) for an entry with `hasCover`. 404 otherwise. `<id>` is URL-encoded.
+
+### `GET /api/hero/<id>`
+
+JPEG for an entry with `hasHero`, at most 1920 px wide, 404 otherwise. Cached in
+`~/.cache/streaming-launcher-companion/` (Heroic's is downloaded once).
+
+### `GET /api/screenshot/<id>/<index>`
+
+JPEG, at most 1920 px wide. Index `0` is the newest; outside `0 … screenshotCount-1` it is 404. Cached like the hero.
 
 ### `POST /api/apps`
 

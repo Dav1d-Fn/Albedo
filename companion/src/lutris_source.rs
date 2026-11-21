@@ -47,6 +47,8 @@ impl LutrisSource
                 name: row["name"].as_str().unwrap_or(&slug).to_string(),
                 group: "Lutris".into(),
                 cover: if cover_path.exists() { CoverSource::File(cover_path) } else { CoverSource::None },
+                hero: CoverSource::None,
+                screenshots: Vec::new(),
                 command: String::new(),
                 detached_command: Some(format!("lutris lutris:rungameid/{}", game_id)),
                 quit_command: (!directory.is_empty()).then(|| format!("pkill -f \"{}\"", directory)),

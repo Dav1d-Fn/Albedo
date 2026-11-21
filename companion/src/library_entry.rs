@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::cover_source::CoverSource;
 use crate::library_entry_response::LibraryEntryResponse;
 
@@ -9,6 +11,10 @@ pub struct LibraryEntry
     pub name: String,
     pub group: String,
     pub cover: CoverSource,
+    /// Wide title picture for the launcher's background.
+    pub hero: CoverSource,
+    /// The user's screenshots of this game, newest first.
+    pub screenshots: Vec<PathBuf>,
     /// Sunshine "cmd": a process Sunshine waits on (empty = none).
     pub command: String,
     /// Sunshine "detached": started and left alone (launcher hand-offs like steam://).
@@ -34,6 +40,8 @@ impl LibraryEntry
             name: self.name.clone(),
             group: self.group.clone(),
             has_cover: self.has_cover(),
+            has_hero: !matches!(self.hero, CoverSource::None),
+            screenshot_count: self.screenshots.len(),
             in_sunshine,
         }
     }

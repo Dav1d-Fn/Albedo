@@ -86,6 +86,8 @@ impl DesktopFileSource
             name,
             group: "Programme".into(),
             cover: CoverSource::None,
+            hero: CoverSource::None,
+            screenshots: Vec::new(),
             command: String::new(),
             // gio starts the entry exactly like the menu would (field codes, flatpak wrapper, ...).
             detached_command: Some(format!("gio launch \"{}\"", desktop_path.display())),

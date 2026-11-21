@@ -7,6 +7,7 @@ use tiny_http::{Header, Method, Request, Response, Server};
 use crate::client_address_filter::ClientAddressFilter;
 use crate::companion_config::CompanionConfig;
 use crate::cover_converter::CoverConverter;
+use crate::cover_source::CoverSource;
 use crate::library_scanner::LibraryScanner;
 use crate::sunshine_app_builder::SunshineAppBuilder;
 use crate::sunshine_client::SunshineClient;
@@ -67,6 +68,15 @@ impl ApiServer
                 let entry_id = percent_decode_str(&cover_path["/api/cover/".len()..]).decode_utf8_lossy().to_string();
                 self.cover(&entry_id)
             }
+            (Method::Get, hero_path) if hero_path.starts_with("/api/hero/") =>
+            {
+                let entry_id = percent_decode_str(&hero_path["/api/hero/".len()..]).decode_utf8_lossy().to_string();
+                self.hero(&entry_id)
+            }
+            (Method::Get, screenshot_path) if screenshot_path.starts_with("/api/screenshot/") =>
+            {
+                self.screenshot(&screenshot_path["/api/screenshot/".len()..])
+            }
             (Method::Post, "/api/apps") => Self::read_body(request).and_then(|body| self.add_app(&body)),
             (Method::Delete, "/api/apps") => Self::read_body(request).and_then(|body| self.delete_app(&body)),
             (Method::Put, "/api/sunshine-login") => Self::read_body(request).and_then(|body| self.set_sunshine_login(&body)),
@@ -119,6 +129,40 @@ impl ApiServer
         }
         let png_bytes = CoverConverter.to_png(&entry.cover).map_err(|message| (502, message))?;
         Ok((200, png_bytes, "image/png"))
+    }
+
+    fn hero(&self, entry_id: &str) -> Result<ApiAnswer, (u16, String)>
+    {
+        let entry = LibraryScanner.find(entry_id).ok_or((404, "Eintrag nicht gefunden".to_string()))?;
+        if matches!(entry.hero, CoverSource::None)
+        {
+            return Err((404, "Kein Titelbild vorhanden".into()));
+        }
+        let jpeg_bytes = CoverConverter
+            .to_background_jpeg(&entry.hero, &format!("hero-{}", entry.id))
+            .map_err(|message| (502, message))?;
+        Ok((200, jpeg_bytes, "image/jpeg"))
+    }
+
+    /// `<id>/<index>`: the id is URL-encoded, so the last '/' separates the index.
+    fn screenshot(&self, id_and_index: &str) -> Result<ApiAnswer, (u16, String)>
+    {
+        let (encoded_entry_id, index_text) = id_and_index.rsplit_once('/').ok_or((404, "Index fehlt".to_string()))?;
+        let screenshot_index: usize = index_text.parse().map_err(|_| (404, "Index ist keine Zahl".to_string()))?;
+        let entry_id = percent_decode_str(encoded_entry_id).decode_utf8_lossy().to_string();
+        let entry = LibraryScanner.find(&entry_id).ok_or((404, "Eintrag nicht gefunden".to_string()))?;
+        let screenshot_path = entry
+            .screenshots
+            .get(screenshot_index)
+            .ok_or((404, "Kein Screenshot mit diesem Index".to_string()))?;
+
+        // Cached by file name, so a new screenshot shifting the indices does not mix them up.
+        let file_stem = screenshot_path.file_stem().unwrap_or_default().to_string_lossy();
+        let cache_name = format!("screenshot-{}-{}", entry.id, file_stem);
+        let jpeg_bytes = CoverConverter
+            .to_background_jpeg(&CoverSource::File(screenshot_path.clone()), &cache_name)
+            .map_err(|message| (502, message))?;
+        Ok((200, jpeg_bytes, "image/jpeg"))
     }
 
     fn add_app(&self, body: &Value) -> Result<ApiAnswer, (u16, String)>

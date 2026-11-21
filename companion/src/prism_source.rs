@@ -33,6 +33,8 @@ impl PrismSource
                 name: format!("Minecraft {}", instance_name),
                 group: "Minecraft".into(),
                 cover: CoverSource::None,
+                hero: CoverSource::None,
+                screenshots: Vec::new(),
                 // Prism stays in the foreground while the game runs, so Sunshine waits on it.
                 command: format!("flatpak run org.prismlauncher.PrismLauncher --launch \"{}\"", instance_name),
                 detached_command: None,

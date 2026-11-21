@@ -9,5 +9,7 @@ pub struct LibraryEntryResponse
     pub name: String,
     pub group: String,
     pub has_cover: bool,
+    pub has_hero: bool,
+    pub screenshot_count: usize,
     pub in_sunshine: bool,
 }

@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
 use crate::companion_config::home_directory;
 use crate::cover_source::CoverSource;
@@ -81,7 +82,9 @@ impl SteamSource
             id: format!("steam:{}", app_id),
             name,
             group: "Steam".into(),
-            cover: self.find_cover(&app_id),
+            cover: self.find_library_image(&app_id, "library_600x900.jpg"),
+            hero: self.find_library_image(&app_id, "library_hero.jpg"),
+            screenshots: self.find_screenshots(&app_id),
             command: String::new(),
             detached_command: Some(format!("steam steam://rungameid/{}", app_id)),
             // Every game process Steam starts carries "SteamLaunch AppId=<id> " in its command line.
@@ -90,14 +93,14 @@ impl SteamSource
         })
     }
 
-    /// library_600x900.jpg sits either directly in the app's cache folder or one hash folder deeper.
-    fn find_cover(&self, app_id: &str) -> CoverSource
+    /// Steam's library images sit either directly in the app's cache folder or one hash folder deeper.
+    fn find_library_image(&self, app_id: &str, file_name: &str) -> CoverSource
     {
         let cache_directory = self.steam_root.join("appcache/librarycache").join(app_id);
-        let direct_cover = cache_directory.join("library_600x900.jpg");
-        if direct_cover.exists()
+        let direct_image = cache_directory.join(file_name);
+        if direct_image.exists()
         {
-            return CoverSource::File(direct_cover);
+            return CoverSource::File(direct_image);
         }
         let Ok(directory_listing) = fs::read_dir(&cache_directory)
         else
@@ -106,13 +109,45 @@ impl SteamSource
         };
         for directory_entry in directory_listing.flatten()
         {
-            let nested_cover = directory_entry.path().join("library_600x900.jpg");
-            if nested_cover.exists()
+            let nested_image = directory_entry.path().join(file_name);
+            if nested_image.exists()
             {
-                return CoverSource::File(nested_cover);
+                return CoverSource::File(nested_image);
             }
         }
         CoverSource::None
+    }
+
+    /// Screenshots of every Steam account on this PC (userdata/<account>/760/remote/<appid>/screenshots), newest first.
+    fn find_screenshots(&self, app_id: &str) -> Vec<PathBuf>
+    {
+        let mut screenshots: Vec<(SystemTime, PathBuf)> = Vec::new();
+        let Ok(account_listing) = fs::read_dir(self.steam_root.join("userdata"))
+        else
+        {
+            return Vec::new();
+        };
+        for account_entry in account_listing.flatten()
+        {
+            let screenshot_directory = account_entry.path().join("760/remote").join(app_id).join("screenshots");
+            let Ok(screenshot_listing) = fs::read_dir(screenshot_directory)
+            else
+            {
+                continue;
+            };
+            for screenshot_entry in screenshot_listing.flatten()
+            {
+                let screenshot_path = screenshot_entry.path();
+                let is_jpeg = screenshot_path.extension().is_some_and(|extension| extension == "jpg");
+                let modified_time = screenshot_entry.metadata().and_then(|metadata| metadata.modified());
+                if let (true, Ok(modified_time)) = (is_jpeg, modified_time)
+                {
+                    screenshots.push((modified_time, screenshot_path));
+                }
+            }
+        }
+        screenshots.sort_by(|first, second| second.0.cmp(&first.0));
+        screenshots.into_iter().map(|(_, screenshot_path)| screenshot_path).collect()
     }
 
     /// Reads `"key"   "value"` from one VDF/ACF line.
