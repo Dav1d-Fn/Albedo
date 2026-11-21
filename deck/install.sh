@@ -420,7 +420,10 @@ class SteamShortcuts:
         self.keep_only([other for other in self.entries() if not other.is_ours(self.knownNames, self.knownExeParts)])
         if ownEntries:
             self.save()
+        # First line: how many entries went; then the program of each, so the shell can delete old AppImages.
         print(len(ownEntries))
+        for entry in ownEntries:
+            print(entry.get("Exe", "").strip('"'))
 
     def save(self):
         if os.path.exists(self.path):
@@ -514,9 +517,19 @@ uninstall_launcher()
     do
         if [[ -n "$configDir" ]]
         then
-            local removedCount
-            removedCount="$(edit_shortcuts remove "$configDir")"
-            say "$removedCount Steam-Eintrag/Einträge entfernt in $configDir"
+            local removeResult
+            removeResult="$(edit_shortcuts remove "$configDir")"
+            say "$(head -n 1 <<< "$removeResult") Steam-Eintrag/Einträge entfernt in $configDir"
+            # Entries under an earlier name point to their own AppImage (e.g. Streaming-Launcher.AppImage).
+            local removedExe
+            while read -r removedExe
+            do
+                if [[ "$removedExe" == "$INSTALL_DIR"/*.AppImage && -f "$removedExe" ]]
+                then
+                    say "Entferne $removedExe"
+                    rm -f "$removedExe"
+                fi
+            done <<< "$(tail -n +2 <<< "$removeResult")"
         fi
     done <<< "$(steam_user_config_dirs)"
     rm -f "$APPIMAGE_TARGET"
