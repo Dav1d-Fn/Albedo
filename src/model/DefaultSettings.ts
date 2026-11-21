@@ -16,6 +16,7 @@ export class DefaultSettings
       sunshineApiUrl: "",
       sunshineUser: "",
       sunshinePassword: "",
+      afterStream: "ask",
       profiles:
       {
         handheld:

@@ -3,6 +3,7 @@ mod game_list_source;
 mod gamepad_listener;
 mod host_discovery;
 mod host_environment;
+mod moonlight_app_quit;
 mod moonlight_command;
 mod moonlight_pairing;
 mod settings_store;
@@ -16,6 +17,7 @@ use display_detector::DisplayDetector;
 use game_list_source::GameListSource;
 use gamepad_listener::GamepadListener;
 use host_discovery::{DiscoveredHost, HostDiscovery};
+use moonlight_app_quit::MoonlightAppQuit;
 use moonlight_command::MoonlightCommand;
 use moonlight_pairing::MoonlightPairing;
 use settings_store::SettingsStore;
@@ -79,6 +81,16 @@ async fn pair_host(moonlight_command: Vec<String>, host: String, pin: String) ->
     result
 }
 
+#[tauri::command]
+async fn quit_host_app(moonlight_command: Vec<String>, host: String) -> Result<(), String>
+{
+    let result = tauri::async_runtime::spawn_blocking(move || MoonlightAppQuit::quit(&moonlight_command, &host))
+        .await
+        .map_err(|error| error.to_string())?;
+    println!("[quit] {:?}", result);
+    result
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run()
 {
@@ -95,7 +107,8 @@ pub fn run()
             fetch_games,
             start_stream,
             discover_hosts,
-            pair_host
+            pair_host,
+            quit_host_app
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

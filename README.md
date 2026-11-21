@@ -17,6 +17,8 @@ npm run tauri dev
   (loggt den Moonlight-Befehl, startet statt Moonlight nur `sleep 2`).
 - Nur Oberfläche im Browser, mit Testdaten: `npm run dev` und http://localhost:1430 öffnen.
 - Einstellungen: `~/.config/de.davidf.streaminglauncher/settings.json`
+- Nach dem Trennen in Moonlight fragt der Launcher, ob das Spiel auf dem PC weiterlaufen (Pausieren) oder
+  beendet werden soll. Mit Y lässt sich die Entscheidung merken; ändern unter „Verbindung“ → „Nach dem Stream“.
 
 Tasten: Pfeile, Enter = A, Esc = B, X = Gerät, Q/E = L1/R1 (Modus), Y = merken/neu laden, M = Profile.
 

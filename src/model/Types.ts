@@ -8,6 +8,9 @@ export type VideoCodec = "H.264" | "HEVC" | "AV1";
 
 export type AudioLayout = "Stereo" | "5.1 Surround" | "7.1 Surround";
 
+/** What happens to the game on the PC after Moonlight disconnects. */
+export type AfterStreamAction = "ask" | "keep" | "quit";
+
 /** When a device profile may be picked automatically. */
 export type AutoRule = "Deck ohne Dock" | "Dock mit Bildschirm" | "Nur manuell";
 
@@ -42,6 +45,8 @@ export interface Settings
   sunshineUser: string;
   sunshinePassword: string;
   profiles: Record<DeviceId, DeviceProfile>;
+  /** "ask" shows the pause/quit dialog, "keep" leaves the game running, "quit" ends it. */
+  afterStream: AfterStreamAction;
   /** "<game name>|<device>" -> mode index remembered for that game. */
   rememberedModes: Record<string, number>;
 }

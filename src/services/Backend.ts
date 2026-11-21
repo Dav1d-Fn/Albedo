@@ -68,6 +68,12 @@ export class Backend
     return invoke<void>("pair_host", { moonlightCommand: settings.moonlightCommand, host: settings.host, pin });
   }
 
+  /** Ends the app still running on the PC (`moonlight quit <host>`). */
+  public quitHostApp(settings: Settings): Promise<void>
+  {
+    return invoke<void>("quit_host_app", { moonlightCommand: settings.moonlightCommand, host: settings.host });
+  }
+
   /** Starts Moonlight; resolves with the command line that was run. */
   public startStream(settings: Settings, gameName: string, profile: DeviceProfile, mode: StreamMode): Promise<string>
   {

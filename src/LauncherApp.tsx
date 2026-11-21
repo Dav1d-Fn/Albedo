@@ -2,8 +2,9 @@ import React, { CSSProperties } from "react";
 import { InputRouter } from "./input/InputRouter";
 import { ModeText } from "./model/ModeText";
 import { DefaultSettings } from "./model/DefaultSettings";
-import { DeviceId, DeviceProfile, DiscoveredHost, PadButton, Settings, StreamMode } from "./model/Types";
+import { AfterStreamAction, DeviceId, DeviceProfile, DiscoveredHost, PadButton, Settings, StreamMode } from "./model/Types";
 import { Backend } from "./services/Backend";
+import { AfterStreamDialog } from "./views/AfterStreamDialog";
 import { ConnectScreen } from "./views/ConnectScreen";
 import { ConnectionScreen } from "./views/ConnectionScreen";
 import { DetailScreen } from "./views/DetailScreen";
@@ -14,7 +15,7 @@ import { HomeScreen } from "./views/HomeScreen";
 import { StreamScreen } from "./views/StreamScreen";
 import { ToastCard, ToastContent } from "./views/ToastCard";
 
-export type ScreenName = "home" | "detail" | "connect" | "stream" | "editor" | "connection";
+export type ScreenName = "home" | "detail" | "connect" | "stream" | "afterStream" | "editor" | "connection";
 
 export type HostState = "loading" | "online" | "error";
 
@@ -39,6 +40,9 @@ export interface LauncherState
   connectSteps: string[];
   connectStep: number;
   lastLaunchError: string;
+  /** Dialog after a normal disconnect: 0 = keep the game running, 1 = quit it on the PC. */
+  afterStreamIndex: number;
+  afterStreamRemember: boolean;
   /** Editor state. */
   editDevice: DeviceId;
   editModeIndex: number;
@@ -118,6 +122,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       pairState: "idle",
       pairPin: "",
       pairMessage: "",
+      afterStreamIndex: 0,
+      afterStreamRemember: false,
       zoom: Math.max(window.innerWidth, 320) / LauncherApp.designWidth,
     };
   }
@@ -454,6 +460,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       case "stream":
         // Moonlight owns the controller now; we come back via the "stream-ended" event.
         return;
+      case "afterStream":
+        return this.afterStreamButton(button);
     }
   }
 
@@ -625,10 +633,102 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   private handleStreamEnded(exitCode: number | null, errorTail: string): void
   {
     const failed = exitCode !== 0;
-    this.setState({
-      screen: "detail",
-      lastLaunchError: failed ? "Moonlight beendet mit Code " + exitCode + (errorTail ? ": " + errorTail : "") : "",
-    });
+    if (failed)
+    {
+      this.setState({
+        screen: "detail",
+        lastLaunchError: "Moonlight beendet mit Code " + exitCode + (errorTail ? ": " + errorTail : ""),
+      });
+      return;
+    }
+
+    const afterStream = this.settings.afterStream;
+    if (afterStream === "ask")
+    {
+      this.setState({ screen: "afterStream", afterStreamIndex: 0, afterStreamRemember: false, lastLaunchError: "" });
+      return;
+    }
+    this.setState({ screen: "detail", lastLaunchError: "" });
+    if (afterStream === "quit")
+    {
+      this.quitHostApp();
+    }
+  }
+
+  // ---------------------------------------------------------------- after the stream: pause or quit
+
+  /** Options of the after-stream dialog and the connection screen row, in display order. */
+  public static readonly afterStreamChoices: AfterStreamAction[] = ["keep", "quit"];
+
+  private afterStreamButton(button: PadButton): void
+  {
+    if (button === "LEFT")
+    {
+      this.setState({ afterStreamIndex: 0 });
+    }
+    else if (button === "RIGHT")
+    {
+      this.setState({ afterStreamIndex: 1 });
+    }
+    else if (button === "Y")
+    {
+      this.toggleAfterStreamRemember();
+    }
+    else if (button === "A")
+    {
+      this.chooseAfterStream(this.state.afterStreamIndex);
+    }
+    else if (button === "B")
+    {
+      // Backing out keeps the game running, which is what Moonlight did anyway.
+      this.chooseAfterStream(0);
+    }
+  }
+
+  public toggleAfterStreamRemember(): void
+  {
+    this.setState((state) => ({ afterStreamRemember: !state.afterStreamRemember }));
+  }
+
+  public chooseAfterStream(choiceIndex: number): void
+  {
+    const choice = LauncherApp.afterStreamChoices[choiceIndex];
+    if (this.state.afterStreamRemember)
+    {
+      this.setAfterStream(choice);
+    }
+    this.setState({ screen: "detail", afterStreamIndex: choiceIndex });
+    if (choice === "quit")
+    {
+      this.quitHostApp();
+    }
+  }
+
+  /** Connection screen row: ask → keep → quit → ask. */
+  private cycleAfterStream(): void
+  {
+    const order: AfterStreamAction[] = ["ask", "keep", "quit"];
+    const nextIndex = (order.indexOf(this.settings.afterStream) + 1) % order.length;
+    this.setAfterStream(order[nextIndex]);
+  }
+
+  public setAfterStream(afterStream: AfterStreamAction): void
+  {
+    this.updateSettings((settings) => ({ ...settings, afterStream }));
+  }
+
+  private async quitHostApp(): Promise<void>
+  {
+    const gameName = this.selectedGame() ?? "";
+    try
+    {
+      await this.backend.quitHostApp(this.settings);
+      this.showToast({ kind: "ok", eyebrow: this.hostDisplayName(), name: "Beendet", spec: "", sub: gameName + " läuft nicht mehr auf dem PC" });
+    }
+    catch (quitError)
+    {
+      this.showError("Beenden fehlgeschlagen", String(quitError));
+    }
   }
 
   // ---------------------------------------------------------------- editor
@@ -754,7 +854,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   // ---------------------------------------------------------------- connection and pairing
 
   /** Rows on the right side of the connection screen. */
-  public static readonly connectionRows = ["pair", "moonlight"] as const;
+  public static readonly connectionRows = ["pair", "moonlight", "afterStream"] as const;
 
   public openConnection(): void
   {
@@ -911,13 +1011,18 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   public activateConnectionRow(rowIndex: number): void
   {
     this.setState({ connectionZone: "rows", connectionRow: rowIndex });
-    if (LauncherApp.connectionRows[rowIndex] === "pair")
+    const row = LauncherApp.connectionRows[rowIndex];
+    if (row === "pair")
     {
       this.startPairing();
     }
-    else
+    else if (row === "moonlight")
     {
       this.toggleMoonlightCommand();
+    }
+    else
+    {
+      this.cycleAfterStream();
     }
   }
 
@@ -946,12 +1051,13 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       >
         <div className="inner" style={innerStyle}>
           {state.screen === "home" && <HomeScreen app={this} />}
-          {state.screen === "detail" && <DetailScreen app={this} />}
+          {(state.screen === "detail" || state.screen === "afterStream") && <DetailScreen app={this} />}
           {state.screen === "connect" && <ConnectScreen app={this} />}
           {state.screen === "stream" && <StreamScreen app={this} />}
           {state.screen === "editor" && <EditorScreen app={this} />}
           {state.screen === "connection" && <ConnectionScreen app={this} />}
           <div className="ambient" />
+          {state.screen === "afterStream" && <AfterStreamDialog app={this} />}
           <HintBar app={this} />
           {state.toast !== null && <ToastCard toast={state.toast} />}
         </div>

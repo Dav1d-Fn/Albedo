@@ -56,6 +56,13 @@ export function HintBar(props: { app: LauncherApp })
     hints.push({ glyph: "Y", label: "Neu suchen", button: "Y" });
     hints.push({ glyph: "B", label: "Fertig", button: "B" });
   }
+  else if (state.screen === "afterStream")
+  {
+    hints.push({ glyph: "◀ ▶", label: "Wählen", button: "RIGHT", pill: true });
+    hints.push({ glyph: "A", label: state.afterStreamIndex === 0 ? "Pausieren" : "Beenden", button: "A" });
+    hints.push({ glyph: "Y", label: state.afterStreamRemember ? "Nicht merken" : "Merken", button: "Y" });
+    hints.push({ glyph: "B", label: "Pausieren", button: "B" });
+  }
   else if (state.screen === "connect")
   {
     hints.push({ glyph: "B", label: "Abbrechen", button: "B" });

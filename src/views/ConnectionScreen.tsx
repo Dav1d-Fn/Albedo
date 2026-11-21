@@ -1,4 +1,12 @@
 import LauncherApp from "../LauncherApp";
+import { AfterStreamAction } from "../model/Types";
+
+const afterStreamOptions: { value: AfterStreamAction; label: string }[] =
+[
+  { value: "ask", label: "Fragen" },
+  { value: "keep", label: "Pausieren" },
+  { value: "quit", label: "Beenden" },
+];
 
 /** Choose the gaming PC (found via mDNS or typed in), pair with a PIN, pick Flatpak or system Moonlight. */
 export function ConnectionScreen(props: { app: LauncherApp })
@@ -99,6 +107,24 @@ export function ConnectionScreen(props: { app: LauncherApp })
           </div>
           <div className="dnote" style={{ paddingLeft: 20 }}>
             <code>{settings.moonlightCommand.join(" ")}</code>
+          </div>
+
+          <div className="rhead clabel">Nach dem Stream</div>
+          <div className={"row" + rowFocus(2)}>
+            <button className="rlabel" onClick={() => app.activateConnectionRow(2)}>Spiel auf dem PC</button>
+            <div className="ctrl">
+              <div className="seg">
+                {afterStreamOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    className={"segb" + (settings.afterStream === option.value ? " on" : "")}
+                    onClick={() => app.setAfterStream(option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
