@@ -147,6 +147,11 @@ export class BrowserMock
           return new Promise((resolve) => window.setTimeout(() => resolve("Neues Spiel"), 800));
         case "companion_remove_app":
           return null;
+        case "check_for_update":
+          // Open http://localhost:1430/?update to see the update dialog.
+          return new URLSearchParams(window.location.search).has("update") ? { version: "0.2.0", currentVersion: "0.1.0", notes: "Neue Bilder, Fehler behoben." } : null;
+        case "install_update":
+          return new Promise((_resolve, reject) => window.setTimeout(() => reject("Testfehler im Browser"), 1500));
         default:
           return null;
       }

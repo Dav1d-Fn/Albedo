@@ -10,6 +10,14 @@ export interface StreamEnded
   errorTail: string;
 }
 
+/** A newer signed release on GitHub (src-tauri/src/app_updater.rs). */
+export interface AvailableUpdate
+{
+  version: string;
+  currentVersion: string;
+  notes: string;
+}
+
 /** All calls into the Rust side (src-tauri/src/lib.rs). */
 export class Backend
 {
@@ -187,5 +195,17 @@ export class Backend
   public onPadButton(handler: (button: PadButton) => void): Promise<UnlistenFn>
   {
     return listen<PadButton>("pad-button", (event) => handler(event.payload));
+  }
+
+  /** Null when the launcher is up to date, offline, or not running as AppImage. */
+  public checkForUpdate(): Promise<AvailableUpdate | null>
+  {
+    return invoke<AvailableUpdate | null>("check_for_update");
+  }
+
+  /** Replaces the AppImage and restarts the launcher; only returns on failure. */
+  public installUpdate(): Promise<void>
+  {
+    return invoke<void>("install_update");
   }
 }

@@ -1,3 +1,4 @@
+mod app_updater;
 mod companion_client;
 mod companion_library;
 mod display_detector;
@@ -21,6 +22,7 @@ use std::time::Duration;
 
 use tauri::{AppHandle, State};
 
+use app_updater::{AppUpdater, AvailableUpdate};
 use companion_client::CompanionClient;
 use companion_library::CompanionLibrary;
 use display_detector::DisplayDetector;
@@ -220,10 +222,23 @@ async fn companion_set_sunshine_login(host: String, user: String, password: Stri
     result
 }
 
+#[tauri::command]
+async fn check_for_update(app: AppHandle) -> Option<AvailableUpdate>
+{
+    AppUpdater::check(&app).await
+}
+
+#[tauri::command]
+async fn install_update(app: AppHandle) -> Result<(), String>
+{
+    AppUpdater::install(&app).await
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run()
 {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(StreamSession::default())
         .setup(|app|
         {
@@ -252,7 +267,9 @@ pub fn run()
             companion_reset_art,
             companion_add_app,
             companion_remove_app,
-            companion_set_sunshine_login
+            companion_set_sunshine_login,
+            check_for_update,
+            install_update
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -4,7 +4,7 @@ import { ModeText } from "./model/ModeText";
 import { DefaultSettings } from "./model/DefaultSettings";
 import { GameArt } from "./model/GameArt";
 import { AfterStreamAction, ArtKind, BackdropKind, DeviceId, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, Settings, StreamMode, SunshineLoginDraft, ImageDialogState } from "./model/Types";
-import { Backend } from "./services/Backend";
+import { AvailableUpdate, Backend } from "./services/Backend";
 import { CompanionArt } from "./services/CompanionArt";
 import { AfterStreamDialog } from "./views/AfterStreamDialog";
 import { ConnectScreen } from "./views/ConnectScreen";
@@ -19,6 +19,7 @@ import { LibraryScreen } from "./views/LibraryScreen";
 import { StreamScreen } from "./views/StreamScreen";
 import { SunshineLoginDialog } from "./views/SunshineLoginDialog";
 import { ToastCard, ToastContent } from "./views/ToastCard";
+import { UpdateDialog } from "./views/UpdateDialog";
 
 export type ScreenName = "home" | "detail" | "connect" | "stream" | "afterStream" | "editor" | "connection" | "library";
 
@@ -86,6 +87,8 @@ export interface LauncherState
   librarySunshineProblem: string | null;
   /** Open Sunshine login dialog on the "Hinzufügen" screen, null = closed. */
   sunshineLogin: SunshineLoginDraft | null;
+  /** "Update verfügbar" dialog, null = closed; `installing` while the new AppImage downloads. */
+  update: (AvailableUpdate & { installing: boolean; error: string }) | null;
   /** Game name -> logo `data:` URL from the companion (Steam logo or set by hand). */
   logos: Record<string, string>;
   /** "Bild setzen" dialog on the detail page, null = closed. */
@@ -201,6 +204,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       libraryChanged: false,
       librarySunshineProblem: null,
       sunshineLogin: null,
+      update: null,
       backdropLayers: [],
       logos: {},
       imageDialog: null,
@@ -247,6 +251,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       this.reloadGames(settings);
     }
     this.displayPollTimer = window.setInterval(() => this.pollDisplay(), LauncherApp.displayPollMilliseconds);
+    this.checkForUpdate();
   }
 
   public componentDidUpdate(_previousProps: object, previousState: LauncherState): void
@@ -627,6 +632,10 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     if (this.isErrorToastShown() && (button === "A" || button === "B"))
     {
       return this.closeToast();
+    }
+    if (this.state.update !== null)
+    {
+      return this.updateButton(button);
     }
 
     const screen = this.state.screen;
@@ -2097,6 +2106,59 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }
   }
 
+  // ---------------------------------------------------------------- self-update
+
+  /** Asks GitHub once at start; the dialog never opens over a stream that is starting or running. */
+  private async checkForUpdate(): Promise<void>
+  {
+    const available = await this.backend.checkForUpdate();
+    if (available !== null && this.mounted && this.state.screen !== "connect" && this.state.screen !== "stream")
+    {
+      this.setState({ update: { ...available, installing: false, error: "" } });
+    }
+  }
+
+  private updateButton(button: PadButton): void
+  {
+    const update = this.state.update;
+    if (update === null || update.installing)
+    {
+      return;
+    }
+    if (button === "A")
+    {
+      this.installUpdate();
+    }
+    else if (button === "B")
+    {
+      this.setState({ update: null });
+    }
+  }
+
+  public async installUpdate(): Promise<void>
+  {
+    const update = this.state.update;
+    if (update === null)
+    {
+      return;
+    }
+    this.setState({ update: { ...update, installing: true, error: "" } });
+    try
+    {
+      // Restarts the launcher on success, so nothing after this line runs then.
+      await this.backend.installUpdate();
+    }
+    catch (installError)
+    {
+      this.setState({ update: { ...update, installing: false, error: String(installError) } });
+    }
+  }
+
+  public closeUpdate(): void
+  {
+    this.setState({ update: null });
+  }
+
   // ---------------------------------------------------------------- render
 
   public render(): React.ReactNode
@@ -2132,6 +2194,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
           {state.screen === "afterStream" && <AfterStreamDialog app={this} />}
           {state.screen === "detail" && state.imageDialog !== null && <ImageDialog app={this} />}
           {state.screen === "library" && state.sunshineLogin !== null && <SunshineLoginDialog app={this} />}
+          {state.update !== null && <UpdateDialog app={this} />}
           <HintBar app={this} />
           {state.toast !== null && <ToastCard toast={state.toast} />}
         </div>
