@@ -1,4 +1,5 @@
 mod api_server;
+mod binary_vdf_reader;
 mod client_address_filter;
 mod companion_config;
 mod cover_converter;
@@ -11,6 +12,7 @@ mod library_scanner;
 mod lutris_source;
 mod preset_source;
 mod prism_source;
+mod steam_shortcut_source;
 mod steam_source;
 mod sunshine_app_builder;
 mod sunshine_client;

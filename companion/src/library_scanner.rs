@@ -4,6 +4,7 @@ use crate::library_entry::LibraryEntry;
 use crate::lutris_source::LutrisSource;
 use crate::preset_source::PresetSource;
 use crate::prism_source::PrismSource;
+use crate::steam_shortcut_source::SteamShortcutSource;
 use crate::steam_source::SteamSource;
 
 /// Collects everything addable from all sources, sorted by group, then name.
@@ -11,13 +12,15 @@ pub struct LibraryScanner;
 
 impl LibraryScanner
 {
-    const GROUP_ORDER: [&'static str; 6] = ["Voreinstellungen", "Steam", "Heroic", "Lutris", "Minecraft", "Programme"];
+    const GROUP_ORDER: [&'static str; 8] =
+        ["Voreinstellungen", "Steam", "Nicht-Steam", "Emulation", "Heroic", "Lutris", "Minecraft", "Programme"];
 
     pub fn scan_all(&self) -> Vec<LibraryEntry>
     {
         let mut entries = Vec::new();
         entries.extend(PresetSource.scan());
         entries.extend(SteamSource::new().scan());
+        entries.extend(SteamShortcutSource::new().scan());
         entries.extend(HeroicSource.scan());
         entries.extend(LutrisSource.scan());
         entries.extend(PrismSource.scan());

@@ -32,6 +32,7 @@ Everything that can be added, sorted by group, then name.
     { "id": "preset:desktop-plain", "name": "Desktop (ohne Profilwechsel)", "group": "Voreinstellungen", "hasCover": true, "inSunshine": true },
     { "id": "preset:big-picture", "name": "Steam Big Picture", "group": "Voreinstellungen", "hasCover": true, "inSunshine": false },
     { "id": "steam:1245620", "name": "ELDEN RING", "group": "Steam", "hasCover": true, "hasHero": true, "screenshotCount": 3, "inSunshine": false },
+    { "id": "shortcut:2777831780", "name": "The Legend of Zelda: Tears of the Kingdom", "group": "Emulation", "hasCover": true, "hasHero": true, "screenshotCount": 0, "inSunshine": false },
     { "id": "heroic:Crow", "name": "Dead Island 2", "group": "Heroic", "hasCover": true, "inSunshine": false },
     { "id": "lutris:black-desert-online", "name": "Black Desert Online", "group": "Lutris", "hasCover": false, "inSunshine": false },
     { "id": "prism:26.3 Modpack Test", "name": "Minecraft 26.3 Modpack Test", "group": "Minecraft", "hasCover": true, "inSunshine": true },
@@ -41,7 +42,17 @@ Everything that can be added, sorted by group, then name.
 }
 ```
 
-- `id` is stable: `<source>:<source id>`. Sources: `preset`, `steam`, `heroic`, `lutris`, `prism`, `desktop`.
+- `id` is stable: `<source>:<source id>`. Sources: `preset`, `steam`, `shortcut`, `heroic`, `lutris`, `prism`, `desktop`.
+- Groups in this order: Voreinstellungen, Steam, Nicht-Steam, Emulation, Heroic, Lutris, Minecraft, Programme.
+- `shortcut`: non-Steam games added to Steam (`userdata/*/config/shortcuts.vdf`, id = Steam's 32-bit shortcut appid).
+  Group "Emulation" when the launch line points into `~/Emulation/` or the program is a known emulator
+  (EmuDeck, RetroArch, Eden, Cemu, melonDS …), otherwise "Nicht-Steam". Cover/hero from Steam's custom
+  artwork in `config/grid/` (`<appid>p.png`, `<appid>_hero.png`). The same name twice gets the system
+  from the Steam tag appended ("… (Nintendo Switch)"). Shortcuts that start Prism are skipped (the
+  `prism` source has them). Sunshine start: native programs run directly as `cmd`
+  (`env -C <StartDir> VAR=value <exe> <options>`, so Sunshine waits on the game and ends it with the
+  stream, no Steam needed); Windows `.exe` start detached via `steam steam://rungameid/<64-bit id>`
+  because they need Steam's Proton setup.
 - `inSunshine`: a Sunshine app created from this entry exists (the companion recognises its own apps,
   e.g. by a marker in the app entry, and matches the old hand-made ones by name where it can).
 - `sunshineProblem`: `null` when the companion can reach Sunshine with its login, otherwise the German
