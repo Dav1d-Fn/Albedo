@@ -105,8 +105,10 @@ Moonlight may still show its cached old box art). Stored in
 `~/.config/streaming-launcher-companion/art/<id>-<kind>.png|jpg`. `kind` is `cover`, `hero` or `logo`.
 
 - `POST /api/upload-token`, body `{ "id": "steam:1245620", "kind": "hero" }` →
-  `{ "url": "http://<pc hostname>:47995/upload/<token>", "expiresInSeconds": 600 }`.
-  Show the URL as a QR code; replace the host with the address the launcher uses.
+  `{ "url": "http://<host>/upload/<token>", "qrSvg": "<svg …>", "expiresInSeconds": 600 }`.
+  `<host>` is the request's Host header, i.e. the address the launcher reached the companion
+  through (home network or Tailscale); without a usable Host header the PC's hostname and port.
+  `qrSvg` is the URL as QR code (black on white, with quiet zone, only a viewBox, no fixed size).
 - `GET /upload/<token>`: phone page (German) that names the game and the kind of picture.
   Picking a file sends it as the raw body of `POST /upload/<token>` (no multipart).
 - `POST /upload/<token>`: raw image body, at most 15 MB (else 413). Anything ImageMagick reads;

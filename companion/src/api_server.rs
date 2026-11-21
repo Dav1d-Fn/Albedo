@@ -13,6 +13,7 @@ use crate::library_scanner::LibraryScanner;
 use crate::sunshine_app_builder::SunshineAppBuilder;
 use crate::sunshine_client::SunshineClient;
 use crate::upload_page::UploadPage;
+use crate::upload_qr_code::UploadQrCode;
 use crate::upload_token_store::UploadTokenStore;
 
 /// The HTTP API from companion/API.md. Requests are handled one after another;
@@ -89,7 +90,11 @@ impl ApiServer
                 self.delete_art_override(&art_path["/api/art/".len()..])
             }
             (Method::Get, "/api/art-version") => Ok(Self::json(200, json!({ "version": self.art_version }))),
-            (Method::Post, "/api/upload-token") => Self::read_body(request).and_then(|body| self.issue_upload_token(&body)),
+            (Method::Post, "/api/upload-token") =>
+            {
+                let request_host = Self::request_host(request);
+                Self::read_body(request).and_then(|body| self.issue_upload_token(&body, request_host))
+            }
             (Method::Get, upload_path) if upload_path.starts_with("/upload/") =>
             {
                 self.upload_page(&upload_path["/upload/".len()..])
@@ -208,7 +213,9 @@ impl ApiServer
         Ok((204, Vec::new(), "application/json"))
     }
 
-    fn issue_upload_token(&mut self, body: &Value) -> Result<ApiAnswer, (u16, String)>
+    /// The URL uses the address the launcher reached us through (home network or Tailscale),
+    /// so a phone in the same network can open it.
+    fn issue_upload_token(&mut self, body: &Value, request_host: Option<String>) -> Result<ApiAnswer, (u16, String)>
     {
         let entry_id = body["id"].as_str().ok_or((400, "Feld „id“ fehlt".to_string()))?;
         let art_kind = body["kind"].as_str().unwrap_or_default();
@@ -219,9 +226,16 @@ impl ApiServer
         LibraryScanner.find(entry_id).ok_or((404, "Eintrag nicht gefunden".to_string()))?;
 
         let token = self.upload_tokens.issue(entry_id, art_kind).map_err(|message| (500, message))?;
-        let host_name = std::fs::read_to_string("/proc/sys/kernel/hostname").unwrap_or_else(|_| "pc".into());
+        let host = request_host.unwrap_or_else(||
+        {
+            let host_name = std::fs::read_to_string("/proc/sys/kernel/hostname").unwrap_or_else(|_| "pc".into());
+            format!("{}:{}", host_name.trim(), self.config.port)
+        });
+        let upload_url = format!("http://{}/upload/{}", host, token);
+        let qr_svg = UploadQrCode::svg_for(&upload_url).map_err(|message| (500, message))?;
         Ok(Self::json(200, json!({
-            "url": format!("http://{}:{}/upload/{}", host_name.trim(), self.config.port, token),
+            "url": upload_url,
+            "qrSvg": qr_svg,
             "expiresInSeconds": UploadTokenStore::LIFETIME.as_secs()
         })))
     }
@@ -350,6 +364,19 @@ impl ApiServer
         self.config = new_config;
         eprintln!("Sunshine-Login gespeichert");
         Ok((204, Vec::new(), "application/json"))
+    }
+
+    /// The Host header ("192.168.178.20:47995", "[fd7a::1]:47995"), only if it looks like a host,
+    /// since it ends up in a link and a QR code.
+    fn request_host(request: &Request) -> Option<String>
+    {
+        let host_header = request.headers().iter().find(|header| header.field.equiv("Host"))?;
+        let host = host_header.value.as_str().trim().to_string();
+        let looks_like_host = !host.is_empty()
+            && host
+                .chars()
+                .all(|character| character.is_ascii_alphanumeric() || ".-:[]".contains(character));
+        looks_like_host.then_some(host)
     }
 
     /// A picture sent as the raw request body, at most 15 MB.

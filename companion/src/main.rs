@@ -19,6 +19,7 @@ mod steam_source;
 mod sunshine_app_builder;
 mod sunshine_client;
 mod upload_page;
+mod upload_qr_code;
 mod upload_token_store;
 
 use api_server::ApiServer;
