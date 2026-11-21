@@ -45,7 +45,7 @@ installs it and restarts.
 
 Albedo only needs [Sunshine](https://github.com/LizardByte/Sunshine) on the PC to list and start
 games. The optional **companion service** adds everything that goes beyond that: adding games
-from the couch, cover art, picture upload and warnings about modes the PC can't show.
+from the couch, cover art, picture upload and warnings about stream settings the PC's screen can't show.
 See [PC setup](#pc-setup-) below. Read [Requirements](#requirements-) first.
 
 ---
@@ -77,17 +77,19 @@ always see which settings are active.
 
 ## Features ✨
 
-### 📺 Devices & Modes
+### 📺 Devices & Profiles
 
-Every **device** (Handheld, TV, … add as many as you like) has its own list of **modes**:
-resolution, FPS, bitrate, codec (H.264 / HEVC / AV1), HDR and audio (Stereo / 5.1 / 7.1).
+Every **device** (Handheld, TV, … add as many as you like) has its own **device settings** (name,
+colour, symbol, audio Stereo / 5.1 / 7.1, when it becomes active) and a list of **profiles**:
+resolution, FPS, bitrate, codec (H.264 / HEVC / AV1) and HDR.
 
-- **X** switches the device, **L1 / R1** the mode.
-- **Y** on a game's detail page remembers the mode for *that game on that device*, e.g. 40 FPS for
-  a heavy game in handheld mode.
-- **☰** opens the editor: add, rename, recolor and delete devices and modes.
+- **X** switches the device, **L1 / R1** the profile.
+- **Y** on a game's detail page remembers the profile for *that game on that device*, e.g. 40 FPS
+  for a heavy game in handheld mode.
+- **☰** opens the editor *Geräte*: on the left *Geräteeinstellungen* and the device's profiles, on
+  the right the values of the selected entry. Add, rename, recolor and delete devices and profiles.
 
-> 📸 **Placeholder:** `docs/media/modes.gif` – switching modes with L1/R1 and remembering one with Y.
+> 📸 **Placeholder:** `docs/media/profiles.gif` – switching profiles with L1/R1 and remembering one with Y.
 
 ### 🔌 Automatic Device Detection
 
@@ -123,8 +125,8 @@ cover, hero or logo of that game – on the Deck and in Sunshine.
 ### 🖥️ The PC Screen Follows the Deck
 
 Each game added through the companion switches the PC's (virtual) streaming monitor to the
-resolution and refresh rate the Deck asked for, and back when the stream ends. If a mode doesn't
-exist on the PC, Albedo tells you which mode you will actually get.
+resolution and refresh rate the Deck asked for, and back when the stream ends. If the PC's screen
+can't do a profile exactly, Albedo tells you what you will actually get.
 
 ### ⏹️ After the Stream
 
@@ -254,12 +256,13 @@ curl -s localhost:47995/api/health
 | **A** | Enter / Space | Open game / *Hinzufügen* | Start stream / selected action |
 | **B** | Esc / Backspace | – | Back |
 | **X** | X | Switch device | Switch device |
-| **Y** | Y | Reload list | Remember mode for this game |
-| **L1 / R1** | Q / E | Previous / next mode | Previous / next mode |
-| **☰** | M | Device & mode editor | Device & mode editor |
+| **Y** | Y | Reload list | Remember profile for this game |
+| **L1 / R1** | Q / E | Previous / next profile | Previous / next profile |
+| **☰** | M | Device editor | Device editor |
 
-In the editor: **L1 / R1** pick the device, **X** adds a mode, **Y** makes a mode the default,
-**B** or **☰** closes it.
+In the editor: **L1 / R1** pick the device, **Y** makes a profile the default, **X** deletes the
+selected profile or, on *Geräteeinstellungen*, the device (press **X** again to confirm).
+The buttons under the profiles add a profile or a device. **B** or **☰** closes it.
 In *Hinzufügen*: **L1 / R1** switch the group, **A** adds, **X** removes.
 
 Albedo reads the gamepad itself; Steam Input's *Gamepad* template is all it needs.

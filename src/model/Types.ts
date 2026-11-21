@@ -21,6 +21,10 @@ export type AfterStreamAction = "ask" | "keep" | "quit";
 /** When a device profile may be picked automatically. */
 export type AutoRule = "Deck ohne Dock" | "Dock mit Bildschirm" | "Dieser Bildschirm" | "Nur manuell";
 
+/**
+ * Stream settings of a device, called "Profil" in the UI. The code and settings.json keep the old
+ * name ("modes", "defaultModeIndex", "rememberedModes"), so existing settings files load unchanged.
+ */
 export interface StreamMode
 {
   /** "WIDTHxHEIGHT", e.g. "2560x1440". */

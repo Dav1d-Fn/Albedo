@@ -83,7 +83,8 @@ export class BrowserMock
     {
       return;
     }
-    let storedSettings: string | null = null;
+    // A settings.json pasted into localStorage "mockSettings" is loaded like the one on the Deck (to test old files).
+    let storedSettings: string | null = window.localStorage.getItem("mockSettings");
     const urlParameters = new URLSearchParams(window.location.search);
     const hang = urlParameters.has("hang");
     const offline = urlParameters.has("offline");

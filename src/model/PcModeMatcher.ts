@@ -41,7 +41,7 @@ export class PcModeMatcher
     {
       return null;
     }
-    let hintText = "Der PC hat dafür keinen passenden Modus und nimmt " + PcModeMatcher.text(closestMode) + ".";
+    let hintText = "Der virtuelle Monitor des PCs kann das nicht genau und nimmt " + PcModeMatcher.text(closestMode) + ".";
     const sameResolutionRates = pcModes
       .filter((pcMode) => pcMode.width === wanted.width && pcMode.height === wanted.height)
       .map((pcMode) => pcMode.refreshRate)

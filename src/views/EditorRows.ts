@@ -1,17 +1,17 @@
 import { DevicePalette } from "../model/DevicePalette";
 import { DeviceProfile, StreamMode } from "../model/Types";
 
-/** "text" = typed (device name), "screen" = A takes the connected screen's name. */
-export type RowType = "list" | "range" | "bool" | "seg" | "text" | "screen";
+/** "text" = typed (device name), "screen" = A takes the connected screen's name, "delete" = A deletes the device. */
+export type RowType = "list" | "range" | "bool" | "seg" | "text" | "screen" | "delete";
 
-type DeviceRowKey = "name" | "color" | "icon" | "audio" | "autoRule" | "displayName";
+type DeviceRowKey = "name" | "color" | "icon" | "audio" | "autoRule" | "displayName" | "deleteDevice";
 
 export interface EditorRow
 {
   key: keyof StreamMode | DeviceRowKey;
   label: string;
   type: RowType;
-  /** "mode" = value of the selected mode, "device" = shared by all modes of the device. */
+  /** "mode" = value of the selected profile (a `StreamMode`), "device" = device settings shared by all its profiles. */
   scope: "mode" | "device";
   options?: readonly (string | number)[];
   minimum?: number;
@@ -39,7 +39,22 @@ export class EditorRows
     { key: "audio", label: "Ton", type: "list", scope: "device", options: ["Stereo", "5.1 Surround", "7.1 Surround"] },
     { key: "autoRule", label: "Automatisch aktiv bei", type: "list", scope: "device", options: ["Deck ohne Dock", "Dock mit Bildschirm", "Dieser Bildschirm", "Nur manuell"] },
     { key: "displayName", label: "Bildschirm", type: "screen", scope: "device" },
+    { key: "deleteDevice", label: "Gerät löschen", type: "delete", scope: "device" },
   ];
+
+  /** Indices into `rows` of one scope, in display order. */
+  public static indices(scope: EditorRow["scope"]): number[]
+  {
+    const rowIndices: number[] = [];
+    EditorRows.rows.forEach((row, rowIndex) =>
+    {
+      if (row.scope === scope)
+      {
+        rowIndices.push(rowIndex);
+      }
+    });
+    return rowIndices;
+  }
 
   public static value(rowIndex: number, profile: DeviceProfile, modeIndex: number): unknown
   {
@@ -48,7 +63,11 @@ export class EditorRows
     {
       return profile.modes[modeIndex][row.key as keyof StreamMode];
     }
-    return profile[row.key as DeviceRowKey];
+    if (row.type === "delete")
+    {
+      return null;
+    }
+    return profile[row.key as Exclude<DeviceRowKey, "deleteDevice">];
   }
 
   /** Next value after pressing left/right (direction -1/+1); `wrap` cycles lists (used by A). */
@@ -61,7 +80,7 @@ export class EditorRows
     {
       return !current;
     }
-    if (row.type === "text" || row.type === "screen")
+    if (row.type === "text" || row.type === "screen" || row.type === "delete")
     {
       // Typed or taken from the screen, not stepped.
       return current;

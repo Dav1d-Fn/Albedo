@@ -50,7 +50,7 @@ export function HomeScreen(props: { app: LauncherApp })
             className={"pswitch" + topFocus(1)}
             style={{ gridTemplateColumns: `repeat(${deviceOrder.length}, 1fr)` }}
             onClick={() => app.activateTop(1)}
-            aria-label={"Geräteprofil wechseln, aktiv: " + app.profile().name}
+            aria-label={"Gerät wechseln, aktiv: " + app.profile().name}
           >
             <span className="pthumb" style={{ width: segmentWidth, transform: `translateX(${activeIndex * segmentWidth}px)` }} />
             {deviceOrder.map((deviceId) =>
@@ -82,7 +82,7 @@ export function HomeScreen(props: { app: LauncherApp })
 
         <button className={"tbtn" + topFocus(2)} onClick={() => app.activateTop(2)}>
           <SlidersIcon />
-          Geräteprofile
+          Geräte
           <span className="glyph pill sm">☰</span>
         </button>
       </div>
@@ -90,7 +90,7 @@ export function HomeScreen(props: { app: LauncherApp })
       <div className="hero">
         {state.games.map((gameName, gameIndex) => (
           <div key={gameName} className={"ht" + (gameIndex === state.gameIndex ? " on" : "")}>
-            <div className="eyebrow">{app.isRemembered(gameName) ? "Modus gemerkt" : "Sunshine-App"}</div>
+            <div className="eyebrow">{app.isRemembered(gameName) ? "Profil gemerkt" : "Sunshine-App"}</div>
             {state.logos[gameName] !== undefined
               ? <div className="htitle"><img className="glogo" src={state.logos[gameName]} alt={gameName} /></div>
               : <div className="htitle">{gameName}</div>}

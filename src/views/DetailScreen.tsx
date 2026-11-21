@@ -31,7 +31,7 @@ export function DetailScreen(props: { app: LauncherApp })
           {!art.hasImage && <span className="ctitle" style={{ color: art.ink }}>{gameName}</span>}
         </div>
         <div className="dcol">
-          <div className="eyebrow up d1">{remembered ? "Modus für dieses Spiel gemerkt" : "Sunshine-App"}</div>
+          <div className="eyebrow up d1">{remembered ? "Profil für dieses Spiel gemerkt" : "Sunshine-App"}</div>
           {logo !== undefined
             ? <h1 className="dtitle up d2"><img className="glogo" src={logo} alt={gameName} /></h1>
             : <h1 className="dtitle up d2">{gameName}</h1>}

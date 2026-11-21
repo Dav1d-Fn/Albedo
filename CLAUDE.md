@@ -3,7 +3,7 @@
 Controller-friendly launcher for Moonlight on the Steam Deck (Tauri 2 + React + TypeScript).
 The app is only the menu: it lists the games (Sunshine apps) of the gaming PC and starts
 `moonlight stream <host> "<app>" --resolution … --fps … --bitrate …` with the values of the
-active device mode. Moonlight does the streaming; when it exits, the launcher is back.
+active device profile (UI: "Profil"; in code and settings.json still `StreamMode` / `modes`). Moonlight does the streaming; when it exits, the launcher is back.
 
 Design source: Claude design canvas https://claude.ai/artifact/UpFs3Nat5Q983TyyARUvvG
 (`project/Main.dc.html`). Blue = Handheld, orange = TV; the whole UI tints with the device.
@@ -42,14 +42,16 @@ Design source: Claude design canvas https://claude.ai/artifact/UpFs3Nat5Q983TyyA
 ## Controls
 
 Keyboard = controller: arrows, Enter/Space = A, Esc/Backspace = B, X, Y, Q/E = L1/R1, M = ☰.
-X switches device on home/detail (in the editor X deletes the mode or device, second X confirms), L1/R1 switch the mode, Y remembers the mode for a game
-(detail) or reloads the list (home), ☰ opens the profile editor.
+X switches device on home/detail, L1/R1 switch the profile, Y remembers the profile for a game
+(detail) or reloads the list (home), ☰ opens the device editor ("Geräte"). Editor: left list = "Geräteeinstellungen"
+entry on top, then the profiles; the right column only shows the selected entry's values. X deletes the profile
+or (on the device entry/rows) the device, second X confirms.
 
 ## Commands
 
 - `npm run tauri dev` – run on the PC (dev port 1430; 1420 is used by other projects)
 - `STREAMING_LAUNCHER_DRY_RUN=1 npm run tauri dev` – log the Moonlight command instead of streaming to itself
-- `npm run dev` – UI only in a browser with fake data (`src/dev/BrowserMock.ts`)
+- `npm run dev` – UI only in a browser with fake data (`src/dev/BrowserMock.ts`; a settings.json put into localStorage `mockSettings` is loaded instead of defaults)
 - `cd src-tauri && cargo test` – Rust tests (`-- --ignored` also runs the LAN discovery test)
 - `npx tsc --noEmit` – type check
 - Heavy builds with `nice -n 19` and few jobs (`-j 4`), David often plays on the same PC.

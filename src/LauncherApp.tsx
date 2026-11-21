@@ -58,6 +58,8 @@ export interface LauncherState
   /** Editor state. */
   editDevice: DeviceId;
   editModeIndex: number;
+  /** Left list entry: "device" = the device settings entry on top, "profile" = the profile at `editModeIndex`. */
+  editSection: "device" | "profile";
   editZone: "modes" | "rows" | "actions";
   /** Button under the mode list (see `editorActions`). */
   editActionIndex: number;
@@ -189,6 +191,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       lastLaunchError: "",
       editDevice: "handheld",
       editModeIndex: 0,
+      editSection: "profile",
       editZone: "modes",
       editActionIndex: 0,
       editConfirmDelete: "",
@@ -627,7 +630,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     const mode = this.profile(device).modes[modeIndex];
     this.showToast({
       kind: this.profile(device).icon,
-      eyebrow: this.profile(device).name + " · Modus",
+      eyebrow: this.profile(device).name + " · Profil",
       name: ModeText.label(mode) + " FPS",
       spec: mode.bitrateMbps + " Mbit/s",
       sub: ModeText.extra(mode),
@@ -1552,7 +1555,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   public openEditor(): void
   {
     const device = this.state.device;
-    this.setState({ screen: "editor", editDevice: device, editModeIndex: this.currentModeIndex(device), editZone: "modes", editRow: 0, editConfirmDelete: "" });
+    this.setState({ screen: "editor", editDevice: device, editModeIndex: this.currentModeIndex(device), editSection: "profile", editZone: "modes", editRow: 0, editConfirmDelete: "" });
     this.loadPcDisplayModes();
   }
 
@@ -1574,6 +1577,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   public switchEditDevice(device: DeviceId): void
   {
+    // The selected entry kind stays, so L1/R1 in the device settings compares devices' settings.
     this.setState({ editDevice: device, editModeIndex: this.currentModeIndex(device), editZone: "modes", editConfirmDelete: "" });
   }
 
@@ -1585,8 +1589,14 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.switchEditDevice(order[index]);
   }
 
-  /** Buttons under the mode list, reached with DOWN past the last mode. */
-  public static readonly editorActions = ["addMode", "makeDefault", "deleteMode", "addDevice", "deleteDevice"] as const;
+  /** Buttons under the profile list, reached with DOWN past the last profile. "Gerät löschen" is in the device settings. */
+  public static readonly editorActions = ["addMode", "makeDefault", "deleteMode", "addDevice"] as const;
+
+  /** Left list click: the device settings entry or a profile. */
+  public selectEditEntry(section: "device" | "profile", modeIndex: number): void
+  {
+    this.setState({ editSection: section, editModeIndex: modeIndex, editZone: "modes", editConfirmDelete: "" });
+  }
 
   private editorButton(button: PadButton): void
   {
@@ -1601,9 +1611,11 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       return this.stepEditDevice(button === "L1" ? -1 : 1);
     }
-    // A pending "really delete?" only survives the button that confirms it (X in the list and rows, A on the buttons).
-    const confirmButton: PadButton = state.editZone === "actions" ? "A" : "X";
-    if (state.editConfirmDelete !== "" && button !== confirmButton)
+    // A pending "really delete?" only survives the button that confirms it:
+    // X in the list and rows, A on the buttons and on the "Gerät löschen" row.
+    const onDeleteRow = state.editZone === "rows" && EditorRows.rows[state.editRow].type === "delete";
+    const confirms = state.editZone === "actions" ? button === "A" : button === "X" || (onDeleteRow && button === "A");
+    if (state.editConfirmDelete !== "" && !confirms)
     {
       this.setState({ editConfirmDelete: "" });
     }
@@ -1611,13 +1623,29 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     if (state.editZone === "modes")
     {
       const count = this.profile(state.editDevice).modes.length;
+      const onDeviceEntry = state.editSection === "device";
       if (button === "UP")
       {
-        this.setState({ editModeIndex: Math.max(0, state.editModeIndex - 1) });
+        if (onDeviceEntry)
+        {
+          return;
+        }
+        if (state.editModeIndex === 0)
+        {
+          this.setState({ editSection: "device" });
+        }
+        else
+        {
+          this.setState({ editModeIndex: state.editModeIndex - 1 });
+        }
       }
       else if (button === "DOWN")
       {
-        if (state.editModeIndex >= count - 1)
+        if (onDeviceEntry)
+        {
+          this.setState({ editSection: "profile", editModeIndex: 0 });
+        }
+        else if (state.editModeIndex >= count - 1)
         {
           this.setState({ editZone: "actions", editActionIndex: 0, editConfirmDelete: "" });
         }
@@ -1628,15 +1656,25 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       }
       else if (button === "RIGHT" || button === "A")
       {
-        this.setState({ editZone: "rows", editRow: 0 });
+        this.setState({ editZone: "rows", editRow: EditorRows.indices(onDeviceEntry ? "device" : "mode")[0] });
       }
       else if (button === "Y")
       {
-        this.makeDefault();
+        if (!onDeviceEntry)
+        {
+          this.makeDefault();
+        }
       }
       else if (button === "X")
       {
-        this.deleteMode();
+        if (onDeviceEntry)
+        {
+          this.deleteDevice();
+        }
+        else
+        {
+          this.deleteMode();
+        }
       }
       else if (button === "B" || button === "MENU")
       {
@@ -1645,10 +1683,26 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }
     else if (state.editZone === "actions")
     {
+      // The buttons are a grid of two columns.
       const actionCount = LauncherApp.editorActions.length;
+      const columnCount = 2;
       if (button === "UP")
       {
-        this.setState({ editZone: "modes", editConfirmDelete: "" });
+        if (state.editActionIndex >= columnCount)
+        {
+          this.setState({ editActionIndex: state.editActionIndex - columnCount, editConfirmDelete: "" });
+        }
+        else
+        {
+          this.setState({ editZone: "modes", editConfirmDelete: "" });
+        }
+      }
+      else if (button === "DOWN")
+      {
+        if (state.editActionIndex + columnCount < actionCount)
+        {
+          this.setState({ editActionIndex: state.editActionIndex + columnCount, editConfirmDelete: "" });
+        }
       }
       else if (button === "LEFT")
       {
@@ -1662,6 +1716,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       {
         this.runEditorAction(state.editActionIndex);
       }
+
       else if (button === "B" || button === "MENU")
       {
         this.setState({ screen: "home" });
@@ -1669,13 +1724,16 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }
     else
     {
+      // UP/DOWN stay inside the rows of the selected entry (profile values or device settings).
+      const sectionRows = EditorRows.indices(EditorRows.rows[state.editRow].scope);
+      const positionInSection = sectionRows.indexOf(state.editRow);
       if (button === "UP")
       {
-        this.setState({ editRow: Math.max(0, state.editRow - 1) });
+        this.setState({ editRow: sectionRows[Math.max(0, positionInSection - 1)] });
       }
       else if (button === "DOWN")
       {
-        this.setState({ editRow: Math.min(EditorRows.rows.length - 1, state.editRow + 1) });
+        this.setState({ editRow: sectionRows[Math.min(sectionRows.length - 1, positionInSection + 1)] });
       }
       else if (button === "LEFT")
       {
@@ -1691,7 +1749,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       }
       else if (button === "X")
       {
-        // X deletes what the focused row belongs to: the mode or the whole device.
+        // X deletes what the focused row belongs to: the profile or the whole device.
         if (EditorRows.rows[state.editRow].scope === "mode")
         {
           this.deleteMode();
@@ -1725,6 +1783,10 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       this.takeConnectedScreen();
     }
+    else if (row.type === "delete")
+    {
+      this.deleteDevice();
+    }
     else
     {
       this.changeValue(rowIndex, 1, true);
@@ -1747,18 +1809,19 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       this.deleteMode();
     }
-    else if (action === "addDevice")
-    {
-      this.addDevice();
-    }
     else
     {
-      this.deleteDevice();
+      this.addDevice();
     }
   }
 
   public changeValue(rowIndex: number, direction: number, wrap: boolean): void
   {
+    if (EditorRows.rows[rowIndex].type === "delete")
+    {
+      // A button, not a value.
+      return;
+    }
     const profile = this.profile(this.state.editDevice);
     const nextValue = EditorRows.step(rowIndex, profile, this.state.editModeIndex, direction, wrap);
     this.setValue(rowIndex, nextValue);
@@ -1820,7 +1883,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }
     const copy = { ...profile.modes[this.state.editModeIndex] };
     this.updateProfile(device, (current) => ({ ...current, modes: [...current.modes, copy] }));
-    this.setState({ editModeIndex: profile.modes.length, editZone: "rows", editRow: 0 });
+    this.setState({ editModeIndex: profile.modes.length, editSection: "profile", editZone: "rows", editRow: 0 });
   }
 
   /**
@@ -1834,7 +1897,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     const profile = this.profile(device);
     if (profile.modes.length <= 1)
     {
-      this.showError("Modus löschen", "Der letzte Modus eines Geräts bleibt.");
+      this.showError("Profil löschen", "Das letzte Profil eines Geräts bleibt.");
       return;
     }
     if (this.state.editConfirmDelete !== "mode")
@@ -1903,6 +1966,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.setState((state) => ({
       editDevice: deviceId,
       editModeIndex: profile.defaultModeIndex,
+      editSection: "device",
       editZone: "rows",
       editRow: EditorRows.rows.findIndex((row) => row.key === "name"),
       editConfirmDelete: "",
@@ -1935,6 +1999,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.setState((state) => ({
       editDevice: fallbackDevice,
       editModeIndex: this.currentModeIndex(fallbackDevice),
+      editSection: "profile",
       editZone: "modes",
       editConfirmDelete: "",
       device: state.device === device ? activeFallback : state.device,

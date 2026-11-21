@@ -22,9 +22,9 @@ export function HintBar(props: { app: LauncherApp })
     const onAddTile = state.zone === "games" && app.isAddTileSelected();
     hints.push({ glyph: "A", label: state.zone === "games" ? (onAddTile ? "Hinzufügen" : "Details") : "Auswählen", button: "A" });
     hints.push({ glyph: "X", label: "Gerät", button: "X" });
-    hints.push({ glyph: "L1 · R1", label: "Modus", button: "R1", pill: true });
+    hints.push({ glyph: "L1 · R1", label: "Profil", button: "R1", pill: true });
     hints.push({ glyph: "Y", label: "Neu laden", button: "Y" });
-    hints.push({ glyph: "☰", label: "Profile", button: "MENU", pill: true });
+    hints.push({ glyph: "☰", label: "Geräte", button: "MENU", pill: true });
   }
   else if (state.screen === "detail" && state.imageDialog !== null)
   {
@@ -45,7 +45,7 @@ export function HintBar(props: { app: LauncherApp })
     const detailLabels = ["Spielen", "Gerät wechseln", "Danach umschalten", "Bild setzen"];
     hints.push({ glyph: "A", label: detailLabels[state.detailIndex] ?? "Spielen", button: "A" });
     hints.push({ glyph: "X", label: "Gerät", button: "X" });
-    hints.push({ glyph: "L1 · R1", label: "Modus", button: "R1", pill: true });
+    hints.push({ glyph: "L1 · R1", label: "Profil", button: "R1", pill: true });
     hints.push({ glyph: "Y", label: app.isRemembered(app.selectedGame()) ? "Vergessen" : "Merken", button: "Y" });
     hints.push({ glyph: "B", label: "Zurück", button: "B" });
   }
@@ -54,9 +54,14 @@ export function HintBar(props: { app: LauncherApp })
     hints.push({ glyph: "L1 · R1", label: "Gerät", button: "R1", pill: true });
     if (state.editZone === "modes")
     {
+      const onDeviceEntry = state.editSection === "device";
       hints.push({ glyph: "A", label: "Bearbeiten", button: "A" });
-      hints.push({ glyph: "Y", label: "Als Standard", button: "Y" });
-      hints.push({ glyph: "X", label: state.editConfirmDelete === "mode" ? "Wirklich löschen" : "Modus löschen", button: "X" });
+      if (!onDeviceEntry)
+      {
+        hints.push({ glyph: "Y", label: "Als Standard", button: "Y" });
+      }
+      const deleteLabel = onDeviceEntry ? "Gerät löschen" : "Profil löschen";
+      hints.push({ glyph: "X", label: state.editConfirmDelete !== "" ? "Wirklich löschen" : deleteLabel, button: "X" });
       hints.push({ glyph: "B", label: "Fertig", button: "B" });
     }
     else if (state.editZone === "actions")
@@ -68,12 +73,16 @@ export function HintBar(props: { app: LauncherApp })
     else
     {
       const rowType = EditorRows.rows[state.editRow]?.type;
-      const rowActionLabel = rowType === "text" ? "Umbenennen" : rowType === "screen" ? "Bildschirm übernehmen" : "Umschalten";
-      hints.push({ glyph: "◀ ▶", label: "Wert ändern", button: "RIGHT", pill: true });
-      hints.push({ glyph: "A", label: rowActionLabel, button: "A" });
-      const deleteLabel = EditorRows.rows[state.editRow]?.scope === "mode" ? "Modus löschen" : "Gerät löschen";
+      const rowActionLabels: Partial<Record<string, string>> = { text: "Umbenennen", screen: "Bildschirm übernehmen", delete: "Gerät löschen" };
+      const rowActionLabel = rowActionLabels[rowType ?? ""] ?? "Umschalten";
+      if (rowType !== "delete")
+      {
+        hints.push({ glyph: "◀ ▶", label: "Wert ändern", button: "RIGHT", pill: true });
+      }
+      hints.push({ glyph: "A", label: state.editConfirmDelete !== "" && rowType === "delete" ? "Wirklich löschen" : rowActionLabel, button: "A" });
+      const deleteLabel = EditorRows.rows[state.editRow]?.scope === "mode" ? "Profil löschen" : "Gerät löschen";
       hints.push({ glyph: "X", label: state.editConfirmDelete !== "" ? "Wirklich löschen" : deleteLabel, button: "X" });
-      hints.push({ glyph: "B", label: "Zu den Modi", button: "B" });
+      hints.push({ glyph: "B", label: "Zur Liste", button: "B" });
     }
   }
   else if (state.screen === "connection")
