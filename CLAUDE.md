@@ -48,7 +48,9 @@ Keyboard = controller: arrows, Enter/Space = A, Esc/Backspace = B, X, Y, Q/E = L
 X switches device on home/detail, L1/R1 switch the profile, Y remembers the profile for a game
 (detail) or reloads the list (home), ☰ opens the device editor ("Geräte"). Editor: left list = "Geräteeinstellungen"
 entry on top, then the profiles; the right column only shows the selected entry's values. X deletes the profile
-or (on the device entry/rows) the device, second X confirms.
+or (on the device entry/rows) the device, second X confirms. Resolution/FPS step through the modes of the PC's
+virtual monitor (companion `/api/display-modes`, FPS per resolution), else fixed lists; A types an own value
+(marked with the PC-mode hint when the PC can't do it).
 
 ## Commands
 

@@ -205,6 +205,7 @@ export const germanTexts =
     reallyDeleteA: "Wirklich löschen? A",
     run: "Ausführen",
     rename: "Umbenennen",
+    typeValue: "Eintippen",
     takeScreen: "Bildschirm übernehmen",
     changeValue: "Wert ändern",
     toList: "Zur Liste",

@@ -193,7 +193,24 @@ export function EditorScreen(props: { app: LauncherApp })
                         <button className="arr" onClick={() => app.changeValue(rowIndex, -1, false)} aria-label={t.editor.previousValue(rowLabel)}><ChevronLeftIcon /></button>
                         {row.key === "color" && <span className="swatch" style={{ background: DevicePalette.colors[value as DeviceColor] }} />}
                         {row.key === "icon" && <DeviceIcon kind={value as DeviceIconKind} />}
-                        <span key={bumpCount} className={"val" + bumpClass}>{displayValue}</span>
+                        {row.key === "resolution" || row.key === "fps"
+                          ? (
+                            <input
+                              key={String(value) + bumpCount}
+                              id={"mode-" + row.key}
+                              className={"val valinput" + bumpClass + (pcModeHint ? " off" : "")}
+                              defaultValue={displayValue}
+                              spellCheck={false}
+                              aria-label={rowLabel}
+                              onFocus={(focusEvent) =>
+                              {
+                                focusEvent.target.select();
+                                app.setState({ editRow: rowIndex, editZone: "rows" });
+                              }}
+                              onBlur={(blurEvent) => app.typeModeValue(rowIndex, blurEvent.target.value)}
+                            />
+                          )
+                          : <span key={bumpCount} className={"val" + bumpClass}>{displayValue}</span>}
                         <button className="arr" onClick={() => app.changeValue(rowIndex, 1, false)} aria-label={t.editor.nextValue(rowLabel)}><ChevronRightIcon /></button>
                       </>
                     )}

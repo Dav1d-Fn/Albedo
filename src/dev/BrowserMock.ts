@@ -211,8 +211,13 @@ export class BrowserMock
         case "load_box_art":
           return {};
         case "companion_display_modes":
-          // DP-3 before the EDID got 1280x800@60 and the 120 Hz modes.
-          return [[1920, 1080, 100], [2560, 1440, 100], [3840, 2160, 60], [1280, 800, 90], [1920, 1080, 60], [2560, 1440, 60], [1280, 720, 60]]
+          if (new URLSearchParams(window.location.search).has("companionOffline"))
+          {
+            return Promise.reject(pick("PC-Helfer nicht erreichbar (Port 47995).", "PC companion unreachable (port 47995)."));
+          }
+          // DP-3 as of 2026-11-21 (12 modes from the EDID).
+          return [[1920, 1080, 120], [1920, 1080, 60], [1280, 800, 90], [1280, 800, 60], [1280, 720, 60], [1280, 720, 40], [1920, 1080, 100],
+            [3840, 2160, 100], [3840, 2160, 60], [2560, 1440, 120], [2560, 1440, 100], [2560, 1440, 60]]
             .map(([width, height, refreshRate]) => ({ width, height, refreshRate }));
         case "companion_library":
           // `?companionOffline` in the dev URL: as if the companion were not running on the PC.

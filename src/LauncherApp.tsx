@@ -2005,6 +2005,13 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       document.getElementById("device-name")?.focus();
     }
+    else if (row.key === "resolution" || row.key === "fps")
+    {
+      // Own values: typed with the Deck's on-screen keyboard (Steam + X), left/right still step.
+      const valueField = document.getElementById("mode-" + row.key) as HTMLInputElement | null;
+      valueField?.focus();
+      valueField?.select();
+    }
     else if (row.type === "screen")
     {
       this.takeConnectedScreen();
@@ -2049,7 +2056,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       return;
     }
     const profile = this.profile(this.state.editDevice);
-    const nextValue = EditorRows.step(rowIndex, profile, this.state.editModeIndex, direction, wrap);
+    const nextValue = EditorRows.step(rowIndex, profile, this.state.editModeIndex, direction, wrap, this.state.pcDisplayModes);
     this.setValue(rowIndex, nextValue);
   }
 
@@ -2057,12 +2064,42 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   {
     const { editDevice, editModeIndex } = this.state;
     const bumpKey = editDevice + editModeIndex + EditorRows.rows[rowIndex].key;
-    this.updateProfile(editDevice, (profile) => EditorRows.apply(rowIndex, profile, editModeIndex, value));
+    const pcModes = this.state.pcDisplayModes;
+    this.updateProfile(editDevice, (profile) =>
+    {
+      const changed = EditorRows.apply(rowIndex, profile, editModeIndex, value);
+      if (EditorRows.rows[rowIndex].key !== "resolution")
+      {
+        return changed;
+      }
+      // A new resolution keeps an FPS the PC's monitor has there.
+      const fpsRow = EditorRows.rows.findIndex((row) => row.key === "fps");
+      return EditorRows.apply(fpsRow, changed, editModeIndex, EditorRows.fittingFps(changed.modes[editModeIndex], pcModes));
+    });
     this.setState((state) => ({
       editRow: rowIndex,
       editZone: "rows",
       bumps: { ...state.bumps, [bumpKey]: (state.bumps[bumpKey] ?? 0) + 1 },
     }));
+  }
+
+  /** Resolution or FPS typed into its field; text that is no valid value leaves the old one. */
+  public typeModeValue(rowIndex: number, text: string): void
+  {
+    const rowKey = EditorRows.rows[rowIndex].key as "resolution" | "fps";
+    const typedValue = EditorRows.parseTyped(rowKey, text);
+    const profile = this.profile(this.state.editDevice);
+    if (typedValue === null || typedValue === EditorRows.value(rowIndex, profile, this.state.editModeIndex))
+    {
+      // Bumps the field so it shows the kept value again.
+      this.setState((state) =>
+      {
+        const bumpKey = state.editDevice + state.editModeIndex + rowKey;
+        return { bumps: { ...state.bumps, [bumpKey]: (state.bumps[bumpKey] ?? 0) + 1 } };
+      });
+      return;
+    }
+    this.setValue(rowIndex, typedValue);
   }
 
   /** Name field of the edited device; empty names are not kept. */

@@ -200,6 +200,7 @@ export const englishTexts: TextTable =
     reallyDeleteA: "Really delete? A",
     run: "Run",
     rename: "Rename",
+    typeValue: "Type value",
     takeScreen: "Use this screen",
     changeValue: "Change value",
     toList: "To list",
