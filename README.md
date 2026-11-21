@@ -11,8 +11,9 @@
 > relies on KDE tools and a kernel feature only known to work with AMD's driver.
 > See [Requirements](#requirements-) for what needs what.
 
-> 📸 **Placeholder:** `docs/media/hero.gif` – the home screen, browsing games and switching
-> from Handheld (blue) to TV (orange) with **X**.
+<p align="center">
+  <img src="docs/media/hero.gif" alt="Albedo's home screen: browsing games, then X switches from Handheld (blue) to TV (orange) and back" width="720">
+</p>
 
 ---
 
@@ -96,7 +97,13 @@ resolution, FPS, bitrate, codec (H.264 / HEVC / AV1) and HDR.
 - **☰** opens the editor *Geräte*: on the left *Geräteeinstellungen* and the device's profiles, on
   the right the values of the selected entry. Add, rename, recolor and delete devices and profiles.
 
-> 📸 **Placeholder:** `docs/media/profiles.gif` – switching profiles with L1/R1 and remembering one with Y.
+<p align="center">
+  <img src="docs/media/profiles.gif" alt="R1 and L1 switch the profile on the home screen; on a game's page Y remembers the profile for that game" width="720">
+</p>
+
+<p align="center">
+  <img src="docs/media/devices.gif" alt="The device editor: device settings, a profile's values, then the TV device" width="720">
+</p>
 
 ### 🔌 Automatic Device Detection
 
@@ -118,8 +125,9 @@ everything installed on the PC, grouped by source:
 **A** turns an entry into a Sunshine app (start command, cover, and a stop command that really
 ends the game), **X** removes it again. No editing `apps.json` by hand.
 
-> 📸 **Placeholder:** `docs/media/library.gif` – opening *Hinzufügen*, switching groups with
-> L1/R1 and adding a Steam game.
+<p align="center">
+  <img src="docs/media/library.gif" alt="Opening Add games, switching to the Steam group with R1 and adding Manor Lords, which then shows up on the home screen" width="720">
+</p>
 
 ### 🖼️ Artwork & Pictures via QR Code
 
@@ -127,7 +135,9 @@ Covers, hero images, logos and Steam screenshots come straight from the PC. Don'
 *Bild setzen* shows a **QR code**: scan it with your phone, pick any image, and it replaces the
 cover, hero or logo of that game – on the Deck and in Sunshine.
 
-> 📸 **Placeholder:** `docs/media/qr-upload.png` – the QR dialog next to the phone upload page.
+<p align="center">
+  <img src="docs/media/qr-upload.png" alt="The picture dialog with a QR code and pictures from the Steam store, next to the upload page on the phone" width="900">
+</p>
 
 ### 🖥️ The PC Screen Follows the Deck
 
@@ -139,6 +149,11 @@ can't do a profile exactly, Albedo tells you what you will actually get.
 
 When Moonlight disconnects, Albedo asks whether the game should keep running on the PC
 (*Pausieren*) or be closed (*Beenden*). **Y** remembers the answer, per game if you like.
+Optionally it also shows Moonlight's statistics of the stream: frame rates, latency and lost frames.
+
+<p align="center">
+  <img src="docs/media/stats.png" alt="After the stream: Moonlight's statistics and the choice to keep the game running or quit it" width="720">
+</p>
 
 ### 🌐 Home & Away
 

@@ -2310,12 +2310,12 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       const host = await this.resolveHost();
       const companionLibrary = await this.backend.companionLibrary(host);
+      // Covers only after React applied the new library, else the first group finds no entries.
       this.setState({
         library: companionLibrary.entries,
         librarySunshineProblem: companionLibrary.sunshineProblem,
         libraryState: "ready",
-      });
-      this.loadLibraryCovers();
+      }, () => this.loadLibraryCovers());
     }
     catch (libraryError)
     {

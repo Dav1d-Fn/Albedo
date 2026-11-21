@@ -1,6 +1,7 @@
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { emit } from "@tauri-apps/api/event";
 import { UiText } from "../i18n/UiText";
+import { RecordingData } from "./RecordingData";
 
 /**
  * Fake backend for `npm run dev` in a plain browser (no Tauri), so the UI can be
@@ -140,9 +141,16 @@ export class BrowserMock
       artVersion += 1;
     };
 
+    // "?record": real games exported from the companion, for the README recordings (docs/media/record.mjs).
+    const recording = urlParameters.has("record") ? new RecordingData() : null;
+
     mockIPC((command, payload) =>
     {
       const args = payload as Record<string, unknown>;
+      if (recording !== null && recording.answers(command))
+      {
+        return recording.answer(command, args, customArt);
+      }
       switch (command)
       {
         case "load_settings":
