@@ -1,5 +1,6 @@
 use crate::art_override_store::ArtOverrideStore;
 use crate::desktop_file_source::DesktopFileSource;
+use crate::group_override_store::GroupOverrideStore;
 use crate::heroic_source::HeroicSource;
 use crate::library_entry::LibraryEntry;
 use crate::lutris_source::LutrisSource;
@@ -31,12 +32,17 @@ impl LibraryScanner
             ArtOverrideStore.apply(entry);
         }
 
+        // Sorted by the group the user sees, so a changed group moves the entry; own groups come
+        // after the built-in ones, alphabetically.
+        let group_overrides = GroupOverrideStore.load();
         entries.sort_by_key(|entry|
         {
-            let group_rank = Self::GROUP_ORDER.iter().position(|group| *group == entry.group).unwrap_or(99);
+            let shown_group = group_overrides.get(&entry.id).unwrap_or(&entry.group);
+            let group_rank = Self::GROUP_ORDER.iter().position(|group| *group == shown_group.as_str()).unwrap_or(99);
+            let own_group_name = if group_rank == 99 { shown_group.to_lowercase() } else { String::new() };
             // Presets keep their fixed order, everything else is alphabetical.
             let sort_name = if group_rank == 0 { String::new() } else { entry.name.to_lowercase() };
-            (group_rank, sort_name)
+            (group_rank, own_group_name, sort_name)
         });
         entries
     }

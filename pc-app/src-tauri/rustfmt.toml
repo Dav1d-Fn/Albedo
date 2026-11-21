@@ -1,0 +1,6 @@
+hard_tabs = false
+tab_spaces = 4
+# Allman braces need nightly rustfmt: cargo +nightly fmt
+unstable_features = true
+brace_style = "AlwaysNextLine"
+control_brace_style = "AlwaysNextLine"

@@ -10,6 +10,8 @@ use crate::companion_config::CompanionConfig;
 use crate::cover_converter::CoverConverter;
 use crate::cover_source::CoverSource;
 use crate::display_mode_reader::DisplayModeReader;
+use crate::group_override_store::GroupOverrideStore;
+use crate::library_entry::LibraryEntry;
 use crate::library_scanner::LibraryScanner;
 use crate::request_language::RequestLanguage;
 use crate::sunshine_app_builder::SunshineAppBuilder;
@@ -122,6 +124,15 @@ impl ApiServer
             (Method::Post, "/api/apps") => Self::read_body(request).and_then(|body| self.add_app(&body)),
             (Method::Delete, "/api/apps") => Self::read_body(request).and_then(|body| self.delete_app(&body)),
             (Method::Put, "/api/sunshine-login") => Self::read_body(request).and_then(|body| self.set_sunshine_login(&body)),
+            (Method::Put, "/api/group") => Self::read_body(request).and_then(|body| Self::set_group(&body)),
+            (Method::Get, "/api/clients") => self.paired_clients(),
+            (Method::Delete, client_path) if client_path.starts_with("/api/clients/") =>
+            {
+                let client_uuid = percent_decode_str(&client_path["/api/clients/".len()..]).decode_utf8_lossy().to_string();
+                self.unpair_client(&client_uuid)
+            }
+            (Method::Get, "/api/pairings") => self.pending_pairings(),
+            (Method::Post, "/api/pair") => Self::read_body(request).and_then(|body| self.pair_client(&body)),
             _ => Err((404, RequestLanguage::pick("Unbekannter Pfad", "Unknown path"))),
         };
         match result
@@ -154,10 +165,11 @@ impl ApiServer
             Ok(app_names) => (app_names, None),
             Err(message) => (Vec::new(), Some(message)),
         };
+        let group_overrides = GroupOverrideStore.load();
         let entries: Vec<Value> = LibraryScanner
             .scan_all()
             .iter()
-            .map(|entry| json!(entry.to_response(sunshine_app_names.contains(&entry.name))))
+            .map(|entry| json!(entry.to_response(sunshine_app_names.contains(&entry.name), group_overrides.get(&entry.id))))
             .collect();
         Self::json(200, json!({ "entries": entries, "sunshineProblem": sunshine_problem }))
     }
@@ -379,6 +391,89 @@ impl ApiServer
             .map_err(|message| (500, format!("{}: {}", RequestLanguage::pick("Config nicht speicherbar", "Cannot store config"), message)))?;
         self.config = new_config;
         eprintln!("Sunshine-Login gespeichert");
+        Ok((204, Vec::new(), "application/json"))
+    }
+
+    /// Body { "id", "group" }: `group` is a label as /api/library sends it (any language) or an own
+    /// name; null, empty or the detected group goes back to the detection.
+    fn set_group(body: &Value) -> Result<ApiAnswer, (u16, String)>
+    {
+        let entry_id = body["id"].as_str().ok_or_else(|| (400, RequestLanguage::pick("Feld „id“ fehlt", "Field \"id\" missing")))?;
+        let entry = LibraryScanner.find(entry_id).ok_or_else(|| (404, RequestLanguage::pick("Eintrag nicht gefunden", "Entry not found")))?;
+        let group_key = body["group"].as_str().map(|label| LibraryEntry::group_key(label.trim()));
+        let group_override = group_key.filter(|group| !group.is_empty() && *group != entry.group);
+        if group_override.as_ref().is_some_and(|group| group.chars().count() > 40)
+        {
+            return Err((400, RequestLanguage::pick("Gruppenname zu lang (höchstens 40 Zeichen)", "Group name too long (40 characters at most)")));
+        }
+        GroupOverrideStore.set(entry_id, group_override.as_deref()).map_err(|message| (500, message))?;
+        eprintln!("Gruppe: {} -> {}", entry_id, group_override.as_deref().unwrap_or("(erkannt)"));
+        Ok((204, Vec::new(), "application/json"))
+    }
+
+    fn paired_clients(&self) -> Result<ApiAnswer, (u16, String)>
+    {
+        let clients: Vec<Value> = SunshineClient::new(self.config.clone())
+            .paired_clients()
+            .map_err(|message| (502, message))?
+            .into_iter()
+            .map(|(uuid, name)| json!({ "uuid": uuid, "name": name }))
+            .collect();
+        Ok(Self::json(200, json!({ "clients": clients })))
+    }
+
+    fn unpair_client(&self, client_uuid: &str) -> Result<ApiAnswer, (u16, String)>
+    {
+        SunshineClient::new(self.config.clone()).unpair(client_uuid).map_err(|message| (502, message))?;
+        eprintln!("Gerät entkoppelt: {}", client_uuid);
+        Ok((204, Vec::new(), "application/json"))
+    }
+
+    fn pending_pairings(&self) -> Result<ApiAnswer, (u16, String)>
+    {
+        let pairings: Vec<Value> = SunshineClient::new(self.config.clone())
+            .pending_pairings()
+            .map_err(|message| (502, message))?
+            .into_iter()
+            .map(|(id, name, address)| json!({ "id": id, "name": name, "address": address }))
+            .collect();
+        Ok(Self::json(200, json!({ "pairings": pairings })))
+    }
+
+    /// Body { "pin": "1234", "name": "Steam Deck", "pairingId": "…" }. Without `pairingId` the one
+    /// waiting device is meant; Sunshine versions without a waiting list get the PIN alone.
+    fn pair_client(&self, body: &Value) -> Result<ApiAnswer, (u16, String)>
+    {
+        let pin = body["pin"].as_str().unwrap_or_default().trim();
+        if pin.len() != 4 || !pin.chars().all(|character| character.is_ascii_digit())
+        {
+            return Err((400, RequestLanguage::pick("Die PIN hat vier Ziffern", "The PIN has four digits")));
+        }
+        let device_name = body["name"].as_str().map(str::trim).filter(|name| !name.is_empty()).unwrap_or("Moonlight");
+        let sunshine = SunshineClient::new(self.config.clone());
+
+        let pairing_id = match body["pairingId"].as_str()
+        {
+            Some(pairing_id) => Some(pairing_id.to_string()),
+            None => match sunshine.pending_pairings()
+            {
+                Ok(pairings) if pairings.is_empty() =>
+                {
+                    return Err((409, RequestLanguage::pick(
+                        "Kein Gerät wartet aufs Koppeln. Erst in Moonlight den PC wählen.",
+                        "No device is waiting to pair. Pick this PC in Moonlight first.",
+                    )));
+                }
+                Ok(pairings) if pairings.len() > 1 =>
+                {
+                    return Err((409, RequestLanguage::pick("Mehrere Geräte warten, bitte eins wählen", "Several devices are waiting, please pick one")));
+                }
+                Ok(pairings) => Some(pairings[0].0.clone()),
+                Err(_) => None,
+            },
+        };
+        sunshine.pair(pin, device_name, pairing_id.as_deref()).map_err(|message| (400, message))?;
+        eprintln!("Gerät gekoppelt: {}", device_name);
         Ok((204, Vec::new(), "application/json"))
     }
 

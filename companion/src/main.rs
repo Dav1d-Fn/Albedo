@@ -7,6 +7,7 @@ mod cover_converter;
 mod cover_source;
 mod desktop_file_source;
 mod display_mode_reader;
+mod group_override_store;
 mod heroic_source;
 mod library_entry;
 mod library_entry_response;

@@ -69,6 +69,8 @@ Everything that can be added, sorted by group, then name.
   A hero override is what the launcher shows behind the menu, whatever backdrop kind is chosen.
 - `system`: for "Emulation" entries the emulated system from the EmuDeck/Steam ROM Manager tag
   (e.g. `"Nintendo 64"`), otherwise `null`. The launcher picks the libretro thumbnails by it.
+- `detectedGroup`: the group the detection picked. `group` differs from it when the user changed the
+  group (`customGroup: true`, see `PUT /api/group`); own groups sort after the built-in ones, alphabetically.
 - `screenshotCount`: Steam screenshots of all Steam accounts on the PC (`GET /api/screenshot/<id>/<index>`),
   `0` for everything else. A new screenshot shifts the indices, so reload the library to see it.
 - Not listed: tools like Proton, Steam Linux Runtime, Steamworks Redist, Wallpaper Engine, VR-only games.
@@ -177,6 +179,36 @@ Works: saves `sunshineUser`/`sunshinePassword` in `config.json` (mode 600), uses
 (no restart), `204`. Afterwards `GET /api/library` reports `"sunshineProblem": null`.
 Wrong login or Sunshine not reachable: `400` with e.g. `{ "error": "Sunshine-Login falsch" }`,
 nothing is saved. The password is never sent back or logged.
+
+### `PUT /api/group`
+
+Body `{ "id": "shortcut:2777831780", "group": "Couch-Koop" }`. Puts the entry into another group, a
+built-in one (label in either language, e.g. "Nicht-Steam" or "Non-Steam") or an own one (at most 40
+characters). `null`, `""` or the detected group goes back to the detection. `204`. Stored in
+`~/.config/streaming-launcher-companion/groups.json`; the launcher on the Deck gets the group from
+`/api/library` like any other.
+
+### `GET /api/clients`
+
+Devices paired with Sunshine: `{ "clients": [{ "uuid": "B669…", "name": "SteamDeck" }] }`. `502` when
+Sunshine cannot be asked.
+
+### `DELETE /api/clients/<uuid>`
+
+Unpairs that device (Sunshine `POST /api/clients/unpair`), `204`. It has to pair again to stream.
+
+### `GET /api/pairings`
+
+Moonlight clients waiting for their PIN right now (Sunshine 2026 `GET /api/pin`):
+`{ "pairings": [{ "id": "<32 hex>", "name": "SteamDeck", "address": "192.168.178.40" }] }`.
+`502` on older Sunshine versions that have no such list.
+
+### `POST /api/pair`
+
+Body `{ "pin": "1234", "name": "Steam Deck", "pairingId": "<id from /api/pairings>" }`. Answers the
+PIN the device shows. Without `pairingId` the single waiting device is meant (`409` when none or
+several wait); older Sunshine versions get the PIN alone. `204` when the device took the PIN, `400`
+with the reason otherwise (wrong PIN, not four digits).
 
 ### Errors
 

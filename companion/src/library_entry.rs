@@ -39,7 +39,7 @@ impl LibraryEntry
     }
 
     /// Group names are German inside the companion (sort order); English requests get them translated.
-    fn group_label(group: &str) -> String
+    pub fn group_label(group: &str) -> String
     {
         match group
         {
@@ -50,13 +50,30 @@ impl LibraryEntry
         }
     }
 
-    pub fn to_response(&self, in_sunshine: bool) -> LibraryEntryResponse
+    /// The internal (German) name of a group label the client sent, the reverse of `group_label`.
+    /// Own groups stay as they are.
+    pub fn group_key(label: &str) -> String
     {
+        match label
+        {
+            "Presets" => "Voreinstellungen".to_string(),
+            "Non-Steam" => "Nicht-Steam".to_string(),
+            "Apps" => "Programme".to_string(),
+            _ => label.to_string(),
+        }
+    }
+
+    /// `group_override`: the group the user picked for this entry (GroupOverrideStore), if any.
+    pub fn to_response(&self, in_sunshine: bool, group_override: Option<&String>) -> LibraryEntryResponse
+    {
+        let shown_group = group_override.unwrap_or(&self.group);
         LibraryEntryResponse
         {
             id: self.id.clone(),
             name: self.name.clone(),
-            group: Self::group_label(&self.group),
+            group: Self::group_label(shown_group),
+            detected_group: Self::group_label(&self.group),
+            custom_group: group_override.is_some(),
             has_cover: self.has_cover(),
             has_hero: !matches!(self.hero, CoverSource::None),
             has_logo: !matches!(self.logo, CoverSource::None),

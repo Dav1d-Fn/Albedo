@@ -29,6 +29,9 @@ Design source: Claude design canvas https://claude.ai/artifact/UpFs3Nat5Q983TyyA
   - `app_updater.rs` – self-update from signed GitHub releases (`tauri-plugin-updater`, only when running as AppImage)
   - `ui_language.rs` – language of Rust messages for the UI (`set_language` from the frontend); companion calls send it as `Accept-Language`
   - `host_environment.rs` – strips the AppImage's LD_LIBRARY_PATH etc. before starting host programs (flatpak)
+- `pc-app/` – desktop app for the PC (Tauri 2 + React, dev port 1440): manages the companion
+  (library, groups, pictures, pairing, Sunshine login) through its API; reuses `art_search.rs`
+  via `#[path]`. See `pc-app/README.md`.
 - `deck/install.sh` – Steam Deck installer: AppImage to `~/Applications/`, non-Steam entry with artwork in `shortcuts.vdf` (binary VDF, embedded Python), `--uninstall`
 - `artwork/steam/` – Steam pictures the installer copies (cover, wide, hero, logo, icon)
 - `.github/workflows/release.yml` – tag `v*` → signed AppImage + `latest.json` on Ubuntu 22.04

@@ -53,6 +53,73 @@ impl SunshineClient
         self.request("DELETE", &format!("/api/apps/{}", app_index), None).map(|_| ())
     }
 
+    /// Devices paired with Sunshine (Moonlight clients) as (uuid, name).
+    pub fn paired_clients(&self) -> Result<Vec<(String, String)>, String>
+    {
+        let response_body = self.request("GET", "/api/clients/list", None)?;
+        let client_list: Value = serde_json::from_str(&response_body)
+            .map_err(|_| RequestLanguage::pick("Sunshine liefert keine gültige Geräteliste", "Sunshine returned no valid device list"))?;
+        Ok(client_list["named_certs"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|client| Some((client["uuid"].as_str()?.to_string(), client["name"].as_str().unwrap_or_default().to_string())))
+            .collect())
+    }
+
+    pub fn unpair(&self, client_uuid: &str) -> Result<(), String>
+    {
+        let body = serde_json::json!({ "uuid": client_uuid }).to_string();
+        self.request("POST", "/api/clients/unpair", Some(&body)).map(|_| ())
+    }
+
+    /// Moonlight clients waiting for their PIN, as (pairing id, device name, address).
+    /// Sunshine before 2026 has no such list: then this fails and the PIN goes without an id.
+    pub fn pending_pairings(&self) -> Result<Vec<(String, String, String)>, String>
+    {
+        let response_body = self.request("GET", "/api/pin", None)?;
+        let answer: Value = serde_json::from_str(&response_body).unwrap_or_default();
+        let pairings = answer["pairings"]
+            .as_array()
+            .ok_or_else(|| RequestLanguage::pick("Sunshine kennt keine Liste wartender Geräte", "Sunshine has no list of waiting devices"))?;
+        Ok(pairings
+            .iter()
+            .filter_map(|pairing|
+            {
+                Some((
+                    pairing["id"].as_str()?.to_string(),
+                    pairing["name"].as_str().unwrap_or_default().to_string(),
+                    pairing["address"].as_str().unwrap_or_default().to_string(),
+                ))
+            })
+            .collect())
+    }
+
+    /// Answers the PIN a Moonlight client shows while it waits for pairing. `pairing_id` picks the
+    /// waiting client (Sunshine 2026 needs it). Sunshine says `"status": true` when the client
+    /// took the PIN.
+    pub fn pair(&self, pin: &str, device_name: &str, pairing_id: Option<&str>) -> Result<(), String>
+    {
+        let mut body = serde_json::json!({ "pin": pin, "name": device_name });
+        if let Some(pairing_id) = pairing_id
+        {
+            body["pairing_id"] = Value::String(pairing_id.to_string());
+        }
+        let response_body = self.request("POST", "/api/pin", Some(&body.to_string()))?;
+        let answer: Value = serde_json::from_str(&response_body).unwrap_or_default();
+        // Older Sunshine versions sent the string "true".
+        let paired = answer["status"] == Value::Bool(true) || answer["status"] == "true";
+        if paired
+        {
+            Ok(())
+        }
+        else
+        {
+            Err(RequestLanguage::pick("Koppeln fehlgeschlagen: PIN falsch?", "Pairing failed: wrong PIN?"))
+        }
+    }
+
     fn request(&self, method: &str, path: &str, json_body: Option<&str>) -> Result<String, String>
     {
         if !self.config.has_sunshine_login()

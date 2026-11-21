@@ -139,6 +139,17 @@ cover, hero or logo of that game – on the Deck and in Sunshine.
   <img src="docs/media/qr-upload.png" alt="The picture dialog with a QR code and pictures from the Steam store, next to the upload page on the phone" width="900">
 </p>
 
+### 🖱️ PC App: Manage It at the Desk
+
+The [PC app](pc-app/) does the same with mouse and keyboard on the PC: add and remove games,
+move a game into another group (or an own one, like *Couch co-op*) when the emulation detection
+gets it wrong, set pictures from the picture search or by dragging a file in, pair a device with
+its PIN, and enter the Sunshine login. Group changes show up on the Deck too.
+
+<p align="center">
+  <img src="docs/media/pc-app.png" alt="The PC app: library by group, Mario Kart 8 Deluxe selected, its group menu open" width="900">
+</p>
+
 ### 🖥️ The PC Screen Follows the Deck
 
 Each game added through the companion switches the PC's (virtual) streaming monitor to the
@@ -249,6 +260,9 @@ Open port **47995/tcp** in the firewall. The companion only answers the home net
 (private IPv4 ranges), Tailscale (`100.64.0.0/10`) and localhost, and it never runs commands
 sent by the client: it only creates Sunshine apps from games it found itself. The full API is in
 [`companion/API.md`](companion/API.md).
+
+Optional: the [PC app](pc-app/README.md) manages the companion from the PC (library, groups,
+pictures, pairing, Sunshine login).
 
 Check that it runs:
 

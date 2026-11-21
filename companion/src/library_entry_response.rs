@@ -8,6 +8,9 @@ pub struct LibraryEntryResponse
     pub id: String,
     pub name: String,
     pub group: String,
+    /// The group the detection picked; differs from `group` when the user changed it.
+    pub detected_group: String,
+    pub custom_group: bool,
     pub has_cover: bool,
     pub has_hero: bool,
     pub has_logo: bool,
