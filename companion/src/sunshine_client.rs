@@ -42,6 +42,14 @@ impl SunshineClient
         self.request("POST", "/api/apps", Some(&app.to_string())).map(|_| ())
     }
 
+    /// Replaces the app at a list position (Sunshine updates when "index" is not -1).
+    pub fn update_app(&self, app_index: usize, app: &Value) -> Result<(), String>
+    {
+        let mut indexed_app = app.clone();
+        indexed_app["index"] = serde_json::json!(app_index);
+        self.add_app(&indexed_app)
+    }
+
     /// Sunshine deletes by list position, so look the name up first.
     pub fn delete_app(&self, app_name: &str) -> Result<(), String>
     {

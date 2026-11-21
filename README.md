@@ -195,23 +195,24 @@ Releases are signed. The AppImage checks GitHub on start and updates itself afte
 |---|---|---|
 | List and start games | [Sunshine](https://github.com/LizardByte/Sunshine) | Any OS Sunshine runs on |
 | Companion: add games, artwork, QR upload | Linux, systemd user session, `curl`, `magick` (ImageMagick), `gio`, `sqlite3` (Lutris only), Rust to build it | Any Linux desktop; the program list reads `.desktop` files |
-| Screen follows the Deck's resolution | `kscreen-doctor`, [screenprofiler](https://github.com/Kakiharu/screenprofiler), `sunshine-match-client`, `jq` | **KDE Plasma only** |
+| Screen follows the Deck's resolution | `kscreen-doctor`, `jq`, `sunshine-match-client` (from [`pc-setup/`](pc-setup/)) | **KDE Plasma only** |
 | Virtual monitor without a real screen | DRM debugfs `edid_override` / `force` on a free connector | **Tested on AMD only** |
 
 What exactly depends on what:
 
 - **KDE Plasma.** The companion reads the modes of the streaming monitor with `kscreen-doctor -j`,
-  and the games it adds run `sunshine-match-client` (switches the monitor with `kscreen-doctor`)
-  before the stream and `screenprofilercmd load main` (restores your normal screen layout) after
-  it. On GNOME, Sway, Hyprland or X11 those steps fail; the stream still starts, but at whatever
+  and the games it adds run `sunshine-match-client` before the stream (saves your screen layout,
+  then switches to the virtual monitor with `kscreen-doctor`) and `sunshine-match-client --restore`
+  after it (puts the saved layout back). On GNOME, Sway, Hyprland or X11 those steps fail; the stream still starts, but at whatever
   resolution the PC screen has.
 - **AMD GPU.** The virtual monitor is a real but unused connector (`DP-3` on the test machine)
   that is forced to *connected* with a custom EDID through
-  `/sys/kernel/debug/dri/*/DP-3/edid_override` and `force`. This is a kernel DRM feature; it is
+  `/sys/kernel/debug/dri/*/<connector>/edid_override` and `force`. This is a kernel DRM feature; it is
   tested with `amdgpu` only. Intel may work, the proprietary NVIDIA driver most likely doesn't
   offer it. If you already have a dummy plug or another virtual display solution, you don't need
   this part.
-- **Connector name.** `DP-3` is currently hard-coded in the companion and the scripts.
+- **Connector name.** You pick the free connector during setup; it is stored in
+  `~/.config/sunshine-match-client.conf`, which the script and the companion read.
 
 The *Desktop (ohne Profilwechsel)* preset and games you add to Sunshine yourself skip all of this
 and work on any setup.
@@ -272,9 +273,52 @@ curl -s localhost:47995/api/health
 
 ### 3. Virtual monitor & resolution switching (KDE + AMD)
 
-> 🚧 **Not published yet.** The EDID override service and `sunshine-match-client` currently live
-> outside this repository. They will be added before the first public release; until then,
-> use the *Desktop (ohne Profilwechsel)* preset or your own Sunshine prep commands.
+For KDE Plasma (Wayland) with an AMD GPU. The PC gets a virtual monitor on a free connector, and
+every stream switches the PC to it at the resolution and FPS of the Deck's profile. Your real
+monitors turn off for the stream and come back exactly as they were when it ends.
+
+```bash
+cd streaming-launcher/pc-setup
+./install.sh --dry-run   # shows what it would do, changes nothing
+./install.sh
+```
+
+The installer
+
+1. checks for KDE Plasma on Wayland, the `amdgpu` driver, `kscreen-doctor`, `jq` and `python3`,
+2. lists the free connectors (no monitor plugged in) and lets you pick one; don't plug a real
+   monitor into it later,
+3. builds an EDID with the stream modes and installs a boot service that forces it onto that
+   connector (`virtual-display-edid.service`; asks for your sudo password),
+4. installs `sunshine-match-client` to `~/.local/bin` and writes the connector name to
+   `~/.config/sunshine-match-client.conf`,
+5. optionally stops `xwaylandvideobridge` for the length of a stream (Sunshine `global_prep_cmd`).
+   On the first connect after booting, KWin and Xwayland can deadlock while the monitors switch;
+   this avoids it. You only lose screen sharing from X11 apps during the stream,
+6. shows with `kscreen-doctor` whether the new monitor has the modes. If it doesn't show up yet,
+   log out and back in once.
+
+The EDID has 1280×720 (40/60), 1280×800 (60/90), 1920×1080, 2560×1440 (60/100/120) and
+3840×2160 (60/100). Add your own with `--mode`, e.g. `./install.sh --mode 3440x1440@100`; the
+profile editor in Albedo marks values the PC doesn't have. Run the installer again to change the
+connector or the modes.
+
+Test the switch without a stream (prints the command only):
+
+```bash
+SUNSHINE_CLIENT_WIDTH=1280 SUNSHINE_CLIENT_HEIGHT=800 SUNSHINE_CLIENT_FPS=90 sunshine-match-client --dry-run
+```
+
+`sunshine-match-client` logs to `~/.local/state/sunshine-match-client.log`. If the PC ever stays
+on the virtual monitor (crash during a stream), `sunshine-match-client --restore` brings your
+screens back.
+
+To remove everything: `./install.sh --uninstall`.
+
+> [!NOTE]
+> Coming from a setup with [screenprofiler](https://github.com/Kakiharu/screenprofiler)? Albedo
+> no longer needs it. The companion switches apps with the undo `screenprofilercmd load main`
+> to `sunshine-match-client --restore` the next time you add a game.
 
 ---
 
@@ -389,7 +433,6 @@ Albedo is built on the shoulders of great open-source projects:
 - [Tauri](https://github.com/tauri-apps/tauri) – app shell and self-updater.
 - [React](https://github.com/facebook/react) – UI.
 - [gilrs](https://gitlab.com/gilrs-project/gilrs) – gamepad input.
-- [screenprofiler](https://github.com/Kakiharu/screenprofiler) – KDE screen layouts.
 - [Inter](https://rsms.me/inter/) – font, via [Fontsource](https://fontsource.org/).
 
 Albedo is not affiliated with Valve, Moonlight or LizardByte. Game artwork shown in the app comes

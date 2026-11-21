@@ -98,7 +98,9 @@ so the launcher warns about a stream mode the PC does not have.
 { "output": "DP-3", "modes": [{ "width": 1280, "height": 800, "refreshRate": 90 }] }
 ```
 
-Refresh rates are rounded. `502` when kscreen-doctor fails or the output is missing.
+The output name comes from `~/.config/sunshine-match-client.conf` (`VIRTUAL_OUTPUT=…`, written by
+`pc-setup/install.sh`). Refresh rates are rounded. `502` when that file is missing, kscreen-doctor
+fails or the output is missing.
 
 ### `GET /api/cover/<id>`
 
@@ -152,8 +154,8 @@ Every created app gets:
 
 - the start command for its source (Steam: detached `steam steam://rungameid/<appid>`;
   Heroic: `heroic://launch/…`; Lutris: `lutris lutris:rungameid/…`; Prism: `--launch "<instance>"`),
-- prep-cmd do `sunshine-match-client` (PC screen follows the resolution the launcher asked for),
-  undo `screenprofilercmd load main`,
+- prep-cmd do `sunshine-match-client` (PC screen follows the resolution the launcher asked for,
+  saves the layout before), undo `sunshine-match-client --restore` (puts that layout back),
 - for games: an undo that really ends the game (Steam: `pkill -f "SteamLaunch AppId=<appid> "`),
   so "Beenden" in the launcher (`moonlight quit`) closes it,
 - the cover converted to PNG under `~/.config/sunshine/covers/`.
@@ -165,6 +167,10 @@ command line contains the pattern (like `pkill -f`, skipping its own process and
 SIGKILL after 5 s. Patterns: Steam `SteamLaunch AppId=<appid> `, Heroic/Lutris the install
 folder, `.desktop` entries with `Categories=…Game…` their program (flatpak: the app id); other
 desktop programs keep running. Apps added before this keep their old undo until re-added.
+
+Before adding, apps from older versions with the undo `screenprofilercmd load main` after
+`sunshine-match-client` get `sunshine-match-client --restore` instead (updated in place by list
+position); other prep commands stay as they are.
 
 `preset:desktop-plain` has no prep-cmd (screen stays as it is).
 

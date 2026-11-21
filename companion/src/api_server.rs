@@ -186,8 +186,9 @@ impl ApiServer
 
     fn display_modes() -> Result<ApiAnswer, (u16, String)>
     {
-        let modes = DisplayModeReader::read().map_err(|message| (502, message))?;
-        Ok(Self::json(200, json!({ "output": DisplayModeReader::VIRTUAL_OUTPUT, "modes": modes })))
+        let output_name = DisplayModeReader::virtual_output().map_err(|message| (502, message))?;
+        let modes = DisplayModeReader::read(&output_name).map_err(|message| (502, message))?;
+        Ok(Self::json(200, json!({ "output": output_name, "modes": modes })))
     }
 
     fn cover(&self, entry_id: &str) -> Result<ApiAnswer, (u16, String)>
@@ -341,6 +342,7 @@ impl ApiServer
         let entry = LibraryScanner.find(entry_id).ok_or_else(|| (404, RequestLanguage::pick("Eintrag nicht gefunden", "Entry not found")))?;
 
         let sunshine = SunshineClient::new(self.config.clone());
+        Self::migrate_restore_commands(&sunshine);
         let existing_names = sunshine.app_names().map_err(|message| (502, message))?;
         if existing_names.contains(&entry.name)
         {
@@ -360,6 +362,34 @@ impl ApiServer
         sunshine.add_app(&sunshine_app).map_err(|message| (502, message))?;
         eprintln!("Hinzugefügt: {}", entry.name);
         Ok(Self::json(200, json!({ "name": entry.name })))
+    }
+
+    /// Moves apps created before pc-setup/ from screenprofiler to `sunshine-match-client --restore`.
+    /// Runs before every add, so old apps switch over the next time a game is added. A failure
+    /// is only logged: the old undo still works where screenprofiler is installed.
+    fn migrate_restore_commands(sunshine: &SunshineClient)
+    {
+        let apps = match sunshine.list_apps()
+        {
+            Ok(apps) => apps,
+            Err(message) =>
+            {
+                eprintln!("Migration übersprungen: {}", message);
+                return;
+            }
+        };
+        for (app_index, app) in apps.iter().enumerate()
+        {
+            if let Some(migrated_app) = SunshineAppBuilder.migrate_restore_command(app)
+            {
+                let app_name = app["name"].as_str().unwrap_or("?");
+                match sunshine.update_app(app_index, &migrated_app)
+                {
+                    Ok(()) => eprintln!("Bildschirm-Wiederherstellung umgestellt: {}", app_name),
+                    Err(message) => eprintln!("Umstellen fehlgeschlagen ({}): {}", app_name, message),
+                }
+            }
+        }
     }
 
     fn delete_app(&self, body: &Value) -> Result<ApiAnswer, (u16, String)>

@@ -33,6 +33,7 @@ Design source: Claude design canvas https://claude.ai/artifact/UpFs3Nat5Q983TyyA
   (library, groups, pictures, pairing, Sunshine login) through its API; reuses `art_search.rs`
   via `#[path]`. See `pc-app/README.md`.
 - `deck/install.sh` – Steam Deck installer: AppImage to `~/Applications/`, non-Steam entry with artwork in `shortcuts.vdf` (binary VDF, embedded Python), `--uninstall`
+- `pc-setup/` – PC side for KDE + AMD: `install.sh` (virtual monitor via EDID override on a free connector, boot service, `--uninstall`, `--dry-run`), `sunshine-match-client` (Sunshine prep: saves the layout and switches to the virtual monitor, `--restore` puts it back), `make-virtual-edid.py`, `apply-virtual-display.sh`; the connector name lives in `~/.config/sunshine-match-client.conf` (also read by `companion/src/display_mode_reader.rs`)
 - `artwork/steam/` – Steam pictures the installer copies (cover, wide, hero, logo, icon)
 - `.github/workflows/release.yml` – tag `v*` → signed AppImage + `latest.json` on Ubuntu 22.04
 - `src/` – frontend
