@@ -14,6 +14,8 @@ export function ArtDialog({ app, state, dialog }: { app: PcApp; state: PcAppStat
   const sources = [...new Set(candidates.map((candidate) => candidate.source))];
   const shownCandidates = candidates.filter((candidate) => dialog.sourceFilter === "" || candidate.source === dialog.sourceFilter);
   const kindName = UiText.current.artKinds[dialog.kind];
+  const hasPicture = entry !== null
+    && (dialog.kind === "cover" ? entry.hasCover : dialog.kind === "hero" ? entry.hasHero : entry.hasLogo);
 
   return (
     <div className="scrim" onClick={() => app.closeArtDialog()}>
@@ -70,14 +72,29 @@ export function ArtDialog({ app, state, dialog }: { app: PcApp; state: PcAppStat
               </button>
             ))}
           </div>
+          <div className="side-col">
+          <div className="currentpic">
+            <div className="flabel">
+              {texts.current(kindName)}
+              {entry && <span className={"tag" + (entry.customArt.includes(dialog.kind) ? " own" : "")}>
+                {entry.customArt.includes(dialog.kind) ? texts.currentCustom : texts.currentAutomatic}
+              </span>}
+            </div>
+            <div className={"curimg kind-" + dialog.kind}>
+              {entry && hasPicture
+                ? <img src={app.pictureUrl(dialog.kind, entry.id)} alt="" />
+                : <span className="none">{texts.noPicture}</span>}
+            </div>
+          </div>
           <label className="drop">
             <Icon name="upload" size={30} />
             <span className="t">{dialog.dragOver ? texts.dropNow : dialog.busy ? texts.uploading : texts.ownPicture}</span>
             <span className="s">{texts.dropHint}</span>
             <span className="btn sm">{texts.pickFile}</span>
             <input type="file" accept="image/*" hidden disabled={dialog.busy}
-              onChange={(event) => void app.uploadArtFile(event.target.files?.[0])} />
+              onChange={(event) => { void app.uploadArtFile(event.target.files?.[0]); event.target.value = ""; }} />
           </label>
+          </div>
         </div>
 
         {dialog.result?.problem && <div className="keyhint warn"><Icon name="warning" size={16} />{dialog.result.problem}</div>}
@@ -88,7 +105,7 @@ export function ArtDialog({ app, state, dialog }: { app: PcApp; state: PcAppStat
             <button className="btn" type="button" disabled={dialog.busy} onClick={() => void app.resetArtFromDialog()}>{texts.resetToAuto}</button>
           )}
           <span className="spacer" />
-          <button className="btn" type="button" onClick={() => app.closeArtDialog()}>{UiText.current.common.cancel}</button>
+          <button className="btn" type="button" onClick={() => app.closeArtDialog()}>{texts.close}</button>
           <button className="btn sun" type="button" disabled={!dialog.selectedUrl || dialog.busy}
             onClick={() => void app.applySelectedArt()}>{dialog.busy ? texts.uploading : texts.apply(kindName)}</button>
         </div>

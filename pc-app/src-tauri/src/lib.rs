@@ -7,6 +7,8 @@ mod art_candidate;
 mod art_search;
 #[path = "../../../src-tauri/src/art_search_result.rs"]
 mod art_search_result;
+#[path = "../../../src-tauri/src/host_environment.rs"]
+mod host_environment;
 #[path = "../../../src-tauri/src/libretro_thumbnails.rs"]
 mod libretro_thumbnails;
 #[path = "../../../src-tauri/src/ui_language.rs"]
@@ -20,6 +22,7 @@ use tauri::{AppHandle, Manager};
 use art_search::ArtSearch;
 use art_search_result::ArtSearchResult;
 use companion_proxy::CompanionProxy;
+use host_environment::HostEnvironment;
 use ui_language::UiLanguage;
 
 #[tauri::command]
@@ -124,6 +127,18 @@ async fn apply_art(
     result
 }
 
+/// Opens the page where users get a SteamGridDB API key in the system browser. A fixed URL, so the
+/// webview can't open anything else through here.
+#[tauri::command]
+fn open_steam_grid_db_key_page() -> Result<(), String>
+{
+    let mut command = std::process::Command::new("xdg-open");
+    command.arg("https://www.steamgriddb.com/profile/preferences/api");
+    // An AppImage's library paths would break the host's browser.
+    HostEnvironment::apply_to(&mut command);
+    command.spawn().map(|_| ()).map_err(|error| error.to_string())
+}
+
 fn art_search(app_handle: &AppHandle) -> Result<ArtSearch, String>
 {
     let cache_directory = app_handle
@@ -142,7 +157,8 @@ pub fn run()
             companion,
             upload_art,
             search_art,
-            apply_art
+            apply_art,
+            open_steam_grid_db_key_page
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

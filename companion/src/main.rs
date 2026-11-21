@@ -17,6 +17,7 @@ mod preset_source;
 mod process_quitter;
 mod request_language;
 mod prism_source;
+mod steam_grid_db_key_checker;
 mod steam_shortcut_source;
 mod steam_source;
 mod sunshine_app_builder;

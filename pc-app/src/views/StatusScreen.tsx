@@ -82,9 +82,17 @@ export function StatusScreen({ app, state }: { app: PcApp; state: PcAppState })
               </div>
             </div>
             <div className="field">
-              <label className="flabel" htmlFor="gridkey">{texts.gridDbKey}</label>
+              <div className="flabelrow">
+                <label className="flabel" htmlFor="gridkey">{texts.gridDbKey}</label>
+                <button type="button" className="link" onClick={() => app.openSteamGridDbKeyPage()}>{texts.gridDbGetKey} ↗</button>
+              </div>
               <input id="gridkey" type="password" placeholder={texts.gridDbPlaceholder} value={state.settings.steamGridDbKey}
                 onChange={(event) => app.changeSettings({ steamGridDbKey: event.target.value.trim() })} />
+              {state.steamGridDbKeyCheck === "checking" && <span className="keycheck">{texts.gridDbChecking}</span>}
+              {state.steamGridDbKeyCheck === "ok" && <span className="keycheck ok">{texts.gridDbWorks}</span>}
+              {state.steamGridDbKeyCheck !== "" && state.steamGridDbKeyCheck !== "checking" && state.steamGridDbKeyCheck !== "ok" && (
+                <span className="keycheck bad">{state.steamGridDbKeyCheck}</span>
+              )}
             </div>
           </section>
         </div>

@@ -216,6 +216,21 @@ PIN the device shows. Without `pairingId` the single waiting device is meant (`4
 several wait); older Sunshine versions get the PIN alone. `204` when the device took the PIN, `400`
 with the reason otherwise (wrong PIN, not four digits).
 
+### `POST /api/steamgriddb-key/test`
+
+Body `{ "key": "<SteamGridDB API key>" }`. Checks the key with one real SteamGridDB request
+(`/api/v2/search/autocomplete/…`) and stores nothing: the clients keep the key themselves (Deck:
+settings `steamGridDbKey`, PC app: its own settings) and use it for the picture search. The key is
+never logged or sent back.
+
+- `204`: SteamGridDB accepts the key.
+- `400` `{ "error": "SteamGridDB key invalid" }`: rejected (401/403) or not a key at all (empty,
+  other characters than letters and digits).
+- `502` `{ "error": "SteamGridDB unreachable" }` (no answer within 10 s), or
+  `"SteamGridDB answered with <status>"` for anything else.
+
+Users get a key at <https://www.steamgriddb.com/profile/preferences/api> (SteamGridDB account needed).
+
 ### Errors
 
 Non-2xx with `{ "error": "message for the toast, in the request language" }`.

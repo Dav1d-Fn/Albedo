@@ -102,6 +102,10 @@ export const germanTexts =
     uploading: "Lade hoch …",
     noKeyHint: "Ohne SteamGridDB-Schlüssel sucht der Helfer nur im Steam-Shop und bei libretro. Schlüssel unter „Status & Login“.",
     resetToAuto: "Auf automatisch zurücksetzen",
+    current: (kind: string) => `Aktuell: ${kind}`,
+    currentCustom: "eigenes",
+    currentAutomatic: "automatisch",
+    noPicture: "Kein Bild",
     apply: (kind: string) => `Als ${kind} setzen`,
     applied: (kind: string) => `${kind} gesetzt.`,
     notAnImage: "Das ist kein Bild.",
@@ -157,6 +161,9 @@ export const germanTexts =
     system: "System",
     gridDbKey: "SteamGridDB-Schlüssel (optional)",
     gridDbPlaceholder: "Für mehr Bilder in der Bildersuche",
+    gridDbGetKey: "Schlüssel holen",
+    gridDbChecking: "Prüfe Schlüssel …",
+    gridDbWorks: "Funktioniert ✓",
   },
 };
 

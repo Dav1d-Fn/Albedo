@@ -104,6 +104,23 @@ export class Companion
     return Companion.request("PUT", "api/sunshine-login", { user, password });
   }
 
+  /** Resolves when SteamGridDB accepts the key; the error says "invalid" or "unreachable". */
+  public static testSteamGridDbKey(key: string): Promise<void>
+  {
+    return Companion.request("POST", "api/steamgriddb-key/test", { key });
+  }
+
+  /** Where users get a SteamGridDB key, in the system browser. */
+  public static async openSteamGridDbKeyPage(): Promise<void>
+  {
+    if ("__TAURI_INTERNALS__" in window)
+    {
+      await invoke("open_steam_grid_db_key_page");
+      return;
+    }
+    window.open("https://www.steamgriddb.com/profile/preferences/api", "_blank");
+  }
+
   public static async pairedClients(): Promise<PairedClient[]>
   {
     const answer: { clients: PairedClient[] } = await Companion.request("GET", "api/clients");

@@ -74,6 +74,8 @@ export interface PcAppState
   loginUser: string;
   loginPassword: string;
   toast: { text: string; error: boolean } | null;
+  /** Result of the last SteamGridDB key check: "" = not checked, "checking", "ok", or the error. */
+  steamGridDbKeyCheck: string;
 }
 
 /** Root of the PC app: owns all state and every action; the views only render and call these methods. */
@@ -82,7 +84,10 @@ export default class PcApp extends Component<object, PcAppState>
   private static readonly PAIRING_POLL_MILLISECONDS = 2000;
   private static readonly TOAST_MILLISECONDS = 4000;
 
+  private static readonly KEY_CHECK_DELAY_MILLISECONDS = 800;
+
   private pairingPollTimer: number | undefined;
+  private keyCheckTimer: number | undefined;
   private toastTimer: number | undefined;
 
   public constructor(props: object)
@@ -113,6 +118,7 @@ export default class PcApp extends Component<object, PcAppState>
       loginUser: "",
       loginPassword: "",
       toast: null,
+      steamGridDbKeyCheck: "",
     };
     UiText.use(this.state.settings.language);
   }
@@ -126,6 +132,7 @@ export default class PcApp extends Component<object, PcAppState>
   {
     window.clearInterval(this.pairingPollTimer);
     window.clearTimeout(this.toastTimer);
+    window.clearTimeout(this.keyCheckTimer);
   }
 
   public render()
@@ -196,6 +203,10 @@ export default class PcApp extends Component<object, PcAppState>
   {
     window.clearInterval(this.pairingPollTimer);
     this.setState({ screen, confirmUnpairUuid: null });
+    if (screen === "status")
+    {
+      void this.checkSteamGridDbKey();
+    }
     if (screen === "devices")
     {
       void this.reloadDevices();
@@ -509,7 +520,7 @@ export default class PcApp extends Component<object, PcAppState>
     const dialog = this.state.artDialog;
     if (dialog)
     {
-      this.closeArtDialog();
+      // Stays open: the automatic picture shows up as the current one right away.
       await this.resetPicture(dialog.kind);
     }
   }
@@ -521,7 +532,8 @@ export default class PcApp extends Component<object, PcAppState>
     try
     {
       await upload();
-      this.setState({ artDialog: null });
+      // The dialog stays open on the same game, so the next kind (cover, title art, logo) is one click away.
+      this.updateArtDialog({ busy: false, selectedUrl: null });
       this.showToast(UiText.current.art.applied(UiText.current.artKinds[kind]));
       await this.afterPictureChange();
     }
@@ -657,6 +669,13 @@ export default class PcApp extends Component<object, PcAppState>
     AppSettings.save(settings);
     UiText.use(settings.language);
     this.setState({ settings });
+    if (change.steamGridDbKey !== undefined)
+    {
+      // Checked once typing pauses, not on every key press.
+      window.clearTimeout(this.keyCheckTimer);
+      this.setState({ steamGridDbKeyCheck: "" });
+      this.keyCheckTimer = window.setTimeout(() => void this.checkSteamGridDbKey(), PcApp.KEY_CHECK_DELAY_MILLISECONDS);
+    }
     if (change.language !== undefined)
     {
       // Names, groups and errors from the companion come in the new language, so a group filter
@@ -664,6 +683,38 @@ export default class PcApp extends Component<object, PcAppState>
       this.setState({ groupFilter: FILTER_ALL });
       void Companion.setLanguage(UiText.language).then(() => this.reloadAll());
     }
+  }
+
+  /** One real request through the companion; the result shows under the key field. */
+  public async checkSteamGridDbKey(): Promise<void>
+  {
+    const key = this.state.settings.steamGridDbKey;
+    if (key === "")
+    {
+      this.setState({ steamGridDbKeyCheck: "" });
+      return;
+    }
+    this.setState({ steamGridDbKeyCheck: "checking" });
+    let result: string;
+    try
+    {
+      await Companion.testSteamGridDbKey(key);
+      result = "ok";
+    }
+    catch (error)
+    {
+      result = String(error);
+    }
+    // A newer key may have been typed meanwhile; only its own check counts.
+    if (this.state.settings.steamGridDbKey === key)
+    {
+      this.setState({ steamGridDbKeyCheck: result });
+    }
+  }
+
+  public openSteamGridDbKeyPage(): void
+  {
+    void Companion.openSteamGridDbKeyPage();
   }
 
   // ------------------------------------------------------------ helpers

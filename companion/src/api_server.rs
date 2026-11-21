@@ -14,6 +14,7 @@ use crate::group_override_store::GroupOverrideStore;
 use crate::library_entry::LibraryEntry;
 use crate::library_scanner::LibraryScanner;
 use crate::request_language::RequestLanguage;
+use crate::steam_grid_db_key_checker::SteamGridDbKeyChecker;
 use crate::sunshine_app_builder::SunshineAppBuilder;
 use crate::sunshine_client::SunshineClient;
 use crate::upload_page::UploadPage;
@@ -131,6 +132,7 @@ impl ApiServer
                 let client_uuid = percent_decode_str(&client_path["/api/clients/".len()..]).decode_utf8_lossy().to_string();
                 self.unpair_client(&client_uuid)
             }
+            (Method::Post, "/api/steamgriddb-key/test") => Self::read_body(request).and_then(|body| Self::test_steam_grid_db_key(&body)),
             (Method::Get, "/api/pairings") => self.pending_pairings(),
             (Method::Post, "/api/pair") => Self::read_body(request).and_then(|body| self.pair_client(&body)),
             _ => Err((404, RequestLanguage::pick("Unbekannter Pfad", "Unknown path"))),
@@ -438,6 +440,14 @@ impl ApiServer
         }
         GroupOverrideStore.set(entry_id, group_override.as_deref()).map_err(|message| (500, message))?;
         eprintln!("Gruppe: {} -> {}", entry_id, group_override.as_deref().unwrap_or("(erkannt)"));
+        Ok((204, Vec::new(), "application/json"))
+    }
+
+    /// Body { "key": "…" }: one real request to SteamGridDB. Nothing is stored or logged.
+    fn test_steam_grid_db_key(body: &Value) -> Result<ApiAnswer, (u16, String)>
+    {
+        let key = body["key"].as_str().unwrap_or_default().trim();
+        SteamGridDbKeyChecker.check(key)?;
         Ok((204, Vec::new(), "application/json"))
     }
 

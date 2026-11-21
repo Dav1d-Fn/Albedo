@@ -9,10 +9,12 @@ on the Deck does from the couch:
 - **Group per game:** move a game into another group or into an own one ("Couch co-op"), or back
   to the detected group. The companion stores it, so the Deck shows the same groups.
 - **Pictures:** set cover, title art or logo from the picture search (Steam shop, libretro,
-  SteamGridDB with a key) or from a file (file picker or drag & drop), and reset them.
+  SteamGridDB with a key) or from a file (file picker or drag & drop), and reset them. The
+  dialog stays open after setting one, so cover, title art and logo are done in one go.
 - **Devices:** pair a Moonlight device with the PIN it shows; list and unpair paired devices.
 - **Status & login:** companion running, Sunshine reachable, modes of the virtual monitor;
-  Sunshine login; language (system, German, English) and SteamGridDB key.
+  Sunshine login; language (system, German, English) and SteamGridDB key (with a link to the
+  key page; the companion checks a new key with a real SteamGridDB request).
 
 ![Library with the group menu open](../docs/media/pc-app.png)
 
@@ -52,6 +54,7 @@ PATH=../node_modules/.bin:$PATH CARGO_BUILD_JOBS=4 nice -n 19 tauri build
 - `src/model/` – API types, settings (localStorage), placeholder tint
 - `src-tauri/src/companion_proxy.rs` – HTTP client for the companion
 - `src-tauri/src/lib.rs` – Tauri commands: `companion` (any endpoint), `upload_art` (file bytes),
-  `search_art`, `apply_art`, `set_language`
+  `search_art`, `apply_art`, `set_language`,
+  `open_steam_grid_db_key_page`
 
 Settings (language, SteamGridDB key) live in the webview's localStorage on this PC.
