@@ -64,6 +64,19 @@ Everything that can be added, sorted by group, then name.
   `0` for everything else. A new screenshot shifts the indices, so reload the library to see it.
 - Not listed: tools like Proton, Steam Linux Runtime, Steamworks Redist, Wallpaper Engine, VR-only games.
 
+### `GET /api/apps`
+
+The apps Sunshine offers right now (names, in Sunshine's order). The launcher's game list comes
+from here: `moonlight list` on the Deck only prints Moonlight's cache, which refreshes inside the
+Moonlight UI, so newly added games would be missing.
+
+```json
+{ "apps": ["Desktop", "Desktop (ohne Profilwechsel)", "ELDEN RING"] }
+```
+
+`502` with the German reason (e.g. "Sunshine-Login fehlt im PC-Helfer") when Sunshine cannot be asked;
+the launcher then falls back to `moonlight list`.
+
 ### `GET /api/cover/<id>`
 
 PNG (portrait, ideally 600x900) for an entry with `hasCover`. 404 otherwise. `<id>` is URL-encoded.

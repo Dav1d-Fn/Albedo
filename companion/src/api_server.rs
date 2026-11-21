@@ -77,6 +77,7 @@ impl ApiServer
             {
                 self.screenshot(&screenshot_path["/api/screenshot/".len()..])
             }
+            (Method::Get, "/api/apps") => self.sunshine_apps(),
             (Method::Post, "/api/apps") => Self::read_body(request).and_then(|body| self.add_app(&body)),
             (Method::Delete, "/api/apps") => Self::read_body(request).and_then(|body| self.delete_app(&body)),
             (Method::Put, "/api/sunshine-login") => Self::read_body(request).and_then(|body| self.set_sunshine_login(&body)),
@@ -118,6 +119,16 @@ impl ApiServer
             .map(|entry| json!(entry.to_response(sunshine_app_names.contains(&entry.name))))
             .collect();
         Self::json(200, json!({ "entries": entries, "sunshineProblem": sunshine_problem }))
+    }
+
+    /// The app names Sunshine offers right now, in Sunshine's order. Moonlight's own list on the
+    /// Deck is a cache that only refreshes inside Moonlight's UI, so the launcher asks here first.
+    fn sunshine_apps(&self) -> Result<ApiAnswer, (u16, String)>
+    {
+        let app_names = SunshineClient::new(self.config.clone())
+            .app_names()
+            .map_err(|message| (502, message))?;
+        Ok(Self::json(200, json!({ "apps": app_names })))
     }
 
     fn cover(&self, entry_id: &str) -> Result<ApiAnswer, (u16, String)>
