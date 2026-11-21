@@ -1,44 +1,33 @@
-# Companion (PC-Helfer)
+# Albedo Companion
 
-Kleiner Dienst auf dem Gaming-PC. Er sucht die installierten Spiele und Programme und legt sie auf
-Wunsch des Launchers als Sunshine-App an. Die Schnittstelle steht in [API.md](API.md).
+Small service on the gaming PC. It finds the installed games and programs and, when Albedo asks,
+turns one into a Sunshine app. The interface is described in [API.md](API.md); setup and
+requirements are in the [main README](../README.md#pc-setup-).
 
-Quellen: Steam (alle Library-Ordner), Heroic (Epic/GOG), Lutris, Prism-Launcher-Instanzen,
-Programme aus `.desktop`-Dateien und drei Voreinstellungen (Desktop, Desktop ohne Profilwechsel,
-Steam Big Picture). Cover kommen als PNG nach `~/.config/sunshine/covers/`.
+Sources: Steam (all library folders) and non-Steam games in Steam, Heroic (Epic / GOG), Lutris,
+Prism Launcher instances, programs from `.desktop` files, and three presets (Desktop, Desktop
+without profile switch, Steam Big Picture). Covers are stored as PNG in `~/.config/sunshine/covers/`.
 
-## Voraussetzungen
+## Requirements
 
-`curl`, `magick` (ImageMagick), `sqlite3` (nur für Lutris), `gio`. Auf Fedora alles vorhanden.
+`curl`, `magick` (ImageMagick), `gio`, `sqlite3` (Lutris only). For the display modes:
+`kscreen-doctor` (KDE Plasma).
 
-## Installieren
+## Install
 
 ```bash
-cd companion
-nice -n 19 cargo build --release -j 4
-install -m 755 target/release/streaming-launcher-companion ~/.local/bin/
-install -m 644 streaming-launcher-companion.service ~/.config/systemd/user/
+cargo build --release
+install -Dm 755 target/release/streaming-launcher-companion ~/.local/bin/streaming-launcher-companion
+install -Dm 644 streaming-launcher-companion.service ~/.config/systemd/user/streaming-launcher-companion.service
 systemctl --user daemon-reload
 systemctl --user enable --now streaming-launcher-companion
 ```
 
-Beim ersten Start legt der Dienst `~/.config/streaming-launcher-companion/config.json` an
-(nur für David lesbar):
+Config: `~/.config/streaming-launcher-companion/config.json` (mode 600, created on first start).
+The Sunshine login can be entered there or from Albedo. After editing the file:
+`systemctl --user restart streaming-launcher-companion`.
 
-```json
-{
-  "port": 47995,
-  "sunshineUrl": "https://localhost:47990",
-  "sunshineUser": "",
-  "sunshinePassword": ""
-}
-```
-
-Hier den Login der Sunshine-Weboberfläche eintragen, dann
-`systemctl --user restart streaming-launcher-companion`. Ohne Login zeigt der Dienst die Spieleliste
-trotzdem an, nur Hinzufügen und Entfernen gehen dann nicht.
-
-## Prüfen
+## Check
 
 ```bash
 curl -s localhost:47995/api/health
@@ -46,10 +35,10 @@ curl -s localhost:47995/api/library | jq '.entries | length'
 journalctl --user -u streaming-launcher-companion -f
 ```
 
-Erreichbar ist der Dienst nur aus dem Heimnetz, über Tailscale und lokal (sonst 403).
-Die Firewall muss Port 47995/tcp durchlassen.
+The service only answers the home network, Tailscale and localhost (403 otherwise).
+The firewall has to let port 47995/tcp through.
 
 ## Update
 
-Neu bauen, Binary wie oben nach `~/.local/bin/` kopieren, dann
+Rebuild, copy the binary to `~/.local/bin/` as above, then
 `systemctl --user restart streaming-launcher-companion`.
