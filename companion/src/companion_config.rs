@@ -48,7 +48,7 @@ impl CompanionConfig
             .map_err(|error| format!("Config {} ist kein gültiges JSON: {}", config_path.display(), error))
     }
 
-    fn write_to(&self, config_path: &PathBuf) -> Result<(), String>
+    pub fn write_to(&self, config_path: &PathBuf) -> Result<(), String>
     {
         if let Some(config_directory) = config_path.parent()
         {

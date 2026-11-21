@@ -77,6 +77,14 @@ Every created app gets:
 
 Body `{ "name": "ELDEN RING" }`. Removes that Sunshine app. `204` on success.
 
+### `PUT /api/sunshine-login`
+
+Body `{ "user": "...", "password": "..." }`. Checks the login with `GET /api/apps` on Sunshine first.
+Works: saves `sunshineUser`/`sunshinePassword` in `config.json` (mode 600), uses it right away
+(no restart), `204`. Afterwards `GET /api/library` reports `"sunshineProblem": null`.
+Wrong login or Sunshine not reachable: `400` with e.g. `{ "error": "Sunshine-Login falsch" }`,
+nothing is saved. The password is never sent back or logged.
+
 ### Errors
 
 Non-2xx with `{ "error": "German message for the toast" }`.

@@ -31,7 +31,7 @@ fn main()
         }
     };
 
-    let server = ApiServer::new(config);
+    let mut server = ApiServer::new(config);
     if let Err(message) = server.run()
     {
         eprintln!("{}", message);

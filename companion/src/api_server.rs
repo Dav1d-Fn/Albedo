@@ -28,7 +28,7 @@ impl ApiServer
         ApiServer { config }
     }
 
-    pub fn run(&self) -> Result<(), String>
+    pub fn run(&mut self) -> Result<(), String>
     {
         let listen_address = format!("0.0.0.0:{}", self.config.port);
         let server = Server::http(&listen_address)
@@ -45,7 +45,7 @@ impl ApiServer
         Ok(())
     }
 
-    fn answer(&self, request: &mut Request) -> ApiAnswer
+    fn answer(&mut self, request: &mut Request) -> ApiAnswer
     {
         let client_allowed = request
             .remote_addr()
@@ -69,6 +69,7 @@ impl ApiServer
             }
             (Method::Post, "/api/apps") => Self::read_body(request).and_then(|body| self.add_app(&body)),
             (Method::Delete, "/api/apps") => Self::read_body(request).and_then(|body| self.delete_app(&body)),
+            (Method::Put, "/api/sunshine-login") => Self::read_body(request).and_then(|body| self.set_sunshine_login(&body)),
             _ => Err((404, "Unbekannter Pfad".to_string())),
         };
         match result
@@ -152,6 +153,30 @@ impl ApiServer
         let app_name = body["name"].as_str().ok_or((400, "Feld „name“ fehlt".to_string()))?;
         SunshineClient::new(self.config.clone()).delete_app(app_name).map_err(|message| (502, message))?;
         eprintln!("Entfernt: {}", app_name);
+        Ok((204, Vec::new(), "application/json"))
+    }
+
+    /// Checks the login against Sunshine before saving it, so a typo never replaces a working login.
+    /// The password is neither logged nor sent back.
+    fn set_sunshine_login(&mut self, body: &Value) -> Result<ApiAnswer, (u16, String)>
+    {
+        let user = body["user"].as_str().unwrap_or_default();
+        let password = body["password"].as_str().unwrap_or_default();
+        if user.is_empty() || password.is_empty()
+        {
+            return Err((400, "Benutzername und Passwort eingeben".to_string()));
+        }
+
+        let mut new_config = self.config.clone();
+        new_config.sunshine_user = user.to_string();
+        new_config.sunshine_password = password.to_string();
+        SunshineClient::new(new_config.clone()).list_apps().map_err(|message| (400, message))?;
+
+        new_config
+            .write_to(&CompanionConfig::config_path())
+            .map_err(|message| (500, format!("Config nicht speicherbar: {}", message)))?;
+        self.config = new_config;
+        eprintln!("Sunshine-Login gespeichert");
         Ok((204, Vec::new(), "application/json"))
     }
 
