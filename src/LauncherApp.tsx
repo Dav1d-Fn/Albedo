@@ -1425,6 +1425,12 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   {
     window.clearTimeout(this.backdropTimer);
     this.backdropRequest += 1;
+    if (this.state.settings === null)
+    {
+      // Startup: loadBoxArt can finish before React applied the loaded settings;
+      // componentDidUpdate calls this again once they are in the state.
+      return;
+    }
     const gameName = this.selectedGame();
     const kind = this.backdropKindFor(gameName);
     if (gameName === undefined || kind === "cover" || kind === "none")
