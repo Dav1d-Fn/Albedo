@@ -247,6 +247,9 @@ export class BrowserMock
             return Promise.reject(pick("PC-Helfer nicht erreichbar (Port 47995). Läuft der Companion auf dem PC?", "PC companion unreachable (port 47995). Is it running on the PC?"));
           }
           return { entries: BrowserMock.sampleLibrary().map((entry) => BrowserMock.withCustomArt(entry, customArt[entry.id] ?? [])), sunshineProblem: sunshineLoginMissing ? pick("Sunshine-Login fehlt im PC-Helfer", "The PC companion has no Sunshine login") : null };
+        case "companion_test_steam_grid_db_key":
+          // In the mock a key containing "bad" is rejected.
+          return new Promise((resolve) => window.setTimeout(() => resolve((args.key as string).includes("bad") ? "invalid" : "valid"), 700));
         case "companion_set_sunshine_login":
           if (args.password !== "sunshine")
           {

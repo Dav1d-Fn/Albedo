@@ -305,6 +305,15 @@ async fn companion_set_sunshine_login(host: String, user: String, password: Stri
 }
 
 #[tauri::command]
+async fn companion_test_steam_grid_db_key(host: String, key: String) -> Result<String, String>
+{
+    let result = CompanionClient::for_host(&host)?.test_steam_grid_db_key(&key).await;
+    // The key itself is never logged.
+    println!("[companion] SteamGridDB key check -> {}", result);
+    Ok(result)
+}
+
+#[tauri::command]
 async fn check_for_update(app: AppHandle) -> Option<AvailableUpdate>
 {
     AppUpdater::check(&app).await
@@ -355,6 +364,7 @@ pub fn run()
             companion_add_app,
             companion_remove_app,
             companion_set_sunshine_login,
+            companion_test_steam_grid_db_key,
             companion_display_modes,
             check_for_update,
             install_update

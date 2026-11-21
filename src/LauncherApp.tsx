@@ -2787,9 +2787,28 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       return;
     }
     this.updateSettings((settings) => ({ ...settings, steamGridDbKey }));
-    // ponytail: no check yet; the PC helper's key check endpoint sets "checking" and the result here once it exists.
-    this.setState({ steamGridDbKeyCheck: "unchecked" });
+    this.checkSteamGridDbKey(steamGridDbKey);
     this.showToast({ kind: "ok", eyebrow: "SteamGridDB", name: UiText.current.toasts.keySaved, spec: "", sub: UiText.current.toasts.keySavedText });
+  }
+
+  /** The PC helper tries the key with one real SteamGridDB request; the key row shows the result. */
+  private async checkSteamGridDbKey(steamGridDbKey: string): Promise<void>
+  {
+    this.setState({ steamGridDbKeyCheck: "checking" });
+    let keyCheck: SteamGridDbKeyCheck = "unreachable";
+    try
+    {
+      keyCheck = await this.backend.companionTestSteamGridDbKey(this.connectedHost(), steamGridDbKey);
+    }
+    catch (checkError)
+    {
+      console.warn("SteamGridDB key check", checkError);
+    }
+    // Only the answer for the key still stored counts.
+    if (this.settings.steamGridDbKey === steamGridDbKey)
+    {
+      this.setState({ steamGridDbKeyCheck: keyCheck });
+    }
   }
 
   public removeSteamGridDbKey(): void

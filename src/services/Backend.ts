@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { DefaultSettings } from "../model/DefaultSettings";
 import { ModeText } from "../model/ModeText";
-import { UiLanguage, ArtKind, ArtSearchResult, CompanionLibrary, UploadToken, DeviceProfile, DiscoveredHost, PadButton, PcDisplayMode, RunningHostApp, Settings, StreamMode } from "../model/Types";
+import { UiLanguage, ArtKind, ArtSearchResult, CompanionLibrary, UploadToken, DeviceProfile, DiscoveredHost, PadButton, PcDisplayMode, RunningHostApp, Settings, StreamMode, SteamGridDbKeyCheck } from "../model/Types";
 
 export interface StreamEnded
 {
@@ -119,6 +119,12 @@ export class Backend
   public companionSetSunshineLogin(host: string, user: string, password: string): Promise<void>
   {
     return invoke<void>("companion_set_sunshine_login", { host, user, password });
+  }
+
+  /** Lets the PC helper try a SteamGridDB key; it stores nothing. "unchecked" when the helper is too old to check. */
+  public companionTestSteamGridDbKey(host: string, key: string): Promise<SteamGridDbKeyCheck>
+  {
+    return invoke<SteamGridDbKeyCheck>("companion_test_steam_grid_db_key", { host, key });
   }
 
   /** Wide title image of a library entry as `data:` URL, null when the PC has none. */

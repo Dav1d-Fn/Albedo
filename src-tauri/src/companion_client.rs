@@ -4,7 +4,7 @@ use std::time::Duration;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT_LANGUAGE};
-use reqwest::{Client, RequestBuilder, Response, Url};
+use reqwest::{Client, RequestBuilder, Response, StatusCode, Url};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -110,6 +110,25 @@ impl CompanionClient
             .json(&json!({ "user": user, "password": password }));
         self.send(request).await?;
         Ok(())
+    }
+
+    /// Checks a SteamGridDB key on the PC (`POST /api/steamgriddb-key/test`), which stores nothing.
+    /// Returns "valid", "invalid", "unreachable" (SteamGridDB or the companion did not answer)
+    /// or "unchecked" (an older companion without the endpoint). The key is never logged.
+    pub async fn test_steam_grid_db_key(&self, key: &str) -> String
+    {
+        let request = self
+            .http_client
+            .post(self.url(&["api", "steamgriddb-key", "test"]))
+            .json(&json!({ "key": key }));
+        let result = match request.send().await
+        {
+            Ok(response) if response.status().is_success() => "valid",
+            Ok(response) if response.status() == StatusCode::BAD_REQUEST => "invalid",
+            Ok(response) if response.status() == StatusCode::NOT_FOUND => "unchecked",
+            _ => "unreachable",
+        };
+        result.to_string()
     }
 
     /// The entry's cover as `data:image/png;base64,…`, or None when the PC has none.
