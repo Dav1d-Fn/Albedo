@@ -17,6 +17,7 @@ export class BrowserMock
     { id: "steam:1086940", name: "Baldur's Gate 3", group: "Steam", hasCover: false, inSunshine: false },
     { id: "steam:1551360", name: "Forza Horizon 5", group: "Steam", hasCover: false, inSunshine: false },
     { id: "heroic:Crow", name: "Dead Island 2", group: "Heroic", hasCover: false, inSunshine: false },
+    { id: "steam:1145350", name: "Hades II", group: "Steam", hasCover: true, inSunshine: true },
     { id: "prism:26.3 Modpack Test", name: "Minecraft 26.3 Modpack Test", group: "Minecraft", hasCover: false, inSunshine: false },
   ];
 
@@ -72,7 +73,8 @@ export class BrowserMock
           sunshineProblem = null;
           return null;
         case "companion_cover":
-          return null;
+          // A plain coloured cover, like one the companion converted to PNG.
+          return "data:image/svg+xml," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='600' height='900'><rect width='600' height='900' fill='#7c2d12'/><text x='300' y='470' font-size='64' fill='white' text-anchor='middle' font-family='sans-serif'>PC-Helfer</text></svg>");
         case "companion_add_app":
           return new Promise((resolve) => window.setTimeout(() => resolve("Neues Spiel"), 800));
         case "companion_remove_app":

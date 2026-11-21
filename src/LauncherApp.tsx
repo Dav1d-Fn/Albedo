@@ -5,6 +5,7 @@ import { DefaultSettings } from "./model/DefaultSettings";
 import { GameArt } from "./model/GameArt";
 import { AfterStreamAction, DeviceId, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, Settings, StreamMode, SunshineLoginDraft } from "./model/Types";
 import { Backend } from "./services/Backend";
+import { CompanionCovers } from "./services/CompanionCovers";
 import { AfterStreamDialog } from "./views/AfterStreamDialog";
 import { ConnectScreen } from "./views/ConnectScreen";
 import { ConnectionScreen } from "./views/ConnectionScreen";
@@ -98,6 +99,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   private static readonly connectStepMilliseconds = 450;
 
   public readonly backend = new Backend();
+
+  private readonly companionCovers = new CompanionCovers(this.backend);
 
   private readonly inputRouter = new InputRouter(this.backend, (button) => this.press(button));
 
@@ -366,7 +369,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
         hostState: "online",
         gameIndex: Math.min(state.gameIndex, Math.max(0, games.length - 1)),
       }));
-      this.loadBoxArt(settings);
+      this.loadBoxArt(settings, host, games);
     }
     catch (fetchError)
     {
@@ -374,18 +377,25 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }
   }
 
-  /** Covers are optional: without them the placeholders stay, so errors are only logged. */
-  private async loadBoxArt(settings: Settings): Promise<void>
+  /**
+   * Covers are optional: without them the placeholders stay, so errors are only logged.
+   * Moonlight's cache first, then the companion for games Moonlight has no cover for.
+   */
+  private async loadBoxArt(settings: Settings, host: string, games: string[]): Promise<void>
   {
+    let boxArt: Record<string, string> = {};
     try
     {
-      const boxArt = await this.backend.loadBoxArt(settings, this.hostAddresses(settings));
-      this.setState({ boxArt: boxArt ?? {} });
+      boxArt = (await this.backend.loadBoxArt(settings, this.hostAddresses(settings))) ?? {};
     }
     catch (artError)
     {
       console.warn("no cover art", artError);
     }
+    this.setState({ boxArt });
+
+    const companionCovers = await this.companionCovers.missingCovers(host, games, boxArt);
+    this.setState((state) => ({ boxArt: { ...companionCovers, ...state.boxArt } }));
   }
 
   public artFor(gameName: string): GameArt
@@ -395,8 +405,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   // ---------------------------------------------------------------- toasts and timers
 
-  /** Matches the 1.9 s pop animation of normal toasts in styles.css. */
-  private static readonly toastMilliseconds = 1950;
+  /** Matches the 3.5 s pop animation of normal toasts in styles.css. */
+  private static readonly toastMilliseconds = 3550;
 
   /** Errors need time to be read on the Deck; A or B closes them earlier. */
   private static readonly errorToastMilliseconds = 6000;
