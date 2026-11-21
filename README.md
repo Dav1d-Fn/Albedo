@@ -4,6 +4,13 @@
 
 # Albedo – A Controller Launcher for Moonlight on the Steam Deck 🎮
 
+> [!CAUTION]
+> **Not every feature works on every PC yet.** The PC side is built for and tested on
+> **KDE Plasma (Wayland) with an AMD GPU** only. Albedo on the Deck and plain Sunshine streaming
+> work with any PC that runs Sunshine, but switching the PC's screen to the Deck's resolution
+> relies on KDE tools and a kernel feature only known to work with AMD's driver.
+> See [Requirements](#requirements-) for what needs what.
+
 > 📸 **Placeholder:** `docs/media/hero.gif` – the home screen, browsing games and switching
 > from Handheld (blue) to TV (orange) with **X**.
 
@@ -146,12 +153,6 @@ Releases are signed. The AppImage checks GitHub on start and updates itself afte
 ---
 
 ## Requirements 📋
-
-> [!IMPORTANT]
-> **The PC side is built for and tested on KDE Plasma (Wayland) with an AMD GPU.**
-> Albedo on the Deck and plain Sunshine streaming work with any PC that runs Sunshine. The parts
-> that switch the PC's screen to the Deck's resolution do not: they rely on KDE tools and on a
-> kernel feature that is only known to work with AMD's driver. Details below.
 
 > [!NOTE]
 > The interface is **German only** for now. Translations are welcome.
