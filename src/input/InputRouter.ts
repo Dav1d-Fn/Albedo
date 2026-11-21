@@ -1,6 +1,7 @@
 import { UnlistenFn } from "@tauri-apps/api/event";
 import { PadButton } from "../model/Types";
 import { Backend } from "../services/Backend";
+import { DuplicateInputFilter, InputSource } from "./DuplicateInputFilter";
 
 /**
  * Turns keyboard keys and native gamepad events into launcher buttons.
@@ -31,6 +32,8 @@ export class InputRouter
 
   private disposed = false;
 
+  private readonly duplicateFilter = new DuplicateInputFilter();
+
   public constructor(private readonly backend: Backend, private readonly onButton: (button: PadButton) => void)
   {
   }
@@ -44,7 +47,7 @@ export class InputRouter
       // gilrs also sees the pad while another window (e.g. Moonlight) has focus.
       if (document.hasFocus())
       {
-        this.onButton(button);
+        this.forward(button, "pad");
       }
     }).then((unlisten) =>
     {
@@ -84,6 +87,14 @@ export class InputRouter
       return;
     }
     keyEvent.preventDefault();
-    this.onButton(button);
+    this.forward(button, "keyboard");
   };
+
+  private forward(button: PadButton, source: InputSource): void
+  {
+    if (this.duplicateFilter.accepts(button, source))
+    {
+      this.onButton(button);
+    }
+  }
 }
