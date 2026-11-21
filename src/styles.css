@@ -213,6 +213,9 @@ body { cursor: default; user-select: none; }
 .arr .i { width: 18px; height: 18px; }
 .val { display: inline-block; min-width: 132px; text-align: center; font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums; }
 .val.short { min-width: 100px; }
+.valinput { width: 132px; height: 34px; padding: 0 6px; border-radius: 9px; border: 1.5px solid transparent; background: transparent; color: inherit; font: inherit; font-weight: 700; font-size: 16px; outline: none; user-select: text; }
+.valinput:focus { border-color: var(--acc); background: rgba(0,0,0,.35); }
+.valinput.off { color: #FDE68A; }
 .pchint { flex: none; margin: 2px 12px 4px 20px; padding: 10px 14px; border-radius: 12px; background: rgba(251,191,36,.12); border: 1px solid rgba(251,191,36,.35); color: #FDE68A; font-size: 14px; line-height: 1.35; }
 .b0 { animation: bump0 .45s cubic-bezier(.3,1.6,.5,1); }
 .b1 { animation: bump1 .45s cubic-bezier(.3,1.6,.5,1); }

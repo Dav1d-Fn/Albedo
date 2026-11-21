@@ -76,7 +76,9 @@ export function HintBar(props: { app: LauncherApp })
     {
       const rowType = EditorRows.rows[state.editRow]?.type;
       const rowActionLabels: Partial<Record<string, string>> = { text: t.editor.rename, screen: t.editor.takeScreen, delete: t.editor.deleteDevice };
-      const rowActionLabel = rowActionLabels[rowType ?? ""] ?? t.common.toggle;
+      const rowKey = EditorRows.rows[state.editRow]?.key;
+      const typesValue = rowKey === "resolution" || rowKey === "fps";
+      const rowActionLabel = typesValue ? t.editor.typeValue : rowActionLabels[rowType ?? ""] ?? t.common.toggle;
       if (rowType !== "delete")
       {
         hints.push({ glyph: "◀ ▶", label: t.editor.changeValue, button: "RIGHT", pill: true });
