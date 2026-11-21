@@ -84,7 +84,22 @@ export class BrowserMock
   private static endStream(exitCode: number | null): void
   {
     streamRunning = false;
-    emit("stream-ended", { exitCode, errorTail: "" });
+    // Lines as Moonlight logs them at the end of a stream (stream_session.rs reads them from stderr).
+    const videoStats =
+    [
+      "Video stream: 1280x800 90.00 FPS (Codec: HEVC Main)",
+      "Incoming frame rate from network: 89.71 FPS",
+      "Decoding frame rate: 89.70 FPS",
+      "Rendering frame rate: 89.65 FPS",
+      "Host processing latency min/max/average: 3.1/9.8/4.6 ms",
+      "Frames dropped by your network connection: 0.21%",
+      "Frames dropped due to network jitter: 0.04%",
+      "Average network latency: 4 ms (variance: 1 ms)",
+      "Average decoding time: 2.35 ms",
+      "Average frame queue delay: 0.41 ms",
+      "Average rendering time (including monitor V-sync latency): 6.80 ms",
+    ];
+    emit("stream-ended", { exitCode, errorTail: "", videoStats: exitCode === 0 ? videoStats : [] });
   }
 
   public static installIfNeeded(): void

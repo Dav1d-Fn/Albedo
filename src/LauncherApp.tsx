@@ -9,6 +9,7 @@ import { AfterStreamAction, ArtKind, BackdropKind, DeviceId, UiLanguage, DeviceP
 import { AvailableUpdate, Backend } from "./services/Backend";
 import { CompanionArt } from "./services/CompanionArt";
 import { AfterStreamDialog } from "./views/AfterStreamDialog";
+import { StreamSummaryDialog } from "./views/StreamSummaryDialog";
 import { ConnectScreen } from "./views/ConnectScreen";
 import { ConnectionScreen } from "./views/ConnectionScreen";
 import { DetailScreen } from "./views/DetailScreen";
@@ -23,7 +24,7 @@ import { SunshineLoginDialog } from "./views/SunshineLoginDialog";
 import { ToastCard, ToastContent } from "./views/ToastCard";
 import { UpdateDialog } from "./views/UpdateDialog";
 
-export type ScreenName = "home" | "detail" | "connect" | "stream" | "afterStream" | "editor" | "connection" | "library";
+export type ScreenName = "home" | "detail" | "connect" | "stream" | "afterStream" | "streamSummary" | "editor" | "connection" | "library";
 
 export type HostState = "loading" | "online" | "error";
 
@@ -56,6 +57,8 @@ export interface LauncherState
   /** Dialog after a normal disconnect: 0 = keep the game running, 1 = quit it on the PC. */
   afterStreamIndex: number;
   afterStreamRemember: boolean;
+  /** Moonlight's statistics of the last stream (English lines), shown after it when `showStreamSummary` is on. */
+  streamSummary: string[];
   /** Editor state. */
   editDevice: DeviceId;
   editModeIndex: number;
@@ -212,6 +215,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       pairMessage: "",
       afterStreamIndex: 0,
       afterStreamRemember: false,
+      streamSummary: [],
       library: [],
       libraryState: "loading",
       libraryError: "",
@@ -238,7 +242,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.inputRouter.attach();
     window.addEventListener("resize", this.handleResize);
 
-    const unlisten = await this.backend.onStreamEnded((event) => this.handleStreamEnded(event.exitCode, event.errorTail));
+    const unlisten = await this.backend.onStreamEnded((event) => this.handleStreamEnded(event.exitCode, event.errorTail, event.videoStats ?? []));
     if (!this.mounted)
     {
       unlisten();
@@ -728,6 +732,12 @@ export default class LauncherApp extends React.Component<object, LauncherState>
         return;
       case "afterStream":
         return this.afterStreamButton(button);
+      case "streamSummary":
+        if (button === "A" || button === "B")
+        {
+          this.closeStreamSummary();
+        }
+        return;
     }
   }
 
@@ -1274,7 +1284,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }
   }
 
-  private handleStreamEnded(exitCode: number | null, errorTail: string): void
+  private handleStreamEnded(exitCode: number | null, errorTail: string, videoStats: string[]): void
   {
     if (this.streamAbortRequested)
     {
@@ -1294,13 +1304,15 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       return;
     }
 
+    // The pause/quit dialog shows the statistics too; otherwise they get a dialog of their own.
+    const streamSummary = this.settings.showStreamSummary ? videoStats : [];
     const afterStream = this.afterStreamFor(this.selectedGame());
     if (afterStream === "ask")
     {
-      this.setState({ screen: "afterStream", afterStreamIndex: 0, afterStreamRemember: false, lastLaunchError: "" });
+      this.setState({ screen: "afterStream", afterStreamIndex: 0, afterStreamRemember: false, lastLaunchError: "", streamSummary });
       return;
     }
-    this.setState({ screen: "detail", lastLaunchError: "" });
+    this.setState({ screen: streamSummary.length > 0 ? "streamSummary" : "detail", lastLaunchError: "", streamSummary });
     if (afterStream === "quit")
     {
       this.quitHostApp();
@@ -1356,6 +1368,17 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       this.quitHostApp();
     }
+  }
+
+  public closeStreamSummary(): void
+  {
+    this.setState({ screen: "detail" });
+  }
+
+  /** Connection screen row: statistics after the stream on/off. */
+  public toggleStreamSummary(): void
+  {
+    this.updateSettings((settings) => ({ ...settings, showStreamSummary: !settings.showStreamSummary }));
   }
 
   // ---------------------------------------------------------------- backdrop picture behind the menu
@@ -2391,7 +2414,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   // ---------------------------------------------------------------- connection and pairing
 
   /** Rows on the right side of the connection screen. */
-  public static readonly connectionRows = ["pair", "addresses", "moonlight", "afterStream", "backdrop", "steamGridDb", "language"] as const;
+  public static readonly connectionRows = ["pair", "addresses", "moonlight", "afterStream", "streamSummary", "backdrop", "steamGridDb", "language"] as const;
 
   public openConnection(): void
   {
@@ -2447,6 +2470,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   public static readonly addressesRowIndex = LauncherApp.connectionRows.indexOf("addresses");
 
   public static readonly backdropRowIndex = LauncherApp.connectionRows.indexOf("backdrop");
+
+  public static readonly streamSummaryRowIndex = LauncherApp.connectionRows.indexOf("streamSummary");
 
   public static readonly steamGridDbRowIndex = LauncherApp.connectionRows.indexOf("steamGridDb");
 
@@ -2670,6 +2695,10 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       this.cycleAfterStream();
     }
+    else if (row === "streamSummary")
+    {
+      this.toggleStreamSummary();
+    }
     else if (row === "backdrop")
     {
       this.cycleBackdropKind();
@@ -2762,7 +2791,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       >
         <div className="inner" style={innerStyle}>
           {state.screen === "home" && <HomeScreen app={this} />}
-          {(state.screen === "detail" || state.screen === "afterStream") && <DetailScreen app={this} />}
+          {(state.screen === "detail" || state.screen === "afterStream" || state.screen === "streamSummary") && <DetailScreen app={this} />}
           {state.screen === "connect" && <ConnectScreen app={this} />}
           {state.screen === "stream" && <StreamScreen app={this} />}
           {state.screen === "editor" && <EditorScreen app={this} />}
@@ -2770,6 +2799,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
           {state.screen === "library" && <LibraryScreen app={this} />}
           <div className="ambient" />
           {state.screen === "afterStream" && <AfterStreamDialog app={this} />}
+          {state.screen === "streamSummary" && <StreamSummaryDialog app={this} />}
           {state.screen === "detail" && state.imageDialog !== null && <ImageDialog app={this} />}
           {state.screen === "library" && state.sunshineLogin !== null && <SunshineLoginDialog app={this} />}
           {state.update !== null && <UpdateDialog app={this} />}

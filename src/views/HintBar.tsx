@@ -135,6 +135,10 @@ export function HintBar(props: { app: LauncherApp })
     hints.push({ glyph: "Y", label: state.afterStreamRemember ? t.common.dontRemember : t.common.remember, button: "Y" });
     hints.push({ glyph: "B", label: t.afterStreamNames.keep, button: "B" });
   }
+  else if (state.screen === "streamSummary")
+  {
+    hints.push({ glyph: "A", label: t.streamStats.ok, button: "A" });
+  }
   else if (state.screen === "stream")
   {
     hints.push({ glyph: "B", label: t.stream.endStream, button: "B" });

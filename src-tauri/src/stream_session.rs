@@ -18,6 +18,8 @@ struct StreamEndedEvent
 {
     exit_code: Option<i32>,
     error_tail: String,
+    /// Lines of Moonlight's "Global video stats" summary (English, as Moonlight logs them), empty when none was logged.
+    video_stats: Vec<String>,
 }
 
 /// Runs Moonlight as a child process and reports back when it exits.
@@ -82,9 +84,10 @@ impl StreamSession
                     {
                         exit_code: output.status.code(),
                         error_tail: Self::last_characters(&error_text, 600),
+                        video_stats: Self::video_stats_summary(&error_text),
                     }
                 }
-                Err(error) => StreamEndedEvent { exit_code: None, error_tail: error.to_string() },
+                Err(error) => StreamEndedEvent { exit_code: None, error_tail: error.to_string(), video_stats: Vec::new() },
             };
             if let Ok(mut running_group) = running_group_for_thread.lock()
             {
@@ -158,6 +161,41 @@ impl StreamSession
         Some(vec!["sleep".into(), seconds.into()])
     }
 
+    /// Moonlight logs its stream statistics to stderr when the video decoder closes:
+    /// "Global video stats", a dashed line, then one "Label: value" line each, until the next log line.
+    /// Returns the stat lines of the last such block.
+    fn video_stats_summary(log_text: &str) -> Vec<String>
+    {
+        let Some(title_position) = log_text.rfind("Global video stats")
+        else
+        {
+            return Vec::new();
+        };
+
+        let mut stat_lines = Vec::new();
+        for line in log_text[title_position..].lines().skip(1)
+        {
+            let line = line.trim();
+            if line.starts_with("---")
+            {
+                continue;
+            }
+            if line.is_empty() || Self::is_log_line_start(line)
+            {
+                break;
+            }
+            stat_lines.push(line.to_string());
+        }
+        stat_lines
+    }
+
+    /// Moonlight's log lines start with a timestamp, e.g. "00:01:23 - SDL Info (0): …".
+    fn is_log_line_start(line: &str) -> bool
+    {
+        let bytes = line.as_bytes();
+        bytes.len() > 10 && bytes[0].is_ascii_digit() && bytes[2] == b':' && line[8..].starts_with(" - ")
+    }
+
     fn last_characters(text: &str, count: usize) -> String
     {
         let characters: Vec<char> = text.trim().chars().collect();
@@ -173,6 +211,30 @@ mod tests
     use std::process::Command;
 
     use super::StreamSession;
+
+    #[test]
+    fn reads_the_last_video_stats_block_from_the_log()
+    {
+        let log_text = "00:00:01 - SDL Info (0): Connecting\n\
+                        00:05:00 - SDL Info (0): \n\
+                        Global video stats\n\
+                        ------------------\n\
+                        Video stream: 1280x800 90.00 FPS (Codec: HEVC Main)\n\
+                        Frames dropped by your network connection: 0.12%\n\
+                        Average decoding time: 2.10 ms\n\
+                        \n\
+                        00:05:01 - SDL Info (0): Quit\n";
+
+        assert_eq!(
+            StreamSession::video_stats_summary(log_text),
+            vec![
+                "Video stream: 1280x800 90.00 FPS (Codec: HEVC Main)",
+                "Frames dropped by your network connection: 0.12%",
+                "Average decoding time: 2.10 ms",
+            ]
+        );
+        assert!(StreamSession::video_stats_summary("no stats here").is_empty());
+    }
 
     /// A hanging Moonlight with a child process (like `flatpak run`): the group signal ends both.
     #[test]

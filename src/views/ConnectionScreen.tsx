@@ -154,6 +154,22 @@ export function ConnectionScreen(props: { app: LauncherApp })
             </div>
           </div>
 
+          <div className={"row" + rowFocus(LauncherApp.streamSummaryRowIndex)} ref={rowScroll(LauncherApp.streamSummaryRowIndex)}>
+            <button className="rlabel" onClick={() => app.activateConnectionRow(LauncherApp.streamSummaryRowIndex)}>{t.connection.showStreamStats}</button>
+            <div className="ctrl">
+              <span className="val short">{settings.showStreamSummary ? t.common.on : t.common.off}</span>
+              <button
+                className={"toggle" + (settings.showStreamSummary ? " on" : "")}
+                role="switch"
+                aria-checked={settings.showStreamSummary}
+                aria-label={t.connection.showStreamStats}
+                onClick={() => app.activateConnectionRow(LauncherApp.streamSummaryRowIndex)}
+              >
+                <span className="knob" />
+              </button>
+            </div>
+          </div>
+
           <div className="rhead clabel">{t.connection.background}</div>
           <div className={"row" + rowFocus(LauncherApp.backdropRowIndex)} ref={rowScroll(LauncherApp.backdropRowIndex)}>
             <button className="rlabel" onClick={() => app.activateConnectionRow(LauncherApp.backdropRowIndex)}>{t.connection.pictureBehindMenu}</button>

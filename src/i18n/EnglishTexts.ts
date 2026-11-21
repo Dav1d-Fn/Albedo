@@ -142,6 +142,23 @@ export const englishTexts: TextTable =
     question: "Still running on the PC. Keep it running or quit?",
   },
 
+  streamStats:
+  {
+    videoStream: "Video stream",
+    networkFrameRate: "Frame rate from network",
+    decodingFrameRate: "Frame rate decoded",
+    renderingFrameRate: "Frame rate rendered",
+    hostLatency: "PC processing (min/max/avg)",
+    networkDrops: "Frames lost (network)",
+    jitterDrops: "Frames lost (jitter)",
+    networkLatency: "Avg. network latency",
+    decodingTime: "Avg. decoding time",
+    queueDelay: "Avg. queue delay",
+    renderingTime: "Avg. rendering time (incl. V-Sync)",
+    variance: "variance",
+    ok: "OK",
+  },
+
   imageDialog:
   {
     title: (gameName: string) => gameName + " · Set image",
@@ -200,6 +217,7 @@ export const englishTexts: TextTable =
     rowColor: "Color",
     rowIcon: "Icon",
     rowAudio: "Audio",
+    rowPerformanceOverlay: "Performance overlay",
     rowAutoRule: "Auto-select when",
     rowScreen: "Screen",
     pcModeInexact: (modeText: string) => "The PC's virtual monitor can't do this exactly and uses " + modeText + ".",
@@ -274,6 +292,7 @@ export const englishTexts: TextTable =
     moonlightVersion: "Moonlight version",
     afterTheStream: "After the stream",
     gameOnPc: "Game on the PC",
+    showStreamStats: "Show stream statistics",
     background: "Background",
     pictureBehindMenu: "Image behind the menu",
     picturesFromWeb: "Images from the web",

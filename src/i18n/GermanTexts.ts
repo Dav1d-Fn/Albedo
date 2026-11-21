@@ -145,6 +145,25 @@ export const germanTexts =
     question: "Läuft noch auf dem PC. Weiterlaufen lassen oder beenden?",
   },
 
+  /** Labels of Moonlight's statistics after the stream (StreamStatsText maps Moonlight's English lines to these keys). */
+  streamStats:
+  {
+    videoStream: "Videostream",
+    networkFrameRate: "Bildrate vom Netzwerk",
+    decodingFrameRate: "Bildrate dekodiert",
+    renderingFrameRate: "Bildrate angezeigt",
+    hostLatency: "Verarbeitung am PC (min/max/Ø)",
+    networkDrops: "Verlorene Bilder (Netzwerk)",
+    jitterDrops: "Verlorene Bilder (Schwankungen)",
+    networkLatency: "Netzwerk-Latenz Ø",
+    decodingTime: "Dekodierzeit Ø",
+    queueDelay: "Wartezeit vor der Anzeige Ø",
+    renderingTime: "Anzeigezeit Ø (mit V-Sync)",
+    /** Replaces Moonlight's "variance" in "4 ms (variance: 1 ms)". */
+    variance: "Schwankung",
+    ok: "OK",
+  },
+
   imageDialog:
   {
     title: (gameName: string) => gameName + " · Bild setzen",
@@ -203,6 +222,7 @@ export const germanTexts =
     rowColor: "Farbe",
     rowIcon: "Symbol",
     rowAudio: "Ton",
+    rowPerformanceOverlay: "Leistungsanzeige",
     rowAutoRule: "Automatisch aktiv bei",
     rowScreen: "Bildschirm",
     pcModeInexact: (modeText: string) => "Der virtuelle Monitor des PCs kann das nicht genau und nimmt " + modeText + ".",
@@ -277,6 +297,7 @@ export const germanTexts =
     moonlightVersion: "Moonlight-Version",
     afterTheStream: "Nach dem Stream",
     gameOnPc: "Spiel auf dem PC",
+    showStreamStats: "Stream-Statistik zeigen",
     background: "Hintergrund",
     pictureBehindMenu: "Bild hinter dem Menü",
     picturesFromWeb: "Bilder aus dem Netz",

@@ -1,6 +1,7 @@
 import { UiText } from "../i18n/UiText";
 import type LauncherApp from "../LauncherApp";
 import { CheckIcon, PlayIcon } from "./Icons";
+import { StreamSummary } from "./StreamSummary";
 
 /** Asked after Moonlight disconnected normally: leave the game running on the PC or end it. */
 export function AfterStreamDialog(props: { app: LauncherApp })
@@ -15,6 +16,7 @@ export function AfterStreamDialog(props: { app: LauncherApp })
       <div className="dcard">
         <div className="teyebrow">{t.afterStreamDialog.disconnected(app.hostDisplayName())}</div>
         <div className="tname">{gameName}</div>
+        {state.streamSummary.length > 0 && <StreamSummary statLines={state.streamSummary} />}
         <div className="tsub">{t.afterStreamDialog.question}</div>
 
         <div className="actions dialogactions">

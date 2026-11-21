@@ -5,10 +5,10 @@ import { DeviceProfile, StreamMode } from "../model/Types";
 /** "text" = typed (device name), "screen" = A takes the connected screen's name, "delete" = A deletes the device. */
 export type RowType = "list" | "range" | "bool" | "seg" | "text" | "screen" | "delete";
 
-type DeviceRowKey = "name" | "color" | "icon" | "audio" | "autoRule" | "displayName" | "deleteDevice";
+type DeviceRowKey = "name" | "color" | "icon" | "audio" | "performanceOverlay" | "autoRule" | "displayName" | "deleteDevice";
 
 /** Key of a row label in the "editor" part of the text tables. */
-type RowLabelKey = "rowResolution" | "rowFrameRate" | "rowBitrate" | "rowHdr" | "rowCodec" | "rowName" | "rowColor" | "rowIcon" | "rowAudio" | "rowAutoRule" | "rowScreen" | "deleteDevice";
+type RowLabelKey = "rowResolution" | "rowFrameRate" | "rowBitrate" | "rowHdr" | "rowCodec" | "rowName" | "rowColor" | "rowIcon" | "rowAudio" | "rowPerformanceOverlay" | "rowAutoRule" | "rowScreen" | "deleteDevice";
 
 export interface EditorRow
 {
@@ -41,6 +41,7 @@ export class EditorRows
     { key: "color", labelKey: "rowColor", type: "list", scope: "device", options: DevicePalette.colorOrder },
     { key: "icon", labelKey: "rowIcon", type: "list", scope: "device", options: DevicePalette.iconOrder },
     { key: "audio", labelKey: "rowAudio", type: "list", scope: "device", options: ["Stereo", "5.1 Surround", "7.1 Surround"] },
+    { key: "performanceOverlay", labelKey: "rowPerformanceOverlay", type: "bool", scope: "device" },
     { key: "autoRule", labelKey: "rowAutoRule", type: "list", scope: "device", options: ["Deck ohne Dock", "Dock mit Bildschirm", "Dieser Bildschirm", "Nur manuell"] },
     { key: "displayName", labelKey: "rowScreen", type: "screen", scope: "device" },
     { key: "deleteDevice", labelKey: "deleteDevice", type: "delete", scope: "device" },

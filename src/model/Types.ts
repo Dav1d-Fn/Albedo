@@ -48,6 +48,8 @@ export interface DeviceProfile
   autoRule: AutoRule;
   /** Monitor name from the screen's EDID for the rule "Dieser Bildschirm", e.g. "LG TV SSCR2". */
   displayName: string;
+  /** Moonlight's stats overlay during the stream (FPS, latency, dropped frames); Select+L1+R1+X toggles it live. */
+  performanceOverlay: boolean;
   defaultModeIndex: number;
   modes: StreamMode[];
 }
@@ -80,6 +82,8 @@ export interface Settings
   afterStream: AfterStreamAction;
   /** Game name -> after-stream action for that game, missing = the default above. */
   afterStreamPerGame: Record<string, AfterStreamAction>;
+  /** After a normal disconnect, show Moonlight's stream statistics (average FPS, latency, dropped frames). */
+  showStreamSummary: boolean;
   backdropKind: BackdropKind;
   /** Game name -> backdrop kind for that game, missing = the default above. */
   backdropKindPerGame: Record<string, BackdropKind>;

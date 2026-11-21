@@ -357,3 +357,9 @@ body { cursor: default; user-select: none; }
 .row.delrow .rlabel { color: #FCA5A5; }
 :where(.app) button.madd.danger { flex: none; padding: 0 18px; border-style: solid; border-color: rgba(248,113,113,.45); color: #FCA5A5; }
 .mbtns { display: grid; grid-template-columns: 1fr 1fr; }
+
+/* Moonlight's statistics after the stream (StreamSummary) */
+.statlist { display: grid; grid-template-columns: auto auto; column-gap: 24px; row-gap: 4px; margin: 10px 0 4px; text-align: left; font-size: 14px; }
+.statline { display: contents; }
+.statlabel { color: #A1A1AA; }
+.statvalue { color: #F5F5F7; font-variant-numeric: tabular-nums; }

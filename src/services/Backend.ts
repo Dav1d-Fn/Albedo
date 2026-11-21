@@ -8,6 +8,8 @@ export interface StreamEnded
 {
   exitCode: number | null;
   errorTail: string;
+  /** Moonlight's "Global video stats" lines (English), empty when it logged none. */
+  videoStats: string[];
 }
 
 /** A newer signed release on GitHub (src-tauri/src/app_updater.rs). */
@@ -207,6 +209,7 @@ export class Backend
         codec: mode.codec,
         hdr: mode.hdr,
         audio: profile.audio,
+        performanceOverlay: profile.performanceOverlay,
       },
     });
   }

@@ -20,6 +20,7 @@ export class DefaultSettings
       sunshinePassword: "",
       afterStream: "ask",
       afterStreamPerGame: {},
+      showStreamSummary: false,
       backdropKind: "hero",
       backdropKindPerGame: {},
       steamGridDbKey: "",
@@ -34,6 +35,7 @@ export class DefaultSettings
           audio: "Stereo",
           autoRule: "Deck ohne Dock",
           displayName: "",
+          performanceOverlay: false,
           defaultModeIndex: 0,
           modes:
           [
@@ -50,6 +52,7 @@ export class DefaultSettings
           audio: "5.1 Surround",
           autoRule: "Dock mit Bildschirm",
           displayName: "",
+          performanceOverlay: false,
           defaultModeIndex: 1,
           modes:
           [
