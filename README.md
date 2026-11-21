@@ -249,6 +249,31 @@ curl -s localhost:47995/api/health
 
 ---
 
+## Security 🔒
+
+Albedo is made for your **home network**. Nothing of it belongs on the open internet.
+
+> [!WARNING]
+> **Never forward Sunshine's ports (47984–48010, web UI 47990) or the companion's port 47995 in
+> your router.** To play away from home, use a VPN such as [Tailscale](https://tailscale.com/) and
+> add the PC's Tailscale address in *Verbindung*.
+
+| Part | How it is protected |
+|---|---|
+| **Moonlight ↔ Sunshine** | Paired once with a PIN; after that both sides know each other's certificate and the stream is encrypted. Unpaired devices get nothing. |
+| **Sunshine web UI** (47990) | Sunshine's own username and password. |
+| **Companion** (47995) | No login. It only answers the home network (private IPv4 ranges), Tailscale (`100.64.0.0/10`) and localhost, and drops everything else, even if the port were forwarded. It never runs commands sent by a client: it only creates Sunshine apps for games it found on the PC itself. |
+| **Picture upload links** | Random, valid for a few minutes and usable once. |
+| **Sunshine login in the companion** | Stored in the companion's config on the PC (readable only by your user), never sent back to any client. |
+| **Updates** | Signed; the app only installs releases signed with the project's key. |
+
+**What someone on your Wi-Fi could do:** because the companion has no login, any device in your
+home network could add or remove Sunshine apps, delete pictures you set, quit a running game or
+replace the Sunshine login stored in the companion. It cannot read your files, run programs or
+see the Sunshine password. If guests use your network, put them on a guest Wi-Fi.
+
+---
+
 ## Controls 🎮
 
 | Button | Keyboard | Home | Game detail |

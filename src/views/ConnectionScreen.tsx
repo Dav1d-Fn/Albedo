@@ -111,7 +111,7 @@ export function ConnectionScreen(props: { app: LauncherApp })
             <input
               id="extra-address"
               className="hostinput"
-              placeholder="z. B. 100.124.221.14"
+              placeholder="z. B. 100.64.0.1"
               value={state.extraAddressDraft}
               spellCheck={false}
               onChange={(changeEvent) => app.setState({ extraAddressDraft: changeEvent.target.value })}
