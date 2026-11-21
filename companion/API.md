@@ -60,6 +60,9 @@ Everything that can be added, sorted by group, then name.
   cannot work then; the launcher should say so before the user presses A, not only after.
 - `hasHero`: a wide title picture exists (`GET /api/hero/<id>`). Steam: `library_hero.jpg`,
   Heroic: `art_cover`. Not in the example lines above means `false`; every entry has both fields.
+- `hasLogo`: a transparent logo exists (`GET /api/logo/<id>`). Steam: `logo.png`, non-Steam:
+  `grid/<appid>_logo.png`, Heroic: `art_logo`.
+- `hasCover`/`hasHero`/`hasLogo` include the user's overrides (see "Pictures per entry").
 - `screenshotCount`: Steam screenshots of all Steam accounts on the PC (`GET /api/screenshot/<id>/<index>`),
   `0` for everything else. A new screenshot shifts the indices, so reload the library to see it.
 - Not listed: tools like Proton, Steam Linux Runtime, Steamworks Redist, Wallpaper Engine, VR-only games.
@@ -89,6 +92,31 @@ JPEG for an entry with `hasHero`, at most 1920 px wide, 404 otherwise. Cached in
 ### `GET /api/screenshot/<id>/<index>`
 
 JPEG, at most 1920 px wide. Index `0` is the newest; outside `0 … screenshotCount-1` it is 404. Cached like the hero.
+
+### `GET /api/logo/<id>`
+
+PNG (transparency kept), at most 1200 px wide, for an entry with `hasLogo`, 404 otherwise. Cached like the hero.
+
+### Pictures per entry (overrides, phone upload)
+
+An override replaces the automatic cover, hero or logo of one entry everywhere (`/api/cover`,
+`/api/hero`, `/api/logo`, the `has…` flags, and the cover file of an app already in Sunshine;
+Moonlight may still show its cached old box art). Stored in
+`~/.config/streaming-launcher-companion/art/<id>-<kind>.png|jpg`. `kind` is `cover`, `hero` or `logo`.
+
+- `POST /api/upload-token`, body `{ "id": "steam:1245620", "kind": "hero" }` →
+  `{ "url": "http://<pc hostname>:47995/upload/<token>", "expiresInSeconds": 600 }`.
+  Show the URL as a QR code; replace the host with the address the launcher uses.
+- `GET /upload/<token>`: phone page (German) that names the game and the kind of picture.
+  Picking a file sends it as the raw body of `POST /upload/<token>` (no multipart).
+- `POST /upload/<token>`: raw image body, at most 15 MB (else 413). Anything ImageMagick reads;
+  turned upright (`-auto-orient`) and converted (cover 600x900 PNG, hero JPEG ≤1920 px, logo PNG
+  ≤1200 px). Not an image: 400, the link stays valid. Success: `204`, the link is used up.
+  Unknown, expired (10 min) or used token: 410.
+- `DELETE /api/art/<id>/<kind>`: back to the automatic picture, `204` (also when there was none).
+- `GET /api/art-version` → `{ "version": 3 }`: changes with every upload and delete. In memory
+  only, so it restarts at 0 with the service; treat any change as "reload pictures". Poll it
+  while the QR dialog is open.
 
 ### `POST /api/apps`
 

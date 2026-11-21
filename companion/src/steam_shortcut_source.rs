@@ -156,6 +156,7 @@ impl SteamShortcutSource
             group: if is_emulation { "Emulation".into() } else { "Nicht-Steam".into() },
             cover: Self::grid_image(grid_directory, &format!("{}p", app_id)),
             hero: Self::grid_image(grid_directory, &format!("{}_hero", app_id)),
+            logo: Self::grid_image(grid_directory, &format!("{}_logo", app_id)),
             screenshots: Vec::new(),
             command,
             detached_command,
@@ -192,7 +193,7 @@ impl SteamShortcutSource
         }
     }
 
-    /// Steam's custom artwork: grid/<appid>p.png (portrait), <appid>_hero.png, as png or jpg.
+    /// Steam's custom artwork: grid/<appid>p.png (portrait), <appid>_hero.png, <appid>_logo.png, as png or jpg.
     fn grid_image(grid_directory: &Path, file_stem: &str) -> CoverSource
     {
         ["png", "jpg"]

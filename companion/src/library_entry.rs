@@ -13,6 +13,8 @@ pub struct LibraryEntry
     pub cover: CoverSource,
     /// Wide title picture for the launcher's background.
     pub hero: CoverSource,
+    /// Transparent game logo (shown over the hero).
+    pub logo: CoverSource,
     /// The user's screenshots of this game, newest first.
     pub screenshots: Vec<PathBuf>,
     /// Sunshine "cmd": a process Sunshine waits on (empty = none).
@@ -41,6 +43,7 @@ impl LibraryEntry
             group: self.group.clone(),
             has_cover: self.has_cover(),
             has_hero: !matches!(self.hero, CoverSource::None),
+            has_logo: !matches!(self.logo, CoverSource::None),
             screenshot_count: self.screenshots.len(),
             in_sunshine,
         }

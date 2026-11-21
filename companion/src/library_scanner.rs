@@ -1,3 +1,4 @@
+use crate::art_override_store::ArtOverrideStore;
 use crate::desktop_file_source::DesktopFileSource;
 use crate::heroic_source::HeroicSource;
 use crate::library_entry::LibraryEntry;
@@ -25,6 +26,10 @@ impl LibraryScanner
         entries.extend(LutrisSource.scan());
         entries.extend(PrismSource.scan());
         entries.extend(DesktopFileSource.scan());
+        for entry in entries.iter_mut()
+        {
+            ArtOverrideStore.apply(entry);
+        }
 
         entries.sort_by_key(|entry|
         {

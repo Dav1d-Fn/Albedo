@@ -24,9 +24,8 @@ impl HeroicSource
         {
             for (app_name, game) in installed_games
             {
-                let cover_url = Self::find_cover_url(&legendary_library, app_name);
-                let hero_url = Self::find_hero_url(&legendary_library, app_name);
-                entries.push(Self::build_entry(app_name, game, "legendary", cover_url, hero_url));
+                let art_urls = Self::find_art_urls(&legendary_library, app_name);
+                entries.push(Self::build_entry(app_name, game, "legendary", art_urls));
             }
         }
 
@@ -40,25 +39,26 @@ impl HeroicSource
                 let app_name = game["appName"].as_str().unwrap_or_default();
                 let mut game_with_title = game.clone();
                 game_with_title["title"] = Self::find_title(&gog_library, app_name).into();
-                let cover_url = Self::find_cover_url(&gog_library, app_name);
-                let hero_url = Self::find_hero_url(&gog_library, app_name);
-                entries.push(Self::build_entry(app_name, &game_with_title, "gog", cover_url, hero_url));
+                let art_urls = Self::find_art_urls(&gog_library, app_name);
+                entries.push(Self::build_entry(app_name, &game_with_title, "gog", art_urls));
             }
         }
         entries
     }
 
-    fn build_entry(app_name: &str, game: &Value, runner: &str, cover_url: Option<String>, hero_url: Option<String>) -> LibraryEntry
+    fn build_entry(app_name: &str, game: &Value, runner: &str, art_urls: [CoverSource; 3]) -> LibraryEntry
     {
         let title = game["title"].as_str().filter(|title| !title.is_empty()).unwrap_or(app_name);
         let install_path = game["install_path"].as_str().unwrap_or_default();
+        let [cover, hero, logo] = art_urls;
         LibraryEntry
         {
             id: format!("heroic:{}", app_name),
             name: title.to_string(),
             group: "Heroic".into(),
-            cover: cover_url.map(CoverSource::Url).unwrap_or(CoverSource::None),
-            hero: hero_url.map(CoverSource::Url).unwrap_or(CoverSource::None),
+            cover,
+            hero,
+            logo,
             screenshots: Vec::new(),
             command: String::new(),
             detached_command: Some(format!("xdg-open \"heroic://launch?appName={}&runner={}\"", app_name, runner)),
@@ -80,19 +80,22 @@ impl HeroicSource
             .to_string()
     }
 
-    /// art_square is the portrait cover.
-    fn find_cover_url(library: &Value, app_name: &str) -> Option<String>
+    /// Cover, hero and logo from the store cache: art_square is the portrait cover (art_cover
+    /// stands in when it is missing), art_cover the wide (2560x1440) picture, art_logo the logo.
+    fn find_art_urls(library: &Value, app_name: &str) -> [CoverSource; 3]
     {
-        let game = Self::library_game(library, app_name)?;
-        let cover_url = game["art_square"].as_str().or(game["art_cover"].as_str())?;
-        (!cover_url.is_empty()).then(|| cover_url.to_string())
-    }
-
-    /// art_cover is the wide (2560x1440) picture.
-    fn find_hero_url(library: &Value, app_name: &str) -> Option<String>
-    {
-        let hero_url = Self::library_game(library, app_name)?["art_cover"].as_str()?;
-        (!hero_url.is_empty()).then(|| hero_url.to_string())
+        let game = Self::library_game(library, app_name).cloned().unwrap_or(Value::Null);
+        let art_url = |key: &str|
+        {
+            game[key]
+                .as_str()
+                .filter(|url| !url.is_empty())
+                .map(|url| CoverSource::Url(url.to_string()))
+        };
+        let cover = art_url("art_square").or_else(|| art_url("art_cover")).unwrap_or(CoverSource::None);
+        let hero = art_url("art_cover").unwrap_or(CoverSource::None);
+        let logo = art_url("art_logo").unwrap_or(CoverSource::None);
+        [cover, hero, logo]
     }
 
     fn read_json(path: &std::path::Path) -> Value

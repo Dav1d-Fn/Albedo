@@ -1,4 +1,5 @@
 mod api_server;
+mod art_override_store;
 mod binary_vdf_reader;
 mod client_address_filter;
 mod companion_config;
@@ -17,6 +18,8 @@ mod steam_shortcut_source;
 mod steam_source;
 mod sunshine_app_builder;
 mod sunshine_client;
+mod upload_page;
+mod upload_token_store;
 
 use api_server::ApiServer;
 use companion_config::CompanionConfig;

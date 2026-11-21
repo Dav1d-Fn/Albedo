@@ -85,6 +85,7 @@ impl SteamSource
             group: "Steam".into(),
             cover: self.find_library_image(&app_id, "library_600x900.jpg"),
             hero: self.find_library_image(&app_id, "library_hero.jpg"),
+            logo: self.find_library_image(&app_id, "logo.png"),
             screenshots: self.find_screenshots(&app_id),
             command: String::new(),
             detached_command: Some(format!("steam steam://rungameid/{}", app_id)),

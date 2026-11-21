@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bild hochladen</title>
+<style>
+  :root { color-scheme: light dark; --accent: #3b82f6; }
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 24px 16px; background: Canvas; color: CanvasText; }
+  main { max-width: 480px; margin: 0 auto; }
+  h1 { font-size: 1.3rem; margin: 0 0 4px; }
+  .kind { opacity: 0.75; margin: 0 0 24px; }
+  label.pick { display: block; text-align: center; padding: 18px; border-radius: 12px; background: var(--accent); color: white; font-size: 1.1rem; font-weight: 600; }
+  input[type=file] { display: none; }
+  img { display: none; width: 100%; margin-top: 20px; border-radius: 8px; }
+  #status { margin-top: 20px; font-size: 1.05rem; min-height: 1.5em; }
+  .error { color: #dc2626; }
+  .done { color: #16a34a; font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>{{ENTRY_NAME}}</h1>
+  <p class="kind">{{KIND_LABEL}}</p>
+  <label class="pick" id="pick">Bild auswählen<input type="file" id="file" accept="image/*"></label>
+  <img id="preview" alt="">
+  <p id="status"></p>
+</main>
+<script>
+  const fileInput = document.getElementById("file");
+  const statusLine = document.getElementById("status");
+  const preview = document.getElementById("preview");
+  const pickButton = document.getElementById("pick");
+
+  fileInput.addEventListener("change", async () =>
+  {
+    const pickedFile = fileInput.files[0];
+    if (!pickedFile)
+    {
+      return;
+    }
+    preview.src = URL.createObjectURL(pickedFile);
+    preview.style.display = "block";
+    statusLine.className = "";
+    statusLine.textContent = "Wird hochgeladen …";
+    try
+    {
+      const response = await fetch(location.href, { method: "POST", body: pickedFile });
+      if (response.ok)
+      {
+        statusLine.className = "done";
+        statusLine.textContent = "Fertig! Das Bild ist gleich auf dem Deck zu sehen. Du kannst diese Seite schließen.";
+        pickButton.style.display = "none";
+        return;
+      }
+      const answer = await response.json().catch(() => ({}));
+      statusLine.className = "error";
+      statusLine.textContent = answer.error || ("Fehler " + response.status);
+    }
+    catch (error)
+    {
+      statusLine.className = "error";
+      statusLine.textContent = "PC nicht erreichbar. Bist du im selben WLAN?";
+    }
+  });
+</script>
+</body>
+</html>

@@ -4,6 +4,7 @@ use percent_encoding::percent_decode_str;
 use serde_json::{json, Value};
 use tiny_http::{Header, Method, Request, Response, Server};
 
+use crate::art_override_store::ArtOverrideStore;
 use crate::client_address_filter::ClientAddressFilter;
 use crate::companion_config::CompanionConfig;
 use crate::cover_converter::CoverConverter;
@@ -11,22 +12,27 @@ use crate::cover_source::CoverSource;
 use crate::library_scanner::LibraryScanner;
 use crate::sunshine_app_builder::SunshineAppBuilder;
 use crate::sunshine_client::SunshineClient;
+use crate::upload_page::UploadPage;
+use crate::upload_token_store::UploadTokenStore;
 
 /// The HTTP API from companion/API.md. Requests are handled one after another;
 /// the only client is the launcher.
 pub struct ApiServer
 {
     config: CompanionConfig,
+    upload_tokens: UploadTokenStore,
+    /// Goes up with every override change, so the launcher knows when to reload pictures.
+    art_version: u64,
 }
 
-/// Status code + body (JSON or PNG) of one answer.
+/// Status code + body (JSON, PNG, JPEG or HTML) + content type of one answer.
 type ApiAnswer = (u16, Vec<u8>, &'static str);
 
 impl ApiServer
 {
     pub fn new(config: CompanionConfig) -> ApiServer
     {
-        ApiServer { config }
+        ApiServer { config, upload_tokens: UploadTokenStore::new(), art_version: 0 }
     }
 
     pub fn run(&mut self) -> Result<(), String>
@@ -72,6 +78,26 @@ impl ApiServer
             {
                 let entry_id = percent_decode_str(&hero_path["/api/hero/".len()..]).decode_utf8_lossy().to_string();
                 self.hero(&entry_id)
+            }
+            (Method::Get, logo_path) if logo_path.starts_with("/api/logo/") =>
+            {
+                let entry_id = percent_decode_str(&logo_path["/api/logo/".len()..]).decode_utf8_lossy().to_string();
+                self.logo(&entry_id)
+            }
+            (Method::Delete, art_path) if art_path.starts_with("/api/art/") =>
+            {
+                self.delete_art_override(&art_path["/api/art/".len()..])
+            }
+            (Method::Get, "/api/art-version") => Ok(Self::json(200, json!({ "version": self.art_version }))),
+            (Method::Post, "/api/upload-token") => Self::read_body(request).and_then(|body| self.issue_upload_token(&body)),
+            (Method::Get, upload_path) if upload_path.starts_with("/upload/") =>
+            {
+                self.upload_page(&upload_path["/upload/".len()..])
+            }
+            (Method::Post, upload_path) if upload_path.starts_with("/upload/") =>
+            {
+                let token = upload_path["/upload/".len()..].to_string();
+                Self::read_upload(request).and_then(|upload_bytes| self.receive_upload(&token, upload_bytes))
             }
             (Method::Get, screenshot_path) if screenshot_path.starts_with("/api/screenshot/") =>
             {
@@ -155,6 +181,97 @@ impl ApiServer
         Ok((200, jpeg_bytes, "image/jpeg"))
     }
 
+    fn logo(&self, entry_id: &str) -> Result<ApiAnswer, (u16, String)>
+    {
+        let entry = LibraryScanner.find(entry_id).ok_or((404, "Eintrag nicht gefunden".to_string()))?;
+        if matches!(entry.logo, CoverSource::None)
+        {
+            return Err((404, "Kein Logo vorhanden".into()));
+        }
+        let png_bytes = CoverConverter
+            .to_logo_png(&entry.logo, &format!("logo-{}", entry.id))
+            .map_err(|message| (502, message))?;
+        Ok((200, png_bytes, "image/png"))
+    }
+
+    /// `<id>/<kind>`: back to the automatic picture.
+    fn delete_art_override(&mut self, id_and_kind: &str) -> Result<ApiAnswer, (u16, String)>
+    {
+        let (encoded_entry_id, art_kind) = id_and_kind.rsplit_once('/').ok_or((404, "Bildart fehlt".to_string()))?;
+        if !ArtOverrideStore::is_art_kind(art_kind)
+        {
+            return Err((400, "Bildart muss cover, hero oder logo sein".into()));
+        }
+        let entry_id = percent_decode_str(encoded_entry_id).decode_utf8_lossy().to_string();
+        ArtOverrideStore.remove(&entry_id, art_kind);
+        self.after_art_change(&entry_id, art_kind);
+        Ok((204, Vec::new(), "application/json"))
+    }
+
+    fn issue_upload_token(&mut self, body: &Value) -> Result<ApiAnswer, (u16, String)>
+    {
+        let entry_id = body["id"].as_str().ok_or((400, "Feld „id“ fehlt".to_string()))?;
+        let art_kind = body["kind"].as_str().unwrap_or_default();
+        if !ArtOverrideStore::is_art_kind(art_kind)
+        {
+            return Err((400, "Feld „kind“ muss cover, hero oder logo sein".into()));
+        }
+        LibraryScanner.find(entry_id).ok_or((404, "Eintrag nicht gefunden".to_string()))?;
+
+        let token = self.upload_tokens.issue(entry_id, art_kind).map_err(|message| (500, message))?;
+        let host_name = std::fs::read_to_string("/proc/sys/kernel/hostname").unwrap_or_else(|_| "pc".into());
+        Ok(Self::json(200, json!({
+            "url": format!("http://{}:{}/upload/{}", host_name.trim(), self.config.port, token),
+            "expiresInSeconds": UploadTokenStore::LIFETIME.as_secs()
+        })))
+    }
+
+    fn upload_page(&self, token: &str) -> Result<ApiAnswer, (u16, String)>
+    {
+        let ticket = self.upload_tokens.find(token).ok_or((410, "Link abgelaufen oder schon benutzt".to_string()))?;
+        let entry_name = LibraryScanner
+            .find(&ticket.entry_id)
+            .map(|entry| entry.name)
+            .unwrap_or(ticket.entry_id.clone());
+        let page = UploadPage::render(&entry_name, &ticket.art_kind);
+        Ok((200, page.into_bytes(), "text/html; charset=utf-8"))
+    }
+
+    /// The link is used up only when the picture was stored, so a wrong file can be retried.
+    fn receive_upload(&mut self, token: &str, upload_bytes: Vec<u8>) -> Result<ApiAnswer, (u16, String)>
+    {
+        let ticket = self.upload_tokens.find(token).ok_or((410, "Link abgelaufen oder schon benutzt".to_string()))?;
+        ArtOverrideStore
+            .save(&ticket.entry_id, &ticket.art_kind, upload_bytes)
+            .map_err(|message| (400, message))?;
+        self.upload_tokens.use_up(token);
+        self.after_art_change(&ticket.entry_id, &ticket.art_kind);
+        eprintln!("Bild hochgeladen: {} {}", ticket.entry_id, ticket.art_kind);
+        Ok((204, Vec::new(), "application/json"))
+    }
+
+    /// Counts the change and keeps a Sunshine app's cover (made when it was added) in step.
+    fn after_art_change(&mut self, entry_id: &str, art_kind: &str)
+    {
+        self.art_version += 1;
+        if art_kind != "cover"
+        {
+            return;
+        }
+        let Some(entry) = LibraryScanner.find(entry_id)
+        else
+        {
+            return;
+        };
+        if entry.has_cover() && CoverConverter.sunshine_cover_path(&entry.id).exists()
+        {
+            if let Err(message) = CoverConverter.save_for_sunshine(&entry.cover, &entry.id)
+            {
+                eprintln!("{}", message);
+            }
+        }
+    }
+
     /// `<id>/<index>`: the id is URL-encoded, so the last '/' separates the index.
     fn screenshot(&self, id_and_index: &str) -> Result<ApiAnswer, (u16, String)>
     {
@@ -233,6 +350,27 @@ impl ApiServer
         self.config = new_config;
         eprintln!("Sunshine-Login gespeichert");
         Ok((204, Vec::new(), "application/json"))
+    }
+
+    /// A picture sent as the raw request body, at most 15 MB.
+    fn read_upload(request: &mut Request) -> Result<Vec<u8>, (u16, String)>
+    {
+        const MAXIMUM_UPLOAD_BYTES: u64 = 15 * 1024 * 1024;
+        let mut upload_bytes = Vec::new();
+        request
+            .as_reader()
+            .take(MAXIMUM_UPLOAD_BYTES + 1)
+            .read_to_end(&mut upload_bytes)
+            .map_err(|_| (400, "Upload nicht lesbar".to_string()))?;
+        if upload_bytes.len() as u64 > MAXIMUM_UPLOAD_BYTES
+        {
+            return Err((413, "Bild zu groß (höchstens 15 MB)".into()));
+        }
+        if upload_bytes.is_empty()
+        {
+            return Err((400, "Kein Bild empfangen".into()));
+        }
+        Ok(upload_bytes)
     }
 
     fn read_body(request: &mut Request) -> Result<Value, (u16, String)>
