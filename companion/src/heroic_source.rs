@@ -5,6 +5,7 @@ use serde_json::Value;
 use crate::companion_config::home_directory;
 use crate::cover_source::CoverSource;
 use crate::library_entry::LibraryEntry;
+use crate::process_quitter::ProcessQuitter;
 
 /// Games installed through Heroic (Epic via Legendary, GOG).
 pub struct HeroicSource;
@@ -61,7 +62,7 @@ impl HeroicSource
             screenshots: Vec::new(),
             command: String::new(),
             detached_command: Some(format!("xdg-open \"heroic://launch?appName={}&runner={}\"", app_name, runner)),
-            quit_command: (!install_path.is_empty()).then(|| format!("pkill -f \"{}\"", install_path)),
+            quit_command: (!install_path.is_empty()).then(|| ProcessQuitter::command_for(install_path)),
             follows_client_resolution: true,
         }
     }

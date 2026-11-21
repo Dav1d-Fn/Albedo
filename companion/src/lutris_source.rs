@@ -5,6 +5,7 @@ use serde_json::Value;
 use crate::companion_config::home_directory;
 use crate::cover_source::CoverSource;
 use crate::library_entry::LibraryEntry;
+use crate::process_quitter::ProcessQuitter;
 
 /// Games installed through Lutris (read from its pga.db with the sqlite3 tool).
 pub struct LutrisSource;
@@ -51,7 +52,7 @@ impl LutrisSource
                 screenshots: Vec::new(),
                 command: String::new(),
                 detached_command: Some(format!("lutris lutris:rungameid/{}", game_id)),
-                quit_command: (!directory.is_empty()).then(|| format!("pkill -f \"{}\"", directory)),
+                quit_command: (!directory.is_empty()).then(|| ProcessQuitter::command_for(directory)),
                 follows_client_resolution: true,
             });
         }

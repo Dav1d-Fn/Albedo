@@ -11,6 +11,7 @@ mod library_entry_response;
 mod library_scanner;
 mod lutris_source;
 mod preset_source;
+mod process_quitter;
 mod prism_source;
 mod steam_shortcut_source;
 mod steam_source;
@@ -19,10 +20,19 @@ mod sunshine_client;
 
 use api_server::ApiServer;
 use companion_config::CompanionConfig;
+use process_quitter::ProcessQuitter;
 
-/// Entry point: load the config (creates a template on first start) and serve the API.
+/// Entry point: run the quit helper, or load the config (creates a template on first start) and serve the API.
 fn main()
 {
+    // Undo step of a Sunshine app: `streaming-launcher-companion quit "<pattern>"`.
+    let arguments: Vec<String> = std::env::args().collect();
+    if arguments.len() == 3 && arguments[1] == "quit"
+    {
+        ProcessQuitter::new(&arguments[2]).quit();
+        return;
+    }
+
     let config = match CompanionConfig::load_or_create()
     {
         Ok(config) => config,

@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use crate::companion_config::home_directory;
 use crate::cover_source::CoverSource;
 use crate::library_entry::LibraryEntry;
+use crate::process_quitter::ProcessQuitter;
 
 /// Programs from the .desktop files the KDE menu shows (system, flatpak and user entries).
 pub struct DesktopFileSource;
@@ -80,6 +81,16 @@ impl DesktopFileSource
         }
 
         let name = values.get("Name[de]").or(values.get("Name"))?.clone();
+        // Only games are ended with the stream; a program like the file manager keeps its windows.
+        let is_game = values.get("Categories").is_some_and(|categories| categories.split(';').any(|category| category == "Game"));
+        let quit_command = if is_game
+        {
+            Self::program_of(&exec_line).map(|program| ProcessQuitter::command_for(&program))
+        }
+        else
+        {
+            None
+        };
         Some(LibraryEntry
         {
             id: format!("desktop:{}", desktop_id),
@@ -91,8 +102,50 @@ impl DesktopFileSource
             command: String::new(),
             // gio starts the entry exactly like the menu would (field codes, flatpak wrapper, ...).
             detached_command: Some(format!("gio launch \"{}\"", desktop_path.display())),
-            quit_command: None,
+            quit_command,
             follows_client_resolution: true,
         })
     }
+
+    /// What actually runs for an Exec line: the first word that is not `env` or `VAR=value`;
+    /// for flatpak the app id (it is in the command line of the sandbox around the game).
+    fn program_of(exec_line: &str) -> Option<String>
+    {
+        let words: Vec<String> = exec_line
+            .split_whitespace()
+            .map(|word| word.trim_matches('"').to_string())
+            .collect();
+        let mut remaining_words = words
+            .iter()
+            .skip_while(|word| *word == "env" || (word.contains('=') && !word.starts_with('-')));
+        let program = remaining_words.next()?;
+        if program.ends_with("flatpak")
+        {
+            return remaining_words
+                .find(|word| !word.starts_with('-') && *word != "run")
+                .cloned();
+        }
+        Some(program.clone())
+    }
 }
+
+#[cfg(test)]
+mod tests
+{
+    use super::DesktopFileSource;
+
+    #[test]
+    fn finds_the_program_of_an_exec_line()
+    {
+        assert_eq!(
+            DesktopFileSource::program_of("env HOS_ENV_FILE=/a/b.txt /games/hookshot").as_deref(),
+            Some("/games/hookshot")
+        );
+        assert_eq!(
+            DesktopFileSource::program_of("/usr/bin/flatpak run --branch=stable --command=retroarch org.libretro.RetroArch @@u %U @@").as_deref(),
+            Some("org.libretro.RetroArch")
+        );
+        assert_eq!(DesktopFileSource::program_of("dolphin-emu %f").as_deref(), Some("dolphin-emu"));
+    }
+}
+

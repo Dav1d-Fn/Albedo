@@ -108,6 +108,14 @@ Every created app gets:
   so "Beenden" in the launcher (`moonlight quit`) closes it,
 - the cover converted to PNG under `~/.config/sunshine/covers/`.
 
+Ending a game: apps that Sunshine starts as `cmd` (Prism, native shortcuts like EmuDeck) are
+ended by Sunshine itself (SIGTERM to the process group, SIGKILL after `exit-timeout`). Detached
+apps get an undo `streaming-launcher-companion quit "<pattern>"`: SIGTERM to every process whose
+command line contains the pattern (like `pkill -f`, skipping its own process and its parents),
+SIGKILL after 5 s. Patterns: Steam `SteamLaunch AppId=<appid> `, Heroic/Lutris the install
+folder, `.desktop` entries with `Categories=…Game…` their program (flatpak: the app id); other
+desktop programs keep running. Apps added before this keep their old undo until re-added.
+
 `preset:desktop-plain` has no prep-cmd (screen stays as it is).
 
 ### `DELETE /api/apps`

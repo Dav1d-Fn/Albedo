@@ -5,6 +5,7 @@ use std::time::SystemTime;
 use crate::companion_config::home_directory;
 use crate::cover_source::CoverSource;
 use crate::library_entry::LibraryEntry;
+use crate::process_quitter::ProcessQuitter;
 
 /// Installed Steam games from every library folder in libraryfolders.vdf.
 pub struct SteamSource
@@ -88,7 +89,7 @@ impl SteamSource
             command: String::new(),
             detached_command: Some(format!("steam steam://rungameid/{}", app_id)),
             // Every game process Steam starts carries "SteamLaunch AppId=<id> " in its command line.
-            quit_command: Some(format!("pkill -f \"SteamLaunch AppId={} \"", app_id)),
+            quit_command: Some(ProcessQuitter::command_for(&format!("SteamLaunch AppId={} ", app_id))),
             follows_client_resolution: true,
         })
     }

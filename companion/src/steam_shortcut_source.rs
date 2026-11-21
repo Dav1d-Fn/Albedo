@@ -8,6 +8,7 @@ use crate::binary_vdf_reader::BinaryVdfReader;
 use crate::companion_config::home_directory;
 use crate::cover_source::CoverSource;
 use crate::library_entry::LibraryEntry;
+use crate::process_quitter::ProcessQuitter;
 
 /// Non-Steam games added to Steam (userdata/<account>/config/shortcuts.vdf of every account),
 /// e.g. the EmuDeck entries. Emulators go to the group "Emulation", the rest to "Nicht-Steam".
@@ -131,7 +132,7 @@ impl SteamShortcutSource
             (
                 String::new(),
                 Some(format!("steam steam://rungameid/{}", game_id)),
-                Some(format!("pkill -f \"{}\"", executable_path)),
+                Some(ProcessQuitter::command_for(&executable_path)),
             )
         }
         else

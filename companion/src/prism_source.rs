@@ -3,6 +3,7 @@ use std::fs;
 use crate::companion_config::home_directory;
 use crate::cover_source::CoverSource;
 use crate::library_entry::LibraryEntry;
+use crate::process_quitter::ProcessQuitter;
 
 /// Minecraft instances of the Prism Launcher flatpak.
 pub struct PrismSource;
@@ -39,7 +40,7 @@ impl PrismSource
                 command: format!("flatpak run org.prismlauncher.PrismLauncher --launch \"{}\"", instance_name),
                 detached_command: None,
                 // The game's Java process has the instance folder in its arguments.
-                quit_command: Some(format!("pkill -f \"{}/\"", instance_path.display())),
+                quit_command: Some(ProcessQuitter::command_for(&format!("{}/", instance_path.display()))),
                 follows_client_resolution: true,
             });
         }
