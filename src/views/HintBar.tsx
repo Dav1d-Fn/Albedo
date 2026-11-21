@@ -52,7 +52,7 @@ export function HintBar(props: { app: LauncherApp })
     {
       hints.push({ glyph: "A", label: "Bearbeiten", button: "A" });
       hints.push({ glyph: "Y", label: "Als Standard", button: "Y" });
-      hints.push({ glyph: "X", label: "Neuer Modus", button: "X" });
+      hints.push({ glyph: "X", label: state.editConfirmDelete === "mode" ? "Wirklich löschen" : "Modus löschen", button: "X" });
       hints.push({ glyph: "B", label: "Fertig", button: "B" });
     }
     else if (state.editZone === "actions")
@@ -67,6 +67,8 @@ export function HintBar(props: { app: LauncherApp })
       const rowActionLabel = rowType === "text" ? "Umbenennen" : rowType === "screen" ? "Bildschirm übernehmen" : "Umschalten";
       hints.push({ glyph: "◀ ▶", label: "Wert ändern", button: "RIGHT", pill: true });
       hints.push({ glyph: "A", label: rowActionLabel, button: "A" });
+      const deleteLabel = EditorRows.rows[state.editRow]?.scope === "mode" ? "Modus löschen" : "Gerät löschen";
+      hints.push({ glyph: "X", label: state.editConfirmDelete !== "" ? "Wirklich löschen" : deleteLabel, button: "X" });
       hints.push({ glyph: "B", label: "Zu den Modi", button: "B" });
     }
   }

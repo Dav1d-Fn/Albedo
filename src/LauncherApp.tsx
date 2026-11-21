@@ -1488,6 +1488,12 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       return this.stepEditDevice(button === "L1" ? -1 : 1);
     }
+    // A pending "really delete?" only survives the button that confirms it (X in the list and rows, A on the buttons).
+    const confirmButton: PadButton = state.editZone === "actions" ? "A" : "X";
+    if (state.editConfirmDelete !== "" && button !== confirmButton)
+    {
+      this.setState({ editConfirmDelete: "" });
+    }
 
     if (state.editZone === "modes")
     {
@@ -1517,7 +1523,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       }
       else if (button === "X")
       {
-        this.addMode();
+        this.deleteMode();
       }
       else if (button === "B" || button === "MENU")
       {
@@ -1569,6 +1575,18 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       else if (button === "A")
       {
         this.activateEditorRow(state.editRow);
+      }
+      else if (button === "X")
+      {
+        // X deletes what the focused row belongs to: the mode or the whole device.
+        if (EditorRows.rows[state.editRow].scope === "mode")
+        {
+          this.deleteMode();
+        }
+        else
+        {
+          this.deleteDevice();
+        }
       }
       else if (button === "B")
       {

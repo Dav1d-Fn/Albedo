@@ -59,20 +59,25 @@ export function EditorScreen(props: { app: LauncherApp })
           {
             const selected = modeIndex === state.editModeIndex;
             const focused = selected && state.editZone === "modes";
+            const confirming = selected && state.editConfirmDelete === "mode" && state.editZone !== "actions";
             return (
               <button
                 key={modeIndex}
-                className={"mitem" + (selected ? " sel" : "") + (focused ? " f" : "")}
+                className={"mitem" + (selected ? " sel" : "") + (focused ? " f" : "") + (confirming ? " warn" : "")}
                 onClick={() => app.setState({ editModeIndex: modeIndex, editZone: "modes" })}
               >
                 <span className="mtop">
                   <span className="mname">{ModeText.label(mode) + " FPS"}</span>
                   {modeIndex === profile.defaultModeIndex && <span className="badge">STANDARD</span>}
                 </span>
-                <span className="msub">
-                  {modeIndex === app.currentModeIndex(editDevice) && <span className="adot" />}
-                  {mode.bitrateMbps + " Mbit/s · " + ModeText.extra(mode)}
-                </span>
+                {confirming
+                  ? <span className="msub">Nochmal X: Modus löschen</span>
+                  : (
+                    <span className="msub">
+                      {modeIndex === app.currentModeIndex(editDevice) && <span className="adot" />}
+                      {mode.bitrateMbps + " Mbit/s · " + ModeText.extra(mode)}
+                    </span>
+                  )}
               </button>
             );
           })}
@@ -86,8 +91,9 @@ export function EditorScreen(props: { app: LauncherApp })
                 || (action === "deleteMode" && profile.modes.length <= 1)
                 || (action === "addDevice" && deviceOrder.length >= LauncherApp.maximumDevices)
                 || (action === "deleteDevice" && deviceOrder.length <= 1);
-              const confirming = (action === "deleteMode" && state.editConfirmDelete === "mode")
-                || (action === "deleteDevice" && state.editConfirmDelete === "device");
+              const confirming = state.editZone === "actions"
+                && ((action === "deleteMode" && state.editConfirmDelete === "mode")
+                  || (action === "deleteDevice" && state.editConfirmDelete === "device"));
               let label = actionLabels[action];
               if (action === "makeDefault" && isDefault)
               {
@@ -117,9 +123,14 @@ export function EditorScreen(props: { app: LauncherApp })
             const bumpCount = state.bumps[editDevice + state.editModeIndex + row.key] ?? 0;
             const bumpClass = bumpCount ? (bumpCount % 2 ? " b1" : " b0") : "";
             const focused = state.editZone === "rows" && rowIndex === state.editRow;
-            const heading = row.scope === "mode"
+            const confirmingDevice = row.scope === "device" && state.editConfirmDelete === "device" && state.editZone === "rows";
+            let heading = row.scope === "mode"
               ? "Modus " + ModeText.label(editMode as StreamMode) + " FPS"
               : "Gerät " + profile.name;
+            if (confirmingDevice)
+            {
+              heading = "Gerät " + profile.name + " löschen? Nochmal X";
+            }
             let displayValue = String(value);
             if (row.key === "resolution")
             {
@@ -152,8 +163,8 @@ export function EditorScreen(props: { app: LauncherApp })
 
             return (
               <div key={row.key} style={{ display: "contents" }}>
-                {row.heading && <div className="rhead clabel">{heading}</div>}
-                <div className={"row" + (focused ? " f" : "")}>
+                {row.heading && <div className={"rhead clabel" + (confirmingDevice ? " warn" : "")}>{heading}</div>}
+                <div className={"row" + (focused ? " f" : "")} ref={focused ? (rowElement) => rowElement?.scrollIntoView({ block: "nearest" }) : undefined}>
                   <button className="rlabel" onClick={() => app.activateEditorRow(rowIndex)}>{row.label}</button>
                   <div className="ctrl">
                     {row.type === "list" && (

@@ -320,3 +320,11 @@ body { cursor: default; user-select: none; }
 .mbtns .madd { white-space: nowrap; }
 .tab { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 10px; }
 .pname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+/* Editor: the value column scrolls with the focus (Ton and Bildschirm sit below the fold at 1280x800 and 16:9),
+   padding keeps the focus ring inside the scroll box; delete confirmation in the list and the device heading. */
+.rows { overflow-y: auto; scrollbar-width: none; padding: 10px 14px 24px; margin: -10px -14px 0; }
+:where(.app) button.mitem.warn { background: rgba(248,113,113,.22); outline-color: #F87171; }
+.mitem.warn .msub { color: #FECACA; font-weight: 650; }
+.rhead.warn { color: #FCA5A5; }
+.madd.dis.f { opacity: .75; }
