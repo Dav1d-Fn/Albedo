@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 *.AppImage
+
+# Games exported for the README recordings (docs/media/record.mjs)
+docs/media/capture-data/
