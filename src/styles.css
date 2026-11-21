@@ -244,3 +244,24 @@ body { cursor: default; user-select: none; }
 /* Real cover as backdrop: blurred and darkened, the image is only 600x800 */
 .bd.img { filter: blur(40px) brightness(.5) saturate(1.2); transform: scale(1.25); }
 .bd.img.on { transform: scale(1.15); }
+
+/* "Hinzufügen" tile at the end of the rail */
+.cover.addtile { flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: rgba(255,255,255,.06); border: 2px dashed rgba(255,255,255,.22); color: #C4C4CC; }
+.cover.addtile .i { width: 44px; height: 44px; }
+.cover.addtile.f { border-color: var(--acc); color: #F5F5F7; background: color-mix(in oklab, var(--acc) 14%, transparent); }
+.addlabel { font-size: 15px; font-weight: 700; }
+
+/* "Hinzufügen" screen: group tabs and a cover grid */
+.ltabs { position: relative; z-index: 4; display: flex; align-items: center; gap: 8px; padding: 6px 48px 18px; flex: none; }
+.ltab { height: 38px; padding: 0 18px; border-radius: 999px; background: rgba(255,255,255,.06); color: #A1A1AA; font-size: 14px; font-weight: 650; transition: background .3s, color .3s; }
+.ltab.on { background: var(--acc); color: #0B0B0F; }
+.lgrid-wrap { position: relative; z-index: 4; flex: 1; min-height: 0; overflow: hidden; padding: 14px 48px 0; }
+.lgrid { display: grid; grid-template-columns: repeat(6, 160px); gap: 22px 26px; transition: transform .45s cubic-bezier(.2,.9,.3,1); }
+.ltile { display: flex; flex-direction: column; gap: 8px; text-align: left; transition: transform .45s cubic-bezier(.3,1.45,.5,1), opacity .3s; opacity: .7; }
+.ltile.on { transform: scale(1.07); opacity: 1; }
+.lcover { position: relative; width: 160px; height: 200px; border-radius: 14px; overflow: hidden; display: flex; align-items: flex-end; padding: 12px; box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
+.lname { font-size: 13px; font-weight: 600; color: #C4C4CC; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+.lbadge { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border-radius: 999px; display: grid; place-items: center; background: var(--acc); color: #0B0B0F; }
+.lbadge .i { width: 16px; height: 16px; stroke-width: 3; }
+.lbusy { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(8,8,11,.6); }
+.lempty { display: flex; flex-direction: column; gap: 12px; max-width: 900px; }

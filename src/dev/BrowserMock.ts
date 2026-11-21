@@ -9,6 +9,17 @@ export class BrowserMock
 {
   private static readonly sampleGames = ["Cyberpunk 2077", "Elden Ring", "Hades II", "Forza Horizon 5", "Baldur's Gate 3", "Stardew Valley", "Portal 2"];
 
+  private static readonly sampleLibrary =
+  [
+    { id: "preset:desktop-auto", name: "Desktop", group: "Voreinstellungen", hasCover: false, inSunshine: true },
+    { id: "preset:big-picture", name: "Steam Big Picture", group: "Voreinstellungen", hasCover: false, inSunshine: false },
+    { id: "steam:1245620", name: "ELDEN RING", group: "Steam", hasCover: false, inSunshine: true },
+    { id: "steam:1086940", name: "Baldur's Gate 3", group: "Steam", hasCover: false, inSunshine: false },
+    { id: "steam:1551360", name: "Forza Horizon 5", group: "Steam", hasCover: false, inSunshine: false },
+    { id: "heroic:Crow", name: "Dead Island 2", group: "Heroic", hasCover: false, inSunshine: false },
+    { id: "prism:26.3 Modpack Test", name: "Minecraft 26.3 Modpack Test", group: "Minecraft", hasCover: false, inSunshine: false },
+  ];
+
   public static installIfNeeded(): void
   {
     if ("__TAURI_INTERNALS__" in window)
@@ -42,6 +53,14 @@ export class BrowserMock
           return new Promise((resolve) => window.setTimeout(resolve, 500));
         case "load_box_art":
           return {};
+        case "companion_library":
+          return BrowserMock.sampleLibrary;
+        case "companion_cover":
+          return null;
+        case "companion_add_app":
+          return new Promise((resolve) => window.setTimeout(() => resolve("Neues Spiel"), 800));
+        case "companion_remove_app":
+          return null;
         default:
           return null;
       }

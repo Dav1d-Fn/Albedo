@@ -1,8 +1,10 @@
+mod companion_client;
 mod display_detector;
 mod game_list_source;
 mod gamepad_listener;
 mod host_discovery;
 mod host_environment;
+mod library_entry;
 mod moonlight_app_quit;
 mod moonlight_box_art;
 mod moonlight_command;
@@ -16,10 +18,12 @@ use std::time::Duration;
 
 use tauri::AppHandle;
 
+use companion_client::CompanionClient;
 use display_detector::DisplayDetector;
 use game_list_source::GameListSource;
 use gamepad_listener::GamepadListener;
 use host_discovery::{DiscoveredHost, HostDiscovery};
+use library_entry::LibraryEntry;
 use moonlight_app_quit::MoonlightAppQuit;
 use moonlight_box_art::MoonlightBoxArt;
 use moonlight_command::MoonlightCommand;
@@ -109,6 +113,40 @@ async fn load_box_art(moonlight_command: Vec<String>, host: String) -> Result<Ha
     result
 }
 
+#[tauri::command]
+async fn companion_library(host: String) -> Result<Vec<LibraryEntry>, String>
+{
+    let result = CompanionClient::for_host(&host)?.library().await;
+    match &result
+    {
+        Ok(entries) => println!("[companion] {} library entries", entries.len()),
+        Err(error) => eprintln!("[companion] {}", error),
+    }
+    result
+}
+
+#[tauri::command]
+async fn companion_cover(host: String, entry_id: String) -> Result<Option<String>, String>
+{
+    CompanionClient::for_host(&host)?.cover(&entry_id).await
+}
+
+#[tauri::command]
+async fn companion_add_app(host: String, entry_id: String) -> Result<String, String>
+{
+    let result = CompanionClient::for_host(&host)?.add_app(&entry_id).await;
+    println!("[companion] add {} -> {:?}", entry_id, result);
+    result
+}
+
+#[tauri::command]
+async fn companion_remove_app(host: String, app_name: String) -> Result<(), String>
+{
+    let result = CompanionClient::for_host(&host)?.remove_app(&app_name).await;
+    println!("[companion] remove {} -> {:?}", app_name, result);
+    result
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run()
 {
@@ -127,7 +165,11 @@ pub fn run()
             discover_hosts,
             pair_host,
             quit_host_app,
-            load_box_art
+            load_box_art,
+            companion_library,
+            companion_cover,
+            companion_add_app,
+            companion_remove_app
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,6 +1,6 @@
 import type LauncherApp from "../LauncherApp";
 import { ModeText } from "../model/ModeText";
-import { HandheldIcon, SlidersIcon, TvIcon } from "./Icons";
+import { HandheldIcon, PlusIcon, SlidersIcon, TvIcon } from "./Icons";
 import { ModeStrip } from "./ModeStrip";
 
 /** Library: host chip, device switch with mode strip, hero text and the cover rail. */
@@ -89,6 +89,11 @@ export function HomeScreen(props: { app: LauncherApp })
             </div>
           </div>
         ))}
+        <div className={"ht" + (app.isAddTileSelected() && state.games.length > 0 ? " on" : "")}>
+          <div className="eyebrow">Bibliothek</div>
+          <div className="htitle">Hinzufügen</div>
+          <div className="hmeta"><span>Spiele und Programme vom PC in die Liste holen</span></div>
+        </div>
         {state.games.length === 0 && (
           <div className="ht on">
             <div className="eyebrow">Bibliothek</div>
@@ -111,6 +116,14 @@ export function HomeScreen(props: { app: LauncherApp })
               </button>
             );
           })}
+          <button
+            className={"cover addtile" + (gamesZone ? (app.isAddTileSelected() ? " f" : " dim") : "")}
+            onClick={() => app.openLibrary()}
+            aria-label="Spiele hinzufügen"
+          >
+            <PlusIcon />
+            <span className="addlabel">Hinzufügen</span>
+          </button>
         </div>
       </div>
     </div>

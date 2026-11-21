@@ -3,7 +3,7 @@ import { InputRouter } from "./input/InputRouter";
 import { ModeText } from "./model/ModeText";
 import { DefaultSettings } from "./model/DefaultSettings";
 import { GameArt } from "./model/GameArt";
-import { AfterStreamAction, DeviceId, DeviceProfile, DiscoveredHost, PadButton, Settings, StreamMode } from "./model/Types";
+import { AfterStreamAction, DeviceId, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, Settings, StreamMode } from "./model/Types";
 import { Backend } from "./services/Backend";
 import { AfterStreamDialog } from "./views/AfterStreamDialog";
 import { ConnectScreen } from "./views/ConnectScreen";
@@ -13,10 +13,11 @@ import { EditorRows } from "./views/EditorRows";
 import { EditorScreen } from "./views/EditorScreen";
 import { HintBar } from "./views/HintBar";
 import { HomeScreen } from "./views/HomeScreen";
+import { LibraryScreen } from "./views/LibraryScreen";
 import { StreamScreen } from "./views/StreamScreen";
 import { ToastCard, ToastContent } from "./views/ToastCard";
 
-export type ScreenName = "home" | "detail" | "connect" | "stream" | "afterStream" | "editor" | "connection";
+export type ScreenName = "home" | "detail" | "connect" | "stream" | "afterStream" | "editor" | "connection" | "library";
 
 export type HostState = "loading" | "online" | "error";
 
@@ -62,6 +63,18 @@ export interface LauncherState
   pairState: "idle" | "pairing" | "paired" | "error";
   pairPin: string;
   pairMessage: string;
+  /** "Hinzufügen" screen: everything the companion on the PC can add to Sunshine. */
+  library: LibraryEntry[];
+  libraryState: "loading" | "ready" | "error";
+  libraryError: string;
+  libraryGroupIndex: number;
+  libraryItemIndex: number;
+  /** Entry id -> cover `data:` URL; null = the PC has none. */
+  libraryCovers: Record<string, string | null>;
+  /** Id of the entry that is being added or removed right now. */
+  libraryBusyId: string;
+  /** Something was added or removed, the game list needs a reload on the way back. */
+  libraryChanged: boolean;
   /** Design is drawn at 1280px width and zoomed to the window. */
   zoom: number;
 }
@@ -128,6 +141,14 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       pairMessage: "",
       afterStreamIndex: 0,
       afterStreamRemember: false,
+      library: [],
+      libraryState: "loading",
+      libraryError: "",
+      libraryGroupIndex: 0,
+      libraryItemIndex: 0,
+      libraryCovers: {},
+      libraryBusyId: "",
+      libraryChanged: false,
       zoom: Math.max(window.innerWidth, 320) / LauncherApp.designWidth,
     };
   }
@@ -481,6 +502,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
         return;
       case "connection":
         return this.connectionButton(button);
+      case "library":
+        return this.libraryButton(button);
       case "stream":
         // Moonlight owns the controller now; we come back via the "stream-ended" event.
         return;
@@ -510,7 +533,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       }
       else if (button === "RIGHT")
       {
-        this.setState({ gameIndex: Math.min(state.games.length - 1, state.gameIndex + 1) });
+        // One step past the last game is the "Hinzufügen" tile.
+        this.setState({ gameIndex: Math.min(state.games.length, state.gameIndex + 1) });
       }
       else if (button === "UP")
       {
@@ -518,7 +542,14 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       }
       else if (button === "A")
       {
-        this.openGame(state.gameIndex);
+        if (this.isAddTileSelected())
+        {
+          this.openLibrary();
+        }
+        else
+        {
+          this.openGame(state.gameIndex);
+        }
       }
     }
     else
@@ -875,6 +906,220 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.setState({ editModeIndex: profile.modes.length, editZone: "rows", editRow: 0 });
   }
 
+  // ---------------------------------------------------------------- adding games through the PC companion
+
+  /** Covers per row on the "Hinzufügen" screen. */
+  public static readonly libraryColumns = 6;
+
+  /** The rail's last position is the "Hinzufügen" tile, not a game. */
+  public isAddTileSelected(): boolean
+  {
+    return this.state.gameIndex === this.state.games.length;
+  }
+
+  public openLibrary(): void
+  {
+    this.setState({ screen: "library", libraryGroupIndex: 0, libraryItemIndex: 0, libraryChanged: false });
+    this.loadLibrary();
+  }
+
+  public async loadLibrary(): Promise<void>
+  {
+    this.setState({ libraryState: "loading", libraryError: "" });
+    try
+    {
+      const library = await this.backend.companionLibrary(this.settings);
+      this.setState({ library, libraryState: "ready" });
+      this.loadLibraryCovers();
+    }
+    catch (libraryError)
+    {
+      this.setState({ libraryState: "error", libraryError: String(libraryError) });
+    }
+  }
+
+  /** Group names in the order the companion sent them. */
+  public libraryGroups(): string[]
+  {
+    const groups: string[] = [];
+    for (const entry of this.state.library)
+    {
+      if (!groups.includes(entry.group))
+      {
+        groups.push(entry.group);
+      }
+    }
+    return groups;
+  }
+
+  public libraryEntriesOfGroup(groupIndex: number = this.state.libraryGroupIndex): LibraryEntry[]
+  {
+    const group = this.libraryGroups()[groupIndex];
+    return this.state.library.filter((entry) => entry.group === group);
+  }
+
+  public selectedLibraryEntry(): LibraryEntry | undefined
+  {
+    return this.libraryEntriesOfGroup()[this.state.libraryItemIndex];
+  }
+
+  /** Fetches the covers of the shown group one after another; already loaded ones are kept. */
+  private async loadLibraryCovers(): Promise<void>
+  {
+    const groupIndex = this.state.libraryGroupIndex;
+    for (const entry of this.libraryEntriesOfGroup(groupIndex))
+    {
+      const stillOnThisGroup = this.state.screen === "library" && this.state.libraryGroupIndex === groupIndex;
+      if (!stillOnThisGroup)
+      {
+        return;
+      }
+      if (!entry.hasCover || entry.id in this.state.libraryCovers)
+      {
+        continue;
+      }
+      let cover: string | null = null;
+      try
+      {
+        cover = await this.backend.companionCover(this.settings, entry.id);
+      }
+      catch (coverError)
+      {
+        console.warn("cover failed", entry.id, coverError);
+      }
+      this.setState((state) => ({ libraryCovers: { ...state.libraryCovers, [entry.id]: cover } }));
+    }
+  }
+
+  public switchLibraryGroup(direction: number): void
+  {
+    const groupCount = this.libraryGroups().length;
+    if (groupCount === 0)
+    {
+      return;
+    }
+    const groupIndex = (this.state.libraryGroupIndex + direction + groupCount) % groupCount;
+    this.setState({ libraryGroupIndex: groupIndex, libraryItemIndex: 0 }, () => this.loadLibraryCovers());
+  }
+
+  private libraryButton(button: PadButton): void
+  {
+    const state = this.state;
+    const entryCount = this.libraryEntriesOfGroup().length;
+    const columns = LauncherApp.libraryColumns;
+
+    if (button === "B")
+    {
+      this.closeLibrary();
+    }
+    else if (button === "Y")
+    {
+      this.loadLibrary();
+    }
+    else if (button === "L1" || button === "R1")
+    {
+      this.switchLibraryGroup(button === "L1" ? -1 : 1);
+    }
+    else if (button === "LEFT")
+    {
+      this.setState({ libraryItemIndex: Math.max(0, state.libraryItemIndex - 1) });
+    }
+    else if (button === "RIGHT")
+    {
+      this.setState({ libraryItemIndex: Math.min(entryCount - 1, state.libraryItemIndex + 1) });
+    }
+    else if (button === "UP")
+    {
+      this.setState({ libraryItemIndex: Math.max(0, state.libraryItemIndex - columns) });
+    }
+    else if (button === "DOWN")
+    {
+      this.setState({ libraryItemIndex: Math.min(entryCount - 1, state.libraryItemIndex + columns) });
+    }
+    else if (button === "A")
+    {
+      this.addLibraryEntry(state.libraryItemIndex);
+    }
+    else if (button === "X")
+    {
+      this.removeLibraryEntry(state.libraryItemIndex);
+    }
+  }
+
+  public async addLibraryEntry(itemIndex: number): Promise<void>
+  {
+    this.setState({ libraryItemIndex: itemIndex });
+    const entry = this.libraryEntriesOfGroup()[itemIndex];
+    if (entry === undefined || this.state.libraryBusyId !== "")
+    {
+      return;
+    }
+    if (entry.inSunshine)
+    {
+      this.showToast({ kind: "ok", eyebrow: "Schon in der Liste", name: entry.name, spec: "", sub: "X entfernt es wieder" });
+      return;
+    }
+
+    this.setState({ libraryBusyId: entry.id });
+    try
+    {
+      const appName = await this.backend.companionAddApp(this.settings, entry.id);
+      this.markLibraryEntry(entry.id, true);
+      this.showToast({ kind: "ok", eyebrow: "Hinzugefügt", name: appName, spec: "", sub: "Steht jetzt in der Spieleliste" });
+    }
+    catch (addError)
+    {
+      this.showError("Hinzufügen fehlgeschlagen", String(addError));
+    }
+    finally
+    {
+      this.setState({ libraryBusyId: "" });
+    }
+  }
+
+  public async removeLibraryEntry(itemIndex: number): Promise<void>
+  {
+    const entry = this.libraryEntriesOfGroup()[itemIndex];
+    if (entry === undefined || !entry.inSunshine || this.state.libraryBusyId !== "")
+    {
+      return;
+    }
+
+    this.setState({ libraryBusyId: entry.id });
+    try
+    {
+      await this.backend.companionRemoveApp(this.settings, entry.name);
+      this.markLibraryEntry(entry.id, false);
+      this.showToast({ kind: "ok", eyebrow: "Entfernt", name: entry.name, spec: "", sub: "Nicht mehr in der Spieleliste" });
+    }
+    catch (removeError)
+    {
+      this.showError("Entfernen fehlgeschlagen", String(removeError));
+    }
+    finally
+    {
+      this.setState({ libraryBusyId: "" });
+    }
+  }
+
+  private markLibraryEntry(entryId: string, inSunshine: boolean): void
+  {
+    this.setState((state) => ({
+      library: state.library.map((entry) => (entry.id === entryId ? { ...entry, inSunshine } : entry)),
+      libraryChanged: true,
+    }));
+  }
+
+  private closeLibrary(): void
+  {
+    const changed = this.state.libraryChanged;
+    this.setState({ screen: "home", zone: "games" });
+    if (changed)
+    {
+      this.reloadGames();
+    }
+  }
+
   // ---------------------------------------------------------------- connection and pairing
 
   /** Rows on the right side of the connection screen. */
@@ -1080,6 +1325,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
           {state.screen === "stream" && <StreamScreen app={this} />}
           {state.screen === "editor" && <EditorScreen app={this} />}
           {state.screen === "connection" && <ConnectionScreen app={this} />}
+          {state.screen === "library" && <LibraryScreen app={this} />}
           <div className="ambient" />
           {state.screen === "afterStream" && <AfterStreamDialog app={this} />}
           <HintBar app={this} />

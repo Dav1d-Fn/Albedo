@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { DefaultSettings } from "../model/DefaultSettings";
 import { ModeText } from "../model/ModeText";
-import { DeviceProfile, DiscoveredHost, PadButton, Settings, StreamMode } from "../model/Types";
+import { DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, Settings, StreamMode } from "../model/Types";
 
 export interface StreamEnded
 {
@@ -72,6 +72,29 @@ export class Backend
   public loadBoxArt(settings: Settings): Promise<Record<string, string>>
   {
     return invoke<Record<string, string>>("load_box_art", { moonlightCommand: settings.moonlightCommand, host: settings.host });
+  }
+
+  /** Games and programs installed on the PC, from the companion service. */
+  public companionLibrary(settings: Settings): Promise<LibraryEntry[]>
+  {
+    return invoke<LibraryEntry[]>("companion_library", { host: settings.host });
+  }
+
+  /** Cover of a library entry as `data:` URL, null when the PC has none. */
+  public companionCover(settings: Settings, entryId: string): Promise<string | null>
+  {
+    return invoke<string | null>("companion_cover", { host: settings.host, entryId });
+  }
+
+  /** Creates the Sunshine app for an entry; resolves with the app name. */
+  public companionAddApp(settings: Settings, entryId: string): Promise<string>
+  {
+    return invoke<string>("companion_add_app", { host: settings.host, entryId });
+  }
+
+  public companionRemoveApp(settings: Settings, appName: string): Promise<void>
+  {
+    return invoke<void>("companion_remove_app", { host: settings.host, appName });
   }
 
   /** Ends the app still running on the PC (`moonlight quit <host>`). */

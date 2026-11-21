@@ -18,7 +18,8 @@ export function HintBar(props: { app: LauncherApp })
 
   if (state.screen === "home")
   {
-    hints.push({ glyph: "A", label: state.zone === "games" ? "Details" : "Auswählen", button: "A" });
+    const onAddTile = state.zone === "games" && app.isAddTileSelected();
+    hints.push({ glyph: "A", label: state.zone === "games" ? (onAddTile ? "Hinzufügen" : "Details") : "Auswählen", button: "A" });
     hints.push({ glyph: "X", label: "Gerät", button: "X" });
     hints.push({ glyph: "L1 · R1", label: "Modus", button: "R1", pill: true });
     hints.push({ glyph: "Y", label: "Neu laden", button: "Y" });
@@ -54,6 +55,21 @@ export function HintBar(props: { app: LauncherApp })
     const onPairRow = state.connectionZone === "rows" && state.connectionRow === 0;
     hints.push({ glyph: "A", label: state.connectionZone === "hosts" ? "Verwenden" : onPairRow ? "Koppeln" : "Umschalten", button: "A" });
     hints.push({ glyph: "Y", label: "Neu suchen", button: "Y" });
+    hints.push({ glyph: "B", label: "Fertig", button: "B" });
+  }
+  else if (state.screen === "library")
+  {
+    const entry = app.selectedLibraryEntry();
+    hints.push({ glyph: "L1 · R1", label: "Gruppe", button: "R1", pill: true });
+    if (entry !== undefined && !entry.inSunshine)
+    {
+      hints.push({ glyph: "A", label: "Hinzufügen", button: "A" });
+    }
+    if (entry !== undefined && entry.inSunshine)
+    {
+      hints.push({ glyph: "X", label: "Entfernen", button: "X" });
+    }
+    hints.push({ glyph: "Y", label: "Neu laden", button: "Y" });
     hints.push({ glyph: "B", label: "Fertig", button: "B" });
   }
   else if (state.screen === "afterStream")

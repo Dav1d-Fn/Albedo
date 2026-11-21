@@ -51,6 +51,18 @@ export interface Settings
   rememberedModes: Record<string, number>;
 }
 
+/** A game, program or preset the companion on the PC can add to Sunshine (companion/API.md). */
+export interface LibraryEntry
+{
+  /** Stable "<source>:<source id>", e.g. "steam:1245620". */
+  id: string;
+  name: string;
+  /** Display group, e.g. "Steam", "Voreinstellungen". */
+  group: string;
+  hasCover: boolean;
+  inSunshine: boolean;
+}
+
 export interface DiscoveredHost
 {
   name: string;

@@ -22,12 +22,14 @@ Design source: Claude design canvas https://claude.ai/artifact/UpFs3Nat5Q983TyyA
   - `moonlight_pairing.rs` – `moonlight pair <host> --pin <pin>`
   - `moonlight_app_quit.rs` – `moonlight quit <host>`, ends the game still running on the PC after a disconnect
   - `moonlight_box_art.rs` – cover images from Moonlight's box art cache (`moonlight_host_entries.rs` parses Moonlight.conf)
+  - `companion_client.rs` – HTTP client for the companion service on the PC (`companion/API.md`), `library_entry.rs` is its list item
   - `host_environment.rs` – strips the AppImage's LD_LIBRARY_PATH etc. before starting host programs (flatpak)
 - `src/` – frontend
   - `LauncherApp.tsx` – root class component, owns all state and the button logic
   - `model/` – settings types, defaults, text formatting, placeholder cover art
   - `services/Backend.ts` – every `invoke`/`listen` call
   - `input/InputRouter.ts` – keyboard + `pad-button` events → launcher buttons
+  - Rail ends with a "Hinzufügen" tile → `LibraryScreen` (games from the PC companion, L1/R1 group, A add, X remove)
   - `views/` – one file per screen/component, pure rendering, call methods on `LauncherApp`
   - `styles.css` – CSS ported from the design
 
