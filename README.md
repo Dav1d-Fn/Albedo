@@ -94,7 +94,7 @@ resolution, FPS, bitrate, codec (H.264 / HEVC / AV1) and HDR.
 - **X** switches the device, **L1 / R1** the profile.
 - **Y** on a game's detail page remembers the profile for *that game on that device*, e.g. 40 FPS
   for a heavy game in handheld mode.
-- **☰** opens the editor *Geräte*: on the left *Geräteeinstellungen* and the device's profiles, on
+- **☰** opens the editor *Devices*: on the left *Device settings* and the device's profiles, on
   the right the values of the selected entry. Add, rename, recolor and delete devices and profiles.
 
 <p align="center">
@@ -114,7 +114,7 @@ room TV and the desk monitor each get their own settings.
 
 ### 🧩 Companion: Add Games from the Couch
 
-With the companion service on the PC, the last tile on the home screen, **Hinzufügen**, lists
+With the companion service on the PC, the last tile on the home screen, **Add games**, lists
 everything installed on the PC, grouped by source:
 
 - **Steam** (all library folders) and **non-Steam games** in Steam (with their custom artwork)
@@ -132,7 +132,7 @@ ends the game), **X** removes it again. No editing `apps.json` by hand.
 ### 🖼️ Artwork & Pictures via QR Code
 
 Covers, hero images, logos and Steam screenshots come straight from the PC. Don't like a picture?
-*Bild setzen* shows a **QR code**: scan it with your phone, pick any image, and it replaces the
+*Set image* shows a **QR code**: scan it with your phone, pick any image, and it replaces the
 cover, hero or logo of that game – on the Deck and in Sunshine.
 
 <p align="center">
@@ -148,7 +148,7 @@ can't do a profile exactly, Albedo tells you what you will actually get.
 ### ⏹️ After the Stream
 
 When Moonlight disconnects, Albedo asks whether the game should keep running on the PC
-(*Pausieren*) or be closed (*Beenden*). **Y** remembers the answer, per game if you like.
+(*Pause*) or be closed (*Quit*). **Y** remembers the answer, per game if you like.
 Optionally it also shows Moonlight's statistics of the stream: frame rates, latency and lost frames.
 
 <p align="center">
@@ -241,7 +241,7 @@ you):
 }
 ```
 
-Leave the login empty: the first time you press **A** in *Hinzufügen*, Albedo asks for the Sunshine
+Leave the login empty: the first time you press **A** in *Add games*, Albedo asks for the Sunshine
 login and the companion stores it. Without it the list still shows, but adding and removing don't
 work.
 
@@ -271,7 +271,7 @@ Albedo is made for your **home network**. Nothing of it belongs on the open inte
 > [!WARNING]
 > **Never forward Sunshine's ports (47984–48010, web UI 47990) or the companion's port 47995 in
 > your router.** To play away from home, use a VPN such as [Tailscale](https://tailscale.com/) and
-> add the PC's Tailscale address in *Verbindung*.
+> add the PC's Tailscale address in *Connection*.
 
 | Part | How it is protected |
 |---|---|
@@ -294,7 +294,7 @@ see the Sunshine password. If guests use your network, put them on a guest Wi-Fi
 | Button | Keyboard | Home | Game detail |
 |---|---|---|---|
 | D-pad / stick | Arrows | Move | Move |
-| **A** | Enter / Space | Open game / *Hinzufügen* | Start stream / selected action |
+| **A** | Enter / Space | Open game / *Add games* | Start stream / selected action |
 | **B** | Esc / Backspace | – | Back |
 | **X** | X | Switch device | Switch device |
 | **Y** | Y | Reload list | Remember profile for this game |
@@ -302,9 +302,9 @@ see the Sunshine password. If guests use your network, put them on a guest Wi-Fi
 | **☰** | M | Device editor | Device editor |
 
 In the editor: **L1 / R1** pick the device, **Y** makes a profile the default, **X** deletes the
-selected profile or, on *Geräteeinstellungen*, the device (press **X** again to confirm).
+selected profile or, on *Device settings*, the device (press **X** again to confirm).
 The buttons under the profiles add a profile or a device. **B** or **☰** closes it.
-In *Hinzufügen*: **L1 / R1** switch the group, **A** adds, **X** removes.
+In *Add games*: **L1 / R1** switch the group, **A** adds, **X** removes.
 
 Albedo reads the gamepad itself; Steam Input's *Gamepad* template is all it needs.
 
@@ -312,7 +312,7 @@ Albedo reads the gamepad itself; Steam Input's *Gamepad* template is all it need
 
 ## Configuration ⚙️
 
-Everything can be set in the app (*Verbindung* and the **☰** editor). The settings live in
+Everything can be set in the app (*Connection* and the **☰** editor). The settings live in
 `~/.config/de.davidf.streaminglauncher/settings.json`; a few keys exist only there:
 
 | Key | Meaning |
