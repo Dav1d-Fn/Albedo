@@ -1,6 +1,7 @@
 import { UiText } from "../i18n/UiText";
 import LauncherApp from "../LauncherApp";
 import { AfterStreamAction, BackdropKind } from "../model/Types";
+import steamGridDbApiQr from "../assets/steamgriddb-api-qr.svg";
 
 const backdropOptions: BackdropKind[] = ["hero", "screenshots", "cover", "none"];
 
@@ -202,11 +203,22 @@ export function ConnectionScreen(props: { app: LauncherApp })
               onFocus={() => app.setState({ connectionZone: "rows", connectionRow: LauncherApp.steamGridDbRowIndex })}
             />
           </div>
-          <div className="dnote" style={{ paddingLeft: 20 }}>
-            {settings.steamGridDbKey === ""
-              ? t.connection.keyMissingHint
-              : t.connection.keySavedHint(settings.steamGridDbKey.slice(-4))}
-          </div>
+          {settings.steamGridDbKey === "" || state.steamGridDbKeyCheck === "invalid" ? (
+            <div className="dnote keyhelp" style={{ paddingLeft: 20 }}>
+              {/* Clicking a link on the Deck is tedious: the phone scans the code and the key is typed off its screen. */}
+              <img className="keyqr" src={steamGridDbApiQr} alt={t.connection.keyPageQr} />
+              <div>
+                <div>{settings.steamGridDbKey === "" ? t.connection.keyMissingHint : t.connection.keyCheckNames.invalid}</div>
+                <div>{t.connection.keyWhere}</div>
+                <code>{t.connection.keyPageUrl}</code>
+              </div>
+            </div>
+          ) : (
+            <div className={"dnote keystatus " + state.steamGridDbKeyCheck} style={{ paddingLeft: 20 }}>
+              {t.connection.keySavedHint(settings.steamGridDbKey.slice(-4))}
+              {state.steamGridDbKeyCheck !== "unchecked" && <span className="keycheck">{t.connection.keyCheckNames[state.steamGridDbKeyCheck]}</span>}
+            </div>
+          )}
 
           <div className="rhead clabel">{t.connection.language}</div>
           <div className={"row" + rowFocus(LauncherApp.languageRowIndex)} ref={rowScroll(LauncherApp.languageRowIndex)}>

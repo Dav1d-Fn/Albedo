@@ -172,6 +172,8 @@ export const englishTexts: TextTable =
 
   imageDialog:
   {
+    currentPicture: "Current picture",
+    noPictureYet: "No picture yet",
     title: (gameName: string) => gameName + " · Set image",
     fromPhone: "From your phone",
     qrCode: (url: string) => "QR code: " + url,
@@ -314,7 +316,11 @@ export const englishTexts: TextTable =
     steamGridDbKey: "SteamGridDB key",
     keyOptional: "optional, for more images",
     keyNew: "enter a new key",
-    keyMissingHint: "Without a key, Set image only searches the Steam store. Key: steamgriddb.com → Profile → Preferences → API.",
+    keyMissingHint: "Without a key, Set image only searches the Steam store and libretro.",
+    keyWhere: "Get a key: scan the code with your phone, sign in, \"Generate API Key\", then type it here.",
+    keyPageUrl: "steamgriddb.com/profile/preferences/api",
+    keyPageQr: "QR code to the SteamGridDB API key page",
+    keyCheckNames: { unchecked: "", checking: "Checking …", valid: "Checked ✓", invalid: "Key invalid, please enter it again.", unreachable: "SteamGridDB unreachable, not checked." },
     keySavedHint: (lastCharacters: string) => "Saved (…" + lastCharacters + "). X deletes it.",
     language: "Language",
     languageRow: "Interface language",

@@ -2,6 +2,7 @@ import { mockIPC } from "@tauri-apps/api/mocks";
 import { emit } from "@tauri-apps/api/event";
 import { UiText } from "../i18n/UiText";
 import { RecordingData } from "./RecordingData";
+import { LibraryEntry } from "../model/Types";
 
 /**
  * Fake backend for `npm run dev` in a plain browser (no Tauri), so the UI can be
@@ -82,6 +83,18 @@ export class BrowserMock
   }
 
   /** A QR-looking pattern; the real one comes from the companion. */
+  /** A picture set by hand also gives the entry a picture of that kind, like on the companion. */
+  private static withCustomArt(entry: Omit<LibraryEntry, "customArt">, customKinds: string[]): LibraryEntry
+  {
+    return {
+      ...entry,
+      customArt: customKinds as LibraryEntry["customArt"],
+      hasCover: entry.hasCover || customKinds.includes("cover"),
+      hasHero: entry.hasHero || customKinds.includes("hero"),
+      hasLogo: entry.hasLogo || customKinds.includes("logo"),
+    };
+  }
+
   private static fakeQrSvg(): string
   {
     let cells = "";
@@ -233,7 +246,7 @@ export class BrowserMock
           {
             return Promise.reject(pick("PC-Helfer nicht erreichbar (Port 47995). Läuft der Companion auf dem PC?", "PC companion unreachable (port 47995). Is it running on the PC?"));
           }
-          return { entries: BrowserMock.sampleLibrary().map((entry) => ({ ...entry, customArt: customArt[entry.id] ?? [] })), sunshineProblem: sunshineLoginMissing ? pick("Sunshine-Login fehlt im PC-Helfer", "The PC companion has no Sunshine login") : null };
+          return { entries: BrowserMock.sampleLibrary().map((entry) => BrowserMock.withCustomArt(entry, customArt[entry.id] ?? [])), sunshineProblem: sunshineLoginMissing ? pick("Sunshine-Login fehlt im PC-Helfer", "The PC companion has no Sunshine login") : null };
         case "companion_set_sunshine_login":
           if (args.password !== "sunshine")
           {

@@ -5,7 +5,7 @@ import { ModeText } from "./model/ModeText";
 import { DefaultSettings } from "./model/DefaultSettings";
 import { DevicePalette } from "./model/DevicePalette";
 import { GameArt } from "./model/GameArt";
-import { AfterStreamAction, ArtKind, BackdropKind, DeviceId, UiLanguage, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, PcDisplayMode, Settings, StreamMode, SunshineLoginDraft, ImageDialogState, ImageDialogRow, RunningHostApp } from "./model/Types";
+import { AfterStreamAction, ArtKind, BackdropKind, DeviceId, UiLanguage, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, PcDisplayMode, Settings, StreamMode, SunshineLoginDraft, SteamGridDbKeyCheck, ImageDialogState, ImageDialogRow, RunningHostApp } from "./model/Types";
 import { AvailableUpdate, Backend } from "./services/Backend";
 import { CompanionArt } from "./services/CompanionArt";
 import { AfterStreamDialog } from "./views/AfterStreamDialog";
@@ -87,6 +87,7 @@ export interface LauncherState
   extraAddressDraft: string;
   /** SteamGridDB key being typed on the connection screen; saved on A. */
   steamGridDbKeyDraft: string;
+  steamGridDbKeyCheck: SteamGridDbKeyCheck;
   pairState: "idle" | "pairing" | "paired" | "error";
   pairPin: string;
   pairMessage: string;
@@ -217,6 +218,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       manualHostDraft: "",
       extraAddressDraft: "",
       steamGridDbKeyDraft: "",
+      steamGridDbKeyCheck: "unchecked",
       pairState: "idle",
       pairPin: "",
       pairMessage: "",
@@ -991,6 +993,9 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   private artPollTimer = 0;
 
+  /** A poll round is waiting for the PC; the timer and a just applied picture must not both reload and toast. */
+  private artPollRunning = false;
+
   public openImageDialog(): void
   {
     const dialog: ImageDialogState =
@@ -1007,6 +1012,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       searchProblem: "",
       applying: false,
       artVersion: -1,
+      heroPreview: null,
     };
     // Polling starts once the dialog is in the state, its first round would otherwise stop it again.
     this.setState({ imageDialog: dialog }, () =>
@@ -1046,6 +1052,30 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   {
     this.loadUploadToken(kind);
     this.searchArt(kind);
+    this.loadHeroPreview();
+  }
+
+  /** The current title image for the preview next to the kinds; covers and logos are already in the state. */
+  private async loadHeroPreview(): Promise<void>
+  {
+    const gameName = this.selectedGame() ?? "";
+    const heroPreview = await this.companionArt.backdropImage(this.connectedHost(), gameName, "hero", 0);
+    this.changeImageDialog({ heroPreview });
+  }
+
+  /** The current picture of the shown kind, null when the game has none. */
+  public currentArt(kind: ArtKind): string | null
+  {
+    const gameName = this.selectedGame() ?? "";
+    if (kind === "cover")
+    {
+      return this.state.boxArt[gameName] ?? null;
+    }
+    if (kind === "logo")
+    {
+      return this.state.logos[gameName] ?? null;
+    }
+    return this.state.imageDialog?.heroPreview ?? null;
   }
 
   /** Asks the companion for a fresh upload page for this picture kind; the QR code shows it. */
@@ -1142,6 +1172,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     try
     {
       await this.backend.applyArt(this.connectedHost(), entryId, dialog.kind, candidate.imageUrl);
+      // Show it right away instead of waiting for the next poll round.
+      await this.pollArtVersion();
     }
     catch (applyError)
     {
@@ -1162,6 +1194,23 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   /** A different art version than at the start means a picture came in or was reset: reload covers, logos and backdrop. */
   private async pollArtVersion(): Promise<void>
+  {
+    if (this.artPollRunning)
+    {
+      return;
+    }
+    this.artPollRunning = true;
+    try
+    {
+      await this.pollArtVersionOnce();
+    }
+    finally
+    {
+      this.artPollRunning = false;
+    }
+  }
+
+  private async pollArtVersionOnce(): Promise<void>
   {
     const dialog = this.state.imageDialog;
     if (dialog === null)
@@ -1189,11 +1238,9 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       this.changeImageDialog({ artVersion });
       await this.reloadArt();
-      // A title image set by hand takes the backdrop row away; the focus must not stay on it.
-      if (!this.imageDialogRows().includes(this.state.imageDialog?.row ?? "kind"))
-      {
-        this.changeImageDialog({ row: "pictures" });
-      }
+      await this.loadHeroPreview();
+      // One step back to the kinds, so cover, title image and logo can be changed one after the other.
+      this.changeImageDialog({ row: "kind" });
       this.showToast({ kind: "ok", eyebrow: UiText.current.detail.setImage, name: UiText.current.toasts.imageApplied, spec: "", sub: this.selectedGame() ?? "" });
       // The page on the phone may have been used up; a new code for the next picture.
       this.loadUploadToken(this.state.imageDialog?.kind ?? dialog.kind);
@@ -2740,12 +2787,15 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       return;
     }
     this.updateSettings((settings) => ({ ...settings, steamGridDbKey }));
+    // ponytail: no check yet; the PC helper's key check endpoint sets "checking" and the result here once it exists.
+    this.setState({ steamGridDbKeyCheck: "unchecked" });
     this.showToast({ kind: "ok", eyebrow: "SteamGridDB", name: UiText.current.toasts.keySaved, spec: "", sub: UiText.current.toasts.keySavedText });
   }
 
   public removeSteamGridDbKey(): void
   {
     this.updateSettings((settings) => ({ ...settings, steamGridDbKey: "" }));
+    this.setState({ steamGridDbKeyCheck: "unchecked" });
   }
 
   public focusExtraAddress(): void

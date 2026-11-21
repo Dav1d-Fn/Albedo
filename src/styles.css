@@ -233,6 +233,12 @@ body { cursor: default; user-select: none; }
 
 
 /* Additions beyond the design */
+.dnote.keyhelp { align-items: center; gap: 14px; }
+.dnote.keyhelp code { font-size: 12px; color: #E4E4E7; }
+.keyqr { width: 104px; height: 104px; border-radius: 8px; image-rendering: pixelated; flex: none; }
+.keycheck { font-weight: 600; }
+.keystatus.valid .keycheck { color: #86EFAC; }
+.keystatus.unreachable .keycheck { color: #FCD34D; }
 .dnote.err { color: #FCA5A5; align-items: flex-start; max-width: 660px; font-variant-numeric: tabular-nums; }
 .dnote.err code { font-size: 12px; color: #E4E4E7; word-break: break-all; }
 .dot.err { background: #F87171; box-shadow: 0 0 0 4px rgba(248,113,113,.18); }
@@ -340,6 +346,9 @@ body { cursor: default; user-select: none; }
 .imgphone .qr { width: 166px; height: 166px; }
 .imgphone .qrurl { max-width: 200px; font-size: 11px; }
 .imgweb { width: 640px; display: flex; flex-direction: column; gap: 6px; }
+.imgrow.kindrow { flex-direction: row; gap: 16px; }
+.curpic { height: 64px; min-width: 64px; display: grid; place-items: center; border-radius: 8px; overflow: hidden; background: rgba(255,255,255,.04); }
+.curpic img { height: 64px; width: auto; max-width: 200px; object-fit: contain; }
 .imgrow.searchrow { flex-direction: row; gap: 12px; padding: 4px 12px; }
 .searchrow .rlabel { white-space: nowrap; font-size: 14px; font-weight: 650; color: #C4C4CC; }
 .searchrow .hostinput { margin-top: 0; flex: 1; }

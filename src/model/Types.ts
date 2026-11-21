@@ -11,6 +11,12 @@ export type DeviceColor = "blue" | "orange" | "green" | "violet" | "pink" | "tea
 
 export type PadButton = "UP" | "DOWN" | "LEFT" | "RIGHT" | "A" | "B" | "X" | "Y" | "L1" | "R1" | "MENU";
 
+/**
+ * Result of checking the SteamGridDB key on the PC helper. "unchecked" until the helper has an endpoint
+ * for it (or the check was not run yet), "unreachable" when the helper or SteamGridDB did not answer.
+ */
+export type SteamGridDbKeyCheck = "unchecked" | "checking" | "valid" | "invalid" | "unreachable";
+
 export type VideoCodec = "H.264" | "HEVC" | "AV1";
 
 export type AudioLayout = "Stereo" | "5.1 Surround" | "7.1 Surround";
@@ -177,6 +183,8 @@ export interface ImageDialogState
   applying: boolean;
   /** Companion art version when the dialog opened; a different one means a picture arrived or was reset. */
   artVersion: number;
+  /** The game's current title image for the "now" preview; covers and logos come from the home state. */
+  heroPreview: string | null;
 }
 
 /** Dialog on the "Hinzufügen" screen that hands the Sunshine web UI login to the companion. */

@@ -18,6 +18,7 @@ export function ImageDialog(props: { app: LauncherApp })
   const rows = app.imageDialogRows();
   const t = UiText.current;
   const backdropOverride = app.backdropKindOverride(gameName);
+  const currentArt = app.currentArt(dialog.kind);
   // The SVG comes from the companion; as <img> it cannot run scripts in the launcher.
   const qrImage = dialog.token === null ? "" : "data:image/svg+xml;charset=utf-8," + encodeURIComponent(dialog.token.qrSvg);
 
@@ -26,13 +27,18 @@ export function ImageDialog(props: { app: LauncherApp })
       <div className="dcard imgdialog">
         <div className="teyebrow">{t.imageDialog.title(gameName)}</div>
 
-        <div className={"imgrow" + (dialog.row === "kind" ? " f" : "")}>
+        <div className={"imgrow kindrow" + (dialog.row === "kind" ? " f" : "")}>
           <div className="seg">
             {LauncherApp.artKinds.map((kind) => (
               <button key={kind} className={"segb" + (dialog.kind === kind ? " on" : "")} onClick={() => app.chooseArtKind(kind)}>
                 {t.artKindNames[kind]}
               </button>
             ))}
+          </div>
+          <div className={"curpic " + dialog.kind}>
+            {currentArt !== null
+              ? <img src={currentArt} alt={t.imageDialog.currentPicture} />
+              : <span className="msub">{t.imageDialog.noPictureYet}</span>}
           </div>
         </div>
 

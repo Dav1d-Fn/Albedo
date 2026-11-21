@@ -177,6 +177,8 @@ export const germanTexts =
 
   imageDialog:
   {
+    currentPicture: "Aktuelles Bild",
+    noPictureYet: "Noch kein Bild",
     title: (gameName: string) => gameName + " · Bild setzen",
     fromPhone: "Vom Handy",
     qrCode: (url: string) => "QR-Code: " + url,
@@ -319,7 +321,11 @@ export const germanTexts =
     steamGridDbKey: "SteamGridDB-Schlüssel",
     keyOptional: "optional, für mehr Bilder",
     keyNew: "neuen Schlüssel eingeben",
-    keyMissingHint: "Ohne Schlüssel sucht „Bild setzen“ nur im Steam-Shop. Schlüssel: steamgriddb.com → Profil → Einstellungen → API.",
+    keyMissingHint: "Ohne Schlüssel sucht „Bild setzen“ nur im Steam-Shop und bei libretro.",
+    keyWhere: "Schlüssel holen: Code mit dem Handy scannen, anmelden, „Generate API Key“, dann hier eintippen.",
+    keyPageUrl: "steamgriddb.com/profile/preferences/api",
+    keyPageQr: "QR-Code zur SteamGridDB-Seite für API-Schlüssel",
+    keyCheckNames: { unchecked: "", checking: "Wird geprüft …", valid: "Geprüft ✓", invalid: "Schlüssel ungültig, bitte neu eintragen.", unreachable: "SteamGridDB nicht erreichbar, nicht geprüft." },
     keySavedHint: (lastCharacters: string) => "Gespeichert (…" + lastCharacters + "). X löscht ihn.",
     language: "Sprache",
     languageRow: "Sprache der Oberfläche",
