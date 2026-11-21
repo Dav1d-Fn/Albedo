@@ -27,12 +27,16 @@ export function HomeScreen(props: { app: LauncherApp })
   const segmentWidth = (520 - 8) / deviceOrder.length;
   const coverWidthWithGap = 176;
   const visibleCovers = 6;
-  const railOffset = Math.max(0, state.gameIndex - (visibleCovers - 1)) * coverWidthWithGap;
+  // The "Fortsetzen" tile sits in front of the games (gameIndex -1), so the rail position counts it.
+  const resumeGame = app.resumeGame();
+  const resumeSelected = state.gameIndex === -1 && resumeGame !== undefined;
+  const railPosition = state.gameIndex + (resumeGame !== undefined ? 1 : 0);
+  const railOffset = Math.max(0, railPosition - (visibleCovers - 1)) * coverWidthWithGap;
 
   return (
     <div className="screen">
-      {state.games.map((gameName, gameIndex) => (
-        <div key={gameName} className={"bd" + (gameIndex === state.gameIndex ? " on" : "") + app.backdropArtFor(gameName).backdropClass} style={{ background: app.backdropArtFor(gameName).backdrop }} />
+      {state.games.map((gameName) => (
+        <div key={gameName} className={"bd" + (gameName === app.selectedGame() ? " on" : "") + app.backdropArtFor(gameName).backdropClass} style={{ background: app.backdropArtFor(gameName).backdrop }} />
       ))}
       <GameBackdrop app={app} gameName={app.selectedGame() ?? ""} />
       <div className="scrim" />
@@ -90,6 +94,21 @@ export function HomeScreen(props: { app: LauncherApp })
       </div>
 
       <div className="hero">
+        {resumeGame !== undefined && (
+          <div className={"ht" + (resumeSelected ? " on" : "")}>
+            <div className="eyebrow running"><span className="livedot" />{t.home.runningResume}</div>
+            {state.logos[resumeGame] !== undefined
+              ? <div className="htitle"><img className="glogo" src={state.logos[resumeGame]} alt={resumeGame} /></div>
+              : <div className="htitle">{resumeGame}</div>}
+            <div className="hmeta">
+              <span className="hprof">
+                <span className="adot" />
+                {t.common.startsAs(app.profile().name, ModeText.spec(app.activeMode()))}
+              </span>
+              <span>{t.home.resumeText}</span>
+            </div>
+          </div>
+        )}
         {state.games.map((gameName, gameIndex) => (
           <div key={gameName} className={"ht" + (gameIndex === state.gameIndex ? " on" : "")}>
             <div className="eyebrow">{app.isRemembered(gameName) ? t.home.profileRemembered : t.common.sunshineApp}</div>
@@ -120,6 +139,18 @@ export function HomeScreen(props: { app: LauncherApp })
 
       <div className="rail">
         <div className="track" style={{ transform: `translateX(-${railOffset}px)` }}>
+          {resumeGame !== undefined && (
+            <button
+              className={"cover resume" + (gamesZone ? (resumeSelected ? " f" : " dim") : "")}
+              onClick={() => app.resumeRunningGame()}
+              aria-label={t.home.runningResume + ": " + resumeGame}
+              style={{ background: app.artFor(resumeGame).cover }}
+            >
+              {!app.artFor(resumeGame).hasImage && <span className="ctitle" style={{ color: app.artFor(resumeGame).ink }}>{resumeGame}</span>}
+              <span className="runbadge"><span className="livedot" />{t.home.runningResume}</span>
+              <span className="shine" />
+            </button>
+          )}
           {state.games.map((gameName, gameIndex) =>
           {
             const art = app.artFor(gameName);

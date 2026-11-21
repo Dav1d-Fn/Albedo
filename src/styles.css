@@ -367,3 +367,10 @@ body { cursor: default; user-select: none; }
 .statline { display: contents; }
 .statlabel { color: #A1A1AA; }
 .statvalue { color: #F5F5F7; font-variant-numeric: tabular-nums; }
+
+/* "Fortsetzen" tile in front of the games: the app running on the PC right now */
+.cover.resume { box-shadow: 0 0 0 2px var(--acc), 0 18px 40px -18px var(--acc); }
+.runbadge { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 8px; border-radius: 10px; background: rgba(8,8,11,.75); backdrop-filter: blur(8px); color: #F5F5F7; font-size: 12px; font-weight: 750; white-space: nowrap; }
+.eyebrow.running { display: flex; align-items: center; gap: 8px; }
+.livedot { width: 8px; height: 8px; border-radius: 50%; background: #22C55E; box-shadow: 0 0 10px #22C55E; animation: livepulse 1.6s ease-in-out infinite; }
+@keyframes livepulse { 50% { opacity: .35; } }

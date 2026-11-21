@@ -97,6 +97,9 @@ export const englishTexts: TextTable =
     loading: "Loading …",
     noGames: "No games",
     noApps: "Sunshine returned no apps.",
+    runningResume: "Running · Resume",
+    resumeText: "Running on the PC · A resumes the stream",
+    resume: "Resume",
     addGames: "Add games",
     details: "Details",
     select: "Select",
@@ -134,6 +137,14 @@ export const englishTexts: TextTable =
     running: "Streaming",
     moonlightTookOver: (gameName: string) => "Moonlight has taken over · " + gameName,
     endStream: "End stream",
+  },
+
+  switchGameDialog:
+  {
+    stillRunning: (gameName: string | null) => (gameName ?? "A game") + " is still running",
+    question: (nextGame: string) => "Quit it and start " + nextGame + "? Unsaved progress will be lost.",
+    quitAndStart: "Quit and start",
+    cancel: "Cancel",
   },
 
   afterStreamDialog:

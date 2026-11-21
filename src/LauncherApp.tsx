@@ -5,10 +5,11 @@ import { ModeText } from "./model/ModeText";
 import { DefaultSettings } from "./model/DefaultSettings";
 import { DevicePalette } from "./model/DevicePalette";
 import { GameArt } from "./model/GameArt";
-import { AfterStreamAction, ArtKind, BackdropKind, DeviceId, UiLanguage, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, PcDisplayMode, Settings, StreamMode, SunshineLoginDraft, ImageDialogState, ImageDialogRow } from "./model/Types";
+import { AfterStreamAction, ArtKind, BackdropKind, DeviceId, UiLanguage, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, PcDisplayMode, Settings, StreamMode, SunshineLoginDraft, ImageDialogState, ImageDialogRow, RunningHostApp } from "./model/Types";
 import { AvailableUpdate, Backend } from "./services/Backend";
 import { CompanionArt } from "./services/CompanionArt";
 import { AfterStreamDialog } from "./views/AfterStreamDialog";
+import { SwitchGameDialog } from "./views/SwitchGameDialog";
 import { StreamSummaryDialog } from "./views/StreamSummaryDialog";
 import { ConnectScreen } from "./views/ConnectScreen";
 import { ConnectionScreen } from "./views/ConnectionScreen";
@@ -35,6 +36,7 @@ export interface LauncherState
   screen: ScreenName;
   /** Home: focus is on the game rail or on the top bar. */
   zone: "games" | "top";
+  /** Index into `games`; -1 = the "Fortsetzen" tile in front of them (see `resumeGame`). */
   gameIndex: number;
   topIndex: number;
   detailIndex: number;
@@ -110,6 +112,10 @@ export interface LauncherState
   logos: Record<string, string>;
   /** "Bild setzen" dialog on the detail page, null = closed. */
   imageDialog: ImageDialogState | null;
+  /** What runs on the PC (streamed or paused); null = nothing or unknown. */
+  runningApp: RunningHostApp | null;
+  /** "X läuft noch – beenden und Y starten?" on the detail page; null = closed. */
+  switchGame: { nextGame: string; choiceIndex: number } | null;
   /** Title image or screenshots behind home and detail; the last one is on top and fades in. */
   backdropLayers: BackdropLayer[];
   /** Design is drawn at 1280px width and zoomed to the window. */
@@ -231,6 +237,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       backdropLayers: [],
       logos: {},
       imageDialog: null,
+      runningApp: null,
+      switchGame: null,
       zoom: Math.max(window.innerWidth, 320) / LauncherApp.designWidth,
     };
   }
@@ -282,7 +290,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   public componentDidUpdate(_previousProps: object, previousState: LauncherState): void
   {
-    const previousGame = previousState.games[previousState.gameIndex];
+    const previousGame = this.selectedGame(previousState);
     const previousKind = previousState.settings === null ? undefined : LauncherApp.backdropKindIn(previousState.settings, previousGame);
     const currentKind = this.state.settings === null ? undefined : LauncherApp.backdropKindIn(this.state.settings, this.selectedGame());
     if (this.selectedGame() !== previousGame || currentKind !== previousKind)
@@ -340,9 +348,27 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     return DevicePalette.colors[profile?.color ?? "blue"] ?? DevicePalette.colors.blue;
   }
 
-  public selectedGame(): string | undefined
+  public selectedGame(state: LauncherState = this.state): string | undefined
   {
-    return this.state.games[this.state.gameIndex];
+    if (state.gameIndex === -1)
+    {
+      return this.resumeGame(state);
+    }
+    return state.games[state.gameIndex];
+  }
+
+  /**
+   * The app behind the "Fortsetzen" tile: whatever runs on the PC, in the launcher's list or not;
+   * undefined = no tile. Moonlight resumes by name, so an id it has no name for gets no tile.
+   */
+  public resumeGame(state: LauncherState = this.state): string | undefined
+  {
+    return state.runningApp?.appName ?? undefined;
+  }
+
+  public isRunning(gameName: string | undefined): boolean
+  {
+    return gameName !== undefined && this.state.runningApp?.appName === gameName;
   }
 
   public hostDisplayName(): string
@@ -487,6 +513,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
         gameIndex: Math.min(state.gameIndex, Math.max(0, games.length - 1)),
       }));
       this.loadBoxArt(settings, host, games);
+      this.refreshRunningApp(settings, host, true);
     }
     catch (fetchError)
     {
@@ -516,6 +543,41 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.setState((state) => ({ boxArt: { ...state.boxArt, ...companionArt.covers }, logos: companionArt.logos }));
     // The companion's library is known now, so the selected game can get its backdrop.
     this.updateBackdrop(host);
+  }
+
+  /**
+   * Asks Sunshine what runs right now. Called on start, wake-up, reload, after streams and quits, never in a loop.
+   * `selectResumeTile`: a game that just showed up as running gets the "Fortsetzen" tile selected.
+   * Errors count as "nothing known to run"; the start of a stream reports a PC that does not answer.
+   */
+  private async refreshRunningApp(settings: Settings = this.settings, host: string = this.connectedHost(), selectResumeTile: boolean = false): Promise<RunningHostApp | null>
+  {
+    let runningApp: RunningHostApp | null = null;
+    try
+    {
+      runningApp = await this.backend.runningHostApp(settings, host, this.hostAddresses(settings));
+    }
+    catch (runningError)
+    {
+      console.warn("cannot ask what runs on the PC", runningError);
+    }
+    this.setState((state) =>
+    {
+      const newlyRunning = runningApp !== null && runningApp.appId !== state.runningApp?.appId;
+      const nextState = { ...state, runningApp };
+      const hasResumeTile = this.resumeGame(nextState) !== undefined;
+      let gameIndex = state.gameIndex;
+      if (selectResumeTile && newlyRunning && hasResumeTile && state.screen === "home")
+      {
+        gameIndex = -1;
+      }
+      else if (gameIndex === -1 && !hasResumeTile)
+      {
+        gameIndex = 0;
+      }
+      return { runningApp, gameIndex };
+    });
+    return runningApp;
   }
 
   public artFor(gameName: string): GameArt
@@ -759,7 +821,9 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       if (button === "LEFT")
       {
-        this.setState({ gameIndex: Math.max(0, state.gameIndex - 1) });
+        // -1 is the "Fortsetzen" tile in front of the games, when something runs.
+        const firstIndex = this.resumeGame() !== undefined ? -1 : 0;
+        this.setState({ gameIndex: Math.max(firstIndex, state.gameIndex - 1) });
       }
       else if (button === "RIGHT")
       {
@@ -775,6 +839,10 @@ export default class LauncherApp extends React.Component<object, LauncherState>
         if (this.isAddTileSelected())
         {
           this.openLibrary();
+        }
+        else if (state.gameIndex === -1)
+        {
+          this.resumeRunningGame();
         }
         else
         {
@@ -801,6 +869,20 @@ export default class LauncherApp extends React.Component<object, LauncherState>
         this.activateTop(state.topIndex);
       }
     }
+  }
+
+  /** A on the "Fortsetzen" tile: straight back into the running game with the active profile. */
+  public resumeRunningGame(): void
+  {
+    const gameName = this.resumeGame();
+    if (gameName === undefined)
+    {
+      return;
+    }
+    // In the list it becomes a normal game for the detail page and the after-stream dialog;
+    // otherwise indexOf gives -1, the resume tile, which keeps naming it.
+    this.setState({ gameIndex: this.state.games.indexOf(gameName), zone: "games", detailIndex: 0 });
+    this.startStream(gameName);
   }
 
   public activateTop(topIndex: number): void
@@ -849,6 +931,11 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       this.imageDialogButton(button);
       return;
     }
+    if (this.state.switchGame !== null)
+    {
+      this.switchGameButton(button);
+      return;
+    }
     if (button === "LEFT")
     {
       this.setState({ detailIndex: Math.max(0, this.state.detailIndex - 1) });
@@ -876,7 +963,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.setState({ detailIndex });
     if (detailIndex === 0)
     {
-      this.startStream();
+      this.playSelectedGame();
     }
     else if (detailIndex === 1)
     {
@@ -1250,9 +1337,61 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.reloadGames();
   }
 
-  private startStream(): void
+  /**
+   * "Spielen": asks Sunshine first, since the cached answer may be old. The running game itself just resumes;
+   * another one would make Moonlight ask on its own, so the launcher asks instead and quits it first.
+   */
+  private async playSelectedGame(): Promise<void>
   {
     const gameName = this.selectedGame();
+    if (gameName === undefined)
+    {
+      return;
+    }
+    const runningApp = await this.refreshRunningApp();
+    if (runningApp === null || runningApp.appName === gameName)
+    {
+      this.startStream(gameName);
+      return;
+    }
+    this.setState({ switchGame: { nextGame: gameName, choiceIndex: 0 } });
+  }
+
+  private switchGameButton(button: PadButton): void
+  {
+    const switchGame = this.state.switchGame!;
+    if (button === "LEFT" || button === "RIGHT")
+    {
+      this.setState({ switchGame: { ...switchGame, choiceIndex: button === "LEFT" ? 0 : 1 } });
+    }
+    else if (button === "A")
+    {
+      this.chooseSwitchGame(switchGame.choiceIndex);
+    }
+    else if (button === "B")
+    {
+      this.chooseSwitchGame(1);
+    }
+  }
+
+  /** 0 = quit the running game and start the selected one, 1 = cancel. */
+  public async chooseSwitchGame(choiceIndex: number): Promise<void>
+  {
+    const switchGame = this.state.switchGame;
+    this.setState({ switchGame: null });
+    if (switchGame === null || choiceIndex !== 0)
+    {
+      return;
+    }
+    const quit = await this.quitHostApp(this.state.runningApp?.appName ?? "");
+    if (quit)
+    {
+      this.startStream(switchGame.nextGame);
+    }
+  }
+
+  private startStream(gameName: string | undefined = this.selectedGame()): void
+  {
     if (gameName === undefined)
     {
       return;
@@ -1335,6 +1474,9 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   private handleStreamEnded(exitCode: number | null, errorTail: string, videoStats: string[]): void
   {
+    // Paused or quit by Moonlight: the "Fortsetzen" tile has to follow.
+    this.refreshRunningApp();
+
     if (this.streamAbortRequested)
     {
       this.streamAbortRequested = false;
@@ -1617,17 +1759,20 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.setAfterStreamForGame(gameName, order[nextIndex]);
   }
 
-  private async quitHostApp(): Promise<void>
+  /** Ends the game on the PC; false when that failed (the error is shown). */
+  private async quitHostApp(gameName: string = this.selectedGame() ?? ""): Promise<boolean>
   {
-    const gameName = this.selectedGame() ?? "";
     try
     {
       await this.backend.quitHostApp(this.settings, this.connectedHost());
       this.showToast({ kind: "ok", eyebrow: this.hostDisplayName(), name: UiText.current.toasts.quit, spec: "", sub: UiText.current.toasts.noLongerRunning(gameName) });
+      this.refreshRunningApp();
+      return true;
     }
     catch (quitError)
     {
       this.showError(UiText.current.toasts.quitFailed, String(quitError));
+      return false;
     }
   }
 
@@ -2848,6 +2993,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
           {state.screen === "library" && <LibraryScreen app={this} />}
           <div className="ambient" />
           {state.screen === "afterStream" && <AfterStreamDialog app={this} />}
+          {state.screen === "detail" && state.switchGame !== null && <SwitchGameDialog app={this} />}
           {state.screen === "streamSummary" && <StreamSummaryDialog app={this} />}
           {state.screen === "detail" && state.imageDialog !== null && <ImageDialog app={this} />}
           {state.screen === "library" && state.sunshineLogin !== null && <SunshineLoginDialog app={this} />}

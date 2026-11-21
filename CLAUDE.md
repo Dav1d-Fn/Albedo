@@ -22,6 +22,7 @@ Design source: Claude design canvas https://claude.ai/artifact/UpFs3Nat5Q983TyyA
   - `host_address_picker.rs` – first reachable PC address (home IP before Tailscale, settings `host` + `extraHostAddresses`); every call uses the address it picked
   - `moonlight_pairing.rs` – `moonlight pair <host> --pin <pin>`
   - `moonlight_app_quit.rs` – `moonlight quit <host>`, ends the game still running on the PC after a disconnect
+  - `running_host_app.rs` – what runs on the PC (Sunshine `serverinfo` `currentgame` on port 47989, name from Moonlight.conf's app cache) for the "Fortsetzen" tile and the "X läuft noch" question
   - `moonlight_box_art.rs` – cover images from Moonlight's box art cache (`moonlight_host_entries.rs` parses Moonlight.conf)
   - `art_search.rs` – picture search for "Bild setzen": Steam shop and libretro thumbnails (`libretro_thumbnails.rs`, retro systems, no key) + SteamGridDB (key in settings `steamGridDbKey`, never logged); the picked picture goes to the companion through an upload token like a phone upload
   - `companion_client.rs` – HTTP client for the companion service on the PC (`companion/API.md`), `library_entry.rs` is its list item

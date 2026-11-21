@@ -9,6 +9,9 @@ import { UiText } from "../i18n/UiText";
 /** Whether the fake Moonlight is "running", so stop_stream answers like the real one. */
 let streamRunning = false;
 
+/** "?running=Hades II": that game runs on the PC; a quit or another game's stream changes it. */
+let runningGame: string | null = new URLSearchParams(window.location.search).get("running");
+
 /** Goes up when the fake phone "uploads" a picture. */
 let artVersion = 0;
 
@@ -164,6 +167,7 @@ export class BrowserMock
         case "start_stream":
           // "?hang": Moonlight never ends by itself, like one waiting for a PC that does not answer.
           streamRunning = true;
+          runningGame = (args.command as { appName: string }).appName;
           if (!hang)
           {
             window.setTimeout(() => BrowserMock.endStream(0), 3000);
@@ -200,7 +204,10 @@ export class BrowserMock
           window.setTimeout(() => BrowserMock.endStream(null), 300);
           return true;
         case "quit_host_app":
+          runningGame = null;
           return new Promise((resolve) => window.setTimeout(resolve, 500));
+        case "running_host_app":
+          return runningGame === null ? null : { appId: "1", appName: runningGame };
         case "load_box_art":
           return {};
         case "companion_display_modes":
