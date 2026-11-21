@@ -38,6 +38,10 @@ export class BrowserMock
         case "start_stream":
           window.setTimeout(() => emit("stream-ended", { exitCode: 0, errorTail: "" }), 3000);
           return "moonlight stream (browser mock)";
+        case "quit_host_app":
+          return new Promise((resolve) => window.setTimeout(resolve, 500));
+        case "load_box_art":
+          return {};
         default:
           return null;
       }

@@ -301,7 +301,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     try
     {
       const boxArt = await this.backend.loadBoxArt(settings);
-      this.setState({ boxArt });
+      this.setState({ boxArt: boxArt ?? {} });
     }
     catch (artError)
     {

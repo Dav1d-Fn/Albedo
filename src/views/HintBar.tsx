@@ -73,7 +73,7 @@ export function HintBar(props: { app: LauncherApp })
       <span className="keys">Pfeile · Enter A · Esc B · X · Y · Q/E L1/R1 · M ☰</span>
       <span className="hspacer" />
       {hints.map((hint) => (
-        <button key={state.screen + hint.label} className="hint" onClick={() => app.press(hint.button)}>
+        <button key={state.screen + hint.glyph + hint.label} className="hint" onClick={() => app.press(hint.button)}>
           <span className={"glyph" + (hint.pill ? " pill" : "")}>{hint.glyph}</span>
           {hint.label}
         </button>
