@@ -20,6 +20,7 @@ Design source: Claude design canvas https://claude.ai/artifact/UpFs3Nat5Q983TyyA
   - `display_detector.rs` – external screen connected? (`/sys/class/drm/*/status`)
   - `host_discovery.rs` – finds Sunshine PCs via mDNS (`_nvstream._tcp`)
   - `moonlight_pairing.rs` – `moonlight pair <host> --pin <pin>`
+  - `host_environment.rs` – strips the AppImage's LD_LIBRARY_PATH etc. before starting host programs (flatpak)
 - `src/` – frontend
   - `LauncherApp.tsx` – root class component, owns all state and the button logic
   - `model/` – settings types, defaults, text formatting, placeholder cover art

@@ -4,6 +4,7 @@ use std::thread;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
+use crate::host_environment::HostEnvironment;
 use crate::moonlight_command::MoonlightCommand;
 
 /// Payload of the "stream-ended" event.
@@ -36,7 +37,9 @@ impl StreamSession
 
         let (program, program_arguments) = arguments.split_first().ok_or("Moonlight-Befehl ist leer")?;
 
-        let child = Command::new(program)
+        let mut command = Command::new(program);
+        HostEnvironment::apply_to(&mut command);
+        let child = command
             .args(program_arguments)
             .stdout(Stdio::null())
             .stderr(Stdio::piped())

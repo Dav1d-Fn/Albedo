@@ -2,6 +2,7 @@ mod display_detector;
 mod game_list_source;
 mod gamepad_listener;
 mod host_discovery;
+mod host_environment;
 mod moonlight_command;
 mod moonlight_pairing;
 mod settings_store;

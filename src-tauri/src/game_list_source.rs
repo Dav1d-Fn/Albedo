@@ -3,6 +3,8 @@ use std::time::Duration;
 
 use serde::Deserialize;
 
+use crate::host_environment::HostEnvironment;
+
 /// Where the app list comes from, sent by the frontend.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -78,7 +80,9 @@ impl GameListSource
     {
         let (program, base_arguments) = self.moonlight_command.split_first().ok_or("Moonlight-Befehl ist leer")?;
 
-        let output = Command::new(program)
+        let mut command = Command::new(program);
+        HostEnvironment::apply_to(&mut command);
+        let output = command
             .args(base_arguments)
             .arg("list")
             .arg(&self.host)

@@ -1,5 +1,7 @@
 use std::process::Command;
 
+use crate::host_environment::HostEnvironment;
+
 /// Pairs Moonlight with a host: `moonlight pair <host> --pin <pin>`.
 /// The user types the same PIN into Sunshine's web UI (PIN page); the call
 /// returns once Sunshine accepted it or Moonlight gave up.
@@ -16,7 +18,9 @@ impl MoonlightPairing
         }
         let (program, base_arguments) = moonlight_command.split_first().ok_or("Moonlight-Befehl ist leer")?;
 
-        let output = Command::new(program)
+        let mut command = Command::new(program);
+        HostEnvironment::apply_to(&mut command);
+        let output = command
             .args(base_arguments)
             .args(["pair", host, "--pin", pin])
             .output()
