@@ -20,8 +20,9 @@ KNOWN_EXE_PARTS="streaming-launcher streaming_launcher albedo.appimage albedo_"
 REPO="Dav1d-Fn/streaming-launcher"
 CONFIG_DIR="$HOME/.config/de.davidf.streaminglauncher"
 MOONLIGHT_FLATPAK="com.moonlight_stream.Moonlight"
-# WebKitGTK stays black under gamescope without this.
-LAUNCH_OPTIONS="WEBKIT_DISABLE_DMABUF_RENDERER=1 %command%"
+# Empty on purpose: also clears WEBKIT_DISABLE_DMABUF_RENDERER=1 that older installers set,
+# it forces WebKitGTK into software rendering and drops the home screen to a few FPS.
+LAUNCH_OPTIONS=""
 
 INSTALL_DIR="$HOME/Applications"
 # Fixed file name without version: the updater in the app replaces exactly this file.

@@ -344,8 +344,9 @@ copies no longer accept updates.
 
 ### Known quirks
 
-- The Steam entry starts Albedo with `WEBKIT_DISABLE_DMABUF_RENDERER=1 %command%`; without it the
-  window stays black under gamescope (WebKitGTK). The installer sets it.
+- Don't add `WEBKIT_DISABLE_DMABUF_RENDERER=1` to the launch options. It forces WebKitGTK into
+  software rendering and the home screen drops to a few FPS. Older installers set it; running the
+  current installer again removes it.
 - The AppImage strips its own `LD_LIBRARY_PATH` before starting Flatpak programs.
 
 ---
