@@ -35,6 +35,25 @@ export class BrowserMock
     return "data:image/svg+xml," + encodeURIComponent(svg);
   }
 
+  /** Coloured stand-ins for found pictures: 2 from the Steam shop, 8 more from SteamGridDB with a key. */
+  private static fakeArtSearch(kind: string, steamGridDbKey: string): { candidates: object[]; problem: string | null }
+  {
+    const size = { cover: [600, 900], hero: [1920, 620], logo: [800, 300] }[kind] ?? [600, 900];
+    const colours = ["#1e3a8a", "#7c2d12", "#065f46", "#581c87", "#9f1239", "#0e7490", "#3f6212", "#78350f", "#334155", "#be185d"];
+    const hasKey = steamGridDbKey.trim() !== "";
+    const count = hasKey ? colours.length : 2;
+    const candidates = colours.slice(0, count).map((colour, pictureIndex) =>
+    {
+      const source = pictureIndex < 2 ? "Steam-Shop" : "SteamGridDB";
+      const background = kind === "logo" ? "" : `<rect width='${size[0]}' height='${size[1]}' fill='${colour}'/>`;
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${size[0]}' height='${size[1]}'>${background}`
+        + `<text x='50%' y='55%' font-size='${size[1] / 5}' fill='${kind === "logo" ? colour : "white"}' font-weight='900' text-anchor='middle' font-family='sans-serif'>${source === "Steam-Shop" ? "Shop" : "SGDB"} ${pictureIndex + 1}</text></svg>`;
+      const url = "data:image/svg+xml," + encodeURIComponent(svg);
+      return { imageUrl: url, thumbnailUrl: url, source, label: source === "Steam-Shop" ? "Hades II" : "Künstler " + pictureIndex };
+    });
+    return { candidates, problem: hasKey && steamGridDbKey.trim() === "falsch" ? "SteamGridDB-Schlüssel ungültig" : null };
+  }
+
   /** A QR-looking pattern; the real one comes from the companion. */
   private static fakeQrSvg(): string
   {
@@ -70,6 +89,14 @@ export class BrowserMock
     const offline = urlParameters.has("offline");
     // Like a fresh companion: no Sunshine login until the launcher hands one over.
     let sunshineProblem: string | null = "Sunshine-Login fehlt im PC-Helfer";
+    // Entry id -> picture kinds set by hand; "?customHero" starts with a title image set for Hades II.
+    const customArt: Record<string, string[]> = urlParameters.has("customHero") ? { "steam:1145350": ["hero"] } : {};
+    const setCustomArt = (entryId: string, kind: string, isSet: boolean) =>
+    {
+      const kinds = (customArt[entryId] ?? []).filter((knownKind) => knownKind !== kind);
+      customArt[entryId] = isSet ? [...kinds, kind] : kinds;
+      artVersion += 1;
+    };
 
     mockIPC((command, payload) =>
     {
@@ -107,13 +134,25 @@ export class BrowserMock
           return "data:image/svg+xml," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='800' height='200'><text x='0' y='150' font-size='150' font-weight='900' fill='#fbbf24' font-family='serif'>HADES II</text></svg>");
         case "companion_upload_token":
           // Pretend the phone sends a picture 5 s after the code was shown.
-          window.setTimeout(() => { artVersion += 1; }, 5000);
+          // "?noUpload" keeps the phone quiet, for looking at the dialog.
+          if (!urlParameters.has("noUpload"))
+          {
+            window.setTimeout(() => setCustomArt(args.entryId as string, args.kind as string, true), 5000);
+          }
           return { url: "http://192.168.178.36:47995/upload/mock-" + (args.kind as string), qrSvg: BrowserMock.fakeQrSvg(), expiresInSeconds: 600 };
         case "companion_art_version":
           return artVersion;
         case "companion_reset_art":
-          artVersion += 1;
+          setCustomArt(args.entryId as string, args.kind as string, false);
           return null;
+        case "search_art":
+          return new Promise((resolve) => window.setTimeout(() => resolve(BrowserMock.fakeArtSearch(args.kind as string, args.steamGridDbKey as string)), 600));
+        case "apply_art":
+          return new Promise((resolve) => window.setTimeout(() =>
+          {
+            setCustomArt(args.entryId as string, args.kind as string, true);
+            resolve(null);
+          }, 800));
         case "stop_stream":
           if (!streamRunning)
           {
@@ -135,7 +174,7 @@ export class BrowserMock
           {
             return Promise.reject("PC-Helfer nicht erreichbar (Port 47995). Läuft der Companion auf dem PC?");
           }
-          return { entries: BrowserMock.sampleLibrary, sunshineProblem };
+          return { entries: BrowserMock.sampleLibrary.map((entry) => ({ ...entry, customArt: customArt[entry.id] ?? [] })), sunshineProblem };
         case "companion_set_sunshine_login":
           if (args.password !== "sunshine")
           {

@@ -40,6 +40,16 @@ impl ArtOverrideStore
         }
     }
 
+    /// Kinds this entry has a picture set by hand for, e.g. ["hero"].
+    pub fn custom_kinds(&self, entry_id: &str) -> Vec<String>
+    {
+        Self::ART_KINDS
+            .iter()
+            .filter(|art_kind| Self::override_path(entry_id, art_kind).exists())
+            .map(|art_kind| art_kind.to_string())
+            .collect()
+    }
+
     /// Converts the upload to the launcher's format for that kind and stores it.
     pub fn save(&self, entry_id: &str, art_kind: &str, upload_bytes: Vec<u8>) -> Result<(), String>
     {

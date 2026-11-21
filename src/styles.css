@@ -328,3 +328,25 @@ body { cursor: default; user-select: none; }
 .mitem.warn .msub { color: #FECACA; font-weight: 650; }
 .rhead.warn { color: #FCA5A5; }
 .madd.dis.f { opacity: .75; }
+
+/* "Bild setzen": phone QR code next to the pictures found on the internet */
+.dcard.imgdialog { max-width: 1040px; padding: 26px 36px 22px; }
+.imgsources { display: flex; align-items: flex-start; gap: 18px; }
+.imgphone { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 0; }
+.imgphone .qrbox { width: 180px; height: 180px; }
+.imgphone .qr { width: 166px; height: 166px; }
+.imgphone .qrurl { max-width: 200px; font-size: 11px; }
+.imgweb { width: 640px; }
+.picstrip { display: flex; align-items: center; justify-content: center; gap: 10px; height: 190px; width: 100%; }
+.picstrip.hero, .picstrip.logo { height: 120px; }
+:where(.app) button.pic { position: relative; flex: none; display: grid; place-items: center; padding: 0; border-radius: 10px; overflow: hidden; background: rgba(255,255,255,.06); outline: 2px solid transparent; outline-offset: 2px; opacity: .55; transition: opacity .25s, outline-color .25s, transform .25s; }
+:where(.app) button.pic.on { opacity: 1; outline-color: var(--acc); transform: scale(1.04); }
+.pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.pic .spin { position: absolute; }
+.picstrip.cover .pic { width: 112px; height: 168px; }
+.picstrip.hero .pic { width: 186px; height: 60px; }
+.picstrip.hero .pic.on { width: 240px; height: 78px; }
+.picstrip.logo .pic { width: 150px; height: 90px; background: repeating-conic-gradient(rgba(255,255,255,.08) 0 25%, transparent 0 50%) 0 0 / 16px 16px; }
+.picstrip.logo .pic img { object-fit: contain; padding: 8px; box-sizing: border-box; }
+.picinfo { justify-content: center; max-width: 600px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.imgnote { max-width: 560px; justify-content: center; text-align: center; }

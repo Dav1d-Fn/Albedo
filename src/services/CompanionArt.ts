@@ -1,4 +1,4 @@
-import { BackdropKind, LibraryEntry } from "../model/Types";
+import { ArtKind, BackdropKind, LibraryEntry } from "../model/Types";
 import { Backend } from "./Backend";
 
 /**
@@ -71,6 +71,12 @@ export class CompanionArt
   public entryId(gameName: string): string | undefined
   {
     return this.entriesByName.get(gameName)?.id;
+  }
+
+  /** The game has a picture of this kind set by hand (older companions do not say: false). */
+  public hasCustomArt(gameName: string, kind: ArtKind): boolean
+  {
+    return this.entriesByName.get(gameName)?.customArt?.includes(kind) ?? false;
   }
 
   /** How many backdrop pictures the game has for this kind; more than one means they rotate. */

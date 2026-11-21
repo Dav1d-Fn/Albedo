@@ -76,6 +76,8 @@ export interface Settings
   backdropKind: BackdropKind;
   /** Game name -> backdrop kind for that game, missing = the default above. */
   backdropKindPerGame: Record<string, BackdropKind>;
+  /** Optional API key for SteamGridDB (picture search in "Bild setzen"); empty = only the Steam shop. */
+  steamGridDbKey: string;
   /** "<game name>|<device>" -> mode index remembered for that game. */
   rememberedModes: Record<string, number>;
 }
@@ -96,6 +98,8 @@ export interface LibraryEntry
   hasLogo: boolean;
   /** The user's screenshots of this game, 0 = newest; only Steam games have them. */
   screenshotCount: number;
+  /** Picture kinds set by hand (phone or picture search); a hand-set "hero" is always the backdrop. */
+  customArt: ArtKind[];
 }
 
 /** Answer of the companion's `GET /api/library`. */
@@ -118,15 +122,42 @@ export interface UploadToken
   expiresInSeconds: number;
 }
 
+/** A picture from the internet the dialog offers instead of a phone upload. */
+export interface ArtCandidate
+{
+  imageUrl: string;
+  thumbnailUrl: string;
+  /** "Steam-Shop" or "SteamGridDB". */
+  source: string;
+  label: string;
+}
+
+/** Answer of the launcher's picture search. */
+export interface ArtSearchResult
+{
+  candidates: ArtCandidate[];
+  /** German reason a source failed (e.g. a wrong SteamGridDB key), null when all answered. */
+  problem: string | null;
+}
+
+/** Rows of the "Bild setzen" dialog; "backdrop" is only there while the game has no title image set by hand. */
+export type ImageDialogRow = "kind" | "pictures" | "backdrop";
+
 /** "Bild setzen" dialog on the detail page. */
 export interface ImageDialogState
 {
-  /** 0 = picture kind (QR code), 1 = backdrop for this game. */
-  row: number;
+  row: ImageDialogRow;
   kind: ArtKind;
   token: UploadToken | null;
   loading: boolean;
   error: string;
+  /** Pictures from the Steam shop and SteamGridDB for `kind`. */
+  candidates: ArtCandidate[];
+  candidateIndex: number;
+  searching: boolean;
+  searchProblem: string;
+  /** A picked picture is being downloaded and sent to the PC. */
+  applying: boolean;
   /** Companion art version when the dialog opened; a different one means a picture arrived or was reset. */
   artVersion: number;
 }

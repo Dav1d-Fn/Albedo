@@ -30,7 +30,11 @@ export function HintBar(props: { app: LauncherApp })
   {
     hints.push({ glyph: "◀ ▶", label: "Wählen", button: "RIGHT", pill: true });
     hints.push({ glyph: "▲ ▼", label: "Zeile", button: "DOWN", pill: true });
-    if (state.imageDialog.row === 0)
+    if (state.imageDialog.row === "pictures" && state.imageDialog.candidates.length > 0)
+    {
+      hints.push({ glyph: "A", label: "Übernehmen", button: "A" });
+    }
+    if (state.imageDialog.row !== "backdrop")
     {
       hints.push({ glyph: "X", label: "Automatisches Bild", button: "X" });
     }
@@ -76,11 +80,16 @@ export function HintBar(props: { app: LauncherApp })
   {
     const onPairRow = state.connectionZone === "rows" && state.connectionRow === 0;
     const onAddressesRow = state.connectionZone === "rows" && state.connectionRow === LauncherApp.addressesRowIndex;
-    const rowLabel = onPairRow ? "Koppeln" : onAddressesRow ? "Adresse eintippen" : "Umschalten";
+    const onKeyRow = state.connectionZone === "rows" && state.connectionRow === LauncherApp.steamGridDbRowIndex;
+    const rowLabel = onPairRow ? "Koppeln" : onAddressesRow ? "Adresse eintippen" : onKeyRow ? "Schlüssel eintippen" : "Umschalten";
     hints.push({ glyph: "A", label: state.connectionZone === "hosts" ? "Verwenden" : rowLabel, button: "A" });
     if (onAddressesRow && app.settings.extraHostAddresses.length > 0)
     {
       hints.push({ glyph: "X", label: "Letzte entfernen", button: "X" });
+    }
+    if (onKeyRow && app.settings.steamGridDbKey !== "")
+    {
+      hints.push({ glyph: "X", label: "Schlüssel löschen", button: "X" });
     }
     hints.push({ glyph: "Y", label: "Neu suchen", button: "Y" });
     hints.push({ glyph: "B", label: "Fertig", button: "B" });

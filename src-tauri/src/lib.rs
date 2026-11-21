@@ -1,4 +1,7 @@
 mod app_updater;
+mod art_candidate;
+mod art_search;
+mod art_search_result;
 mod companion_client;
 mod companion_library;
 mod display_detector;
@@ -24,6 +27,8 @@ use std::time::Duration;
 use tauri::{AppHandle, State};
 
 use app_updater::{AppUpdater, AvailableUpdate};
+use art_search::ArtSearch;
+use art_search_result::ArtSearchResult;
 use companion_client::CompanionClient;
 use companion_library::CompanionLibrary;
 use display_detector::DisplayDetector;
@@ -206,6 +211,25 @@ async fn companion_reset_art(host: String, entry_id: String, kind: String) -> Re
     result
 }
 
+/// Pictures of one kind from the Steam shop and, with a key, SteamGridDB. The key is never logged.
+#[tauri::command]
+async fn search_art(game_name: String, entry_id: String, kind: String, steam_grid_db_key: String) -> Result<ArtSearchResult, String>
+{
+    let result = ArtSearch::new()?.search(&game_name, &entry_id, &kind, &steam_grid_db_key).await;
+    println!("[art] search {} {} -> {} found, problem {:?}", entry_id, kind, result.candidates.len(), result.problem);
+    Ok(result)
+}
+
+/// Downloads the picked picture and hands it to the companion like a phone upload.
+#[tauri::command]
+async fn apply_art(host: String, entry_id: String, kind: String, image_url: String) -> Result<(), String>
+{
+    let image_bytes = ArtSearch::new()?.download(&image_url).await?;
+    let result = CompanionClient::for_host(&host)?.upload_art(&entry_id, &kind, image_bytes).await;
+    println!("[art] set {} {} from {} -> {:?}", entry_id, kind, image_url, result);
+    result
+}
+
 #[tauri::command]
 async fn companion_add_app(host: String, entry_id: String) -> Result<String, String>
 {
@@ -281,6 +305,8 @@ pub fn run()
             companion_upload_token,
             companion_art_version,
             companion_reset_art,
+            search_art,
+            apply_art,
             companion_add_app,
             companion_remove_app,
             companion_set_sunshine_login,

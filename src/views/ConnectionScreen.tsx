@@ -178,6 +178,26 @@ export function ConnectionScreen(props: { app: LauncherApp })
               </div>
             </div>
           </div>
+
+          <div className="rhead clabel">Bilder aus dem Netz</div>
+          <div className={"row addrrow" + rowFocus(LauncherApp.steamGridDbRowIndex)}>
+            <button className="rlabel" onClick={() => app.focusSteamGridDbKey()}>SteamGridDB-Schlüssel</button>
+            <input
+              id="steamgriddb-key"
+              className="hostinput"
+              placeholder={settings.steamGridDbKey === "" ? "optional, für mehr Bilder" : "neuen Schlüssel eingeben"}
+              value={state.steamGridDbKeyDraft}
+              spellCheck={false}
+              autoComplete="off"
+              onChange={(changeEvent) => app.setState({ steamGridDbKeyDraft: changeEvent.target.value })}
+              onFocus={() => app.setState({ connectionZone: "rows", connectionRow: LauncherApp.steamGridDbRowIndex })}
+            />
+          </div>
+          <div className="dnote" style={{ paddingLeft: 20 }}>
+            {settings.steamGridDbKey === ""
+              ? "Ohne Schlüssel sucht „Bild setzen“ nur im Steam-Shop. Schlüssel: steamgriddb.com → Profil → Einstellungen → API."
+              : "Gespeichert (…" + settings.steamGridDbKey.slice(-4) + "). X löscht ihn."}
+          </div>
         </div>
       </div>
     </div>

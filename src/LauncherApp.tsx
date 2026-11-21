@@ -4,7 +4,7 @@ import { ModeText } from "./model/ModeText";
 import { DefaultSettings } from "./model/DefaultSettings";
 import { DevicePalette } from "./model/DevicePalette";
 import { GameArt } from "./model/GameArt";
-import { AfterStreamAction, ArtKind, BackdropKind, DeviceId, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, PcDisplayMode, Settings, StreamMode, SunshineLoginDraft, ImageDialogState } from "./model/Types";
+import { AfterStreamAction, ArtKind, BackdropKind, DeviceId, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, PcDisplayMode, Settings, StreamMode, SunshineLoginDraft, ImageDialogState, ImageDialogRow } from "./model/Types";
 import { AvailableUpdate, Backend } from "./services/Backend";
 import { CompanionArt } from "./services/CompanionArt";
 import { AfterStreamDialog } from "./views/AfterStreamDialog";
@@ -76,6 +76,8 @@ export interface LauncherState
   manualHostDraft: string;
   /** Text field for another address of the PC, e.g. its Tailscale IP. */
   extraAddressDraft: string;
+  /** SteamGridDB key being typed on the connection screen; saved on A. */
+  steamGridDbKeyDraft: string;
   pairState: "idle" | "pairing" | "paired" | "error";
   pairPin: string;
   pairMessage: string;
@@ -200,6 +202,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       connectionRow: 0,
       manualHostDraft: "",
       extraAddressDraft: "",
+      steamGridDbKeyDraft: "",
       pairState: "idle",
       pairPin: "",
       pairMessage: "",
@@ -886,11 +889,24 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   public openImageDialog(): void
   {
-    const dialog: ImageDialogState = { row: 0, kind: "cover", token: null, loading: false, error: "", artVersion: -1 };
+    const dialog: ImageDialogState =
+    {
+      row: "kind",
+      kind: "cover",
+      token: null,
+      loading: false,
+      error: "",
+      candidates: [],
+      candidateIndex: 0,
+      searching: false,
+      searchProblem: "",
+      applying: false,
+      artVersion: -1,
+    };
     // Polling starts once the dialog is in the state, its first round would otherwise stop it again.
     this.setState({ imageDialog: dialog }, () =>
     {
-      this.loadUploadToken("cover");
+      this.showArtKind("cover");
       this.startArtPolling();
     });
   }
@@ -904,6 +920,27 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   private changeImageDialog(change: Partial<ImageDialogState>): void
   {
     this.setState((state) => (state.imageDialog === null ? null : { imageDialog: { ...state.imageDialog, ...change } }));
+  }
+
+  /**
+   * Rows the dialog shows right now. The backdrop choice only decides the automatic picture behind
+   * the menu; a title image set by hand always wins, so the row is left out while the game has one.
+   */
+  public imageDialogRows(): ImageDialogRow[]
+  {
+    const gameName = this.selectedGame();
+    if (gameName !== undefined && this.companionArt.hasCustomArt(gameName, "hero"))
+    {
+      return ["kind", "pictures"];
+    }
+    return ["kind", "pictures", "backdrop"];
+  }
+
+  /** QR code and found pictures for this picture kind. */
+  private showArtKind(kind: ArtKind): void
+  {
+    this.loadUploadToken(kind);
+    this.searchArt(kind);
   }
 
   /** Asks the companion for a fresh upload page for this picture kind; the QR code shows it. */
@@ -928,6 +965,60 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     catch (tokenError)
     {
       this.changeImageDialog({ loading: false, error: String(tokenError) });
+    }
+  }
+
+  /** Pictures of this kind from the Steam shop (no key needed) and SteamGridDB (with a key). */
+  private async searchArt(kind: ArtKind): Promise<void>
+  {
+    const gameName = this.selectedGame() ?? "";
+    const entryId = this.companionArt.entryId(gameName);
+    // Without a companion entry a found picture could not be stored on the PC.
+    if (entryId === undefined)
+    {
+      this.changeImageDialog({ candidates: [], candidateIndex: 0, searching: false, searchProblem: "" });
+      return;
+    }
+    this.changeImageDialog({ candidates: [], candidateIndex: 0, searching: true, searchProblem: "" });
+    try
+    {
+      const result = await this.backend.searchArt(gameName, entryId, kind, this.settings.steamGridDbKey);
+      if (this.state.imageDialog?.kind === kind)
+      {
+        this.changeImageDialog({ candidates: result.candidates, searching: false, searchProblem: result.problem ?? "" });
+      }
+    }
+    catch (searchError)
+    {
+      if (this.state.imageDialog?.kind === kind)
+      {
+        this.changeImageDialog({ searching: false, searchProblem: String(searchError) });
+      }
+    }
+  }
+
+  /** A on a found picture: the PC stores it like a phone upload, the version poll then reloads. */
+  public async applyArtCandidate(candidateIndex: number): Promise<void>
+  {
+    const dialog = this.state.imageDialog;
+    const entryId = this.companionArt.entryId(this.selectedGame() ?? "");
+    const candidate = dialog?.candidates[candidateIndex];
+    if (dialog === null || entryId === undefined || candidate === undefined || dialog.applying)
+    {
+      return;
+    }
+    this.changeImageDialog({ row: "pictures", candidateIndex, applying: true });
+    try
+    {
+      await this.backend.applyArt(this.connectedHost(), entryId, dialog.kind, candidate.imageUrl);
+    }
+    catch (applyError)
+    {
+      this.showError("Bild nicht übernommen", String(applyError));
+    }
+    finally
+    {
+      this.changeImageDialog({ applying: false });
     }
   }
 
@@ -967,8 +1058,13 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       this.changeImageDialog({ artVersion });
       await this.reloadArt();
-      this.showToast({ kind: "ok", eyebrow: "Vom Handy", name: "Bild übernommen", spec: "", sub: this.selectedGame() ?? "" });
-      // The page on the phone was used up; a new code for the next picture.
+      // A title image set by hand takes the backdrop row away; the focus must not stay on it.
+      if (!this.imageDialogRows().includes(this.state.imageDialog?.row ?? "kind"))
+      {
+        this.changeImageDialog({ row: "pictures" });
+      }
+      this.showToast({ kind: "ok", eyebrow: "Bild setzen", name: "Bild übernommen", spec: "", sub: this.selectedGame() ?? "" });
+      // The page on the phone may have been used up; a new code for the next picture.
       this.loadUploadToken(this.state.imageDialog?.kind ?? dialog.kind);
     }
   }
@@ -1000,8 +1096,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   public chooseArtKind(kind: ArtKind): void
   {
-    this.changeImageDialog({ row: 0 });
-    this.loadUploadToken(kind);
+    this.changeImageDialog({ row: "kind" });
+    this.showArtKind(kind);
   }
 
   public chooseBackdropForGame(choice: BackdropKind | undefined): void
@@ -1011,7 +1107,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       return;
     }
-    this.changeImageDialog({ row: 1 });
+    this.changeImageDialog({ row: "backdrop" });
     this.setBackdropKindForGame(gameName, choice);
   }
 
@@ -1027,14 +1123,21 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       this.closeImageDialog();
       return;
     }
+    const rows = this.imageDialogRows();
     if (button === "UP" || button === "DOWN")
     {
-      this.changeImageDialog({ row: button === "UP" ? 0 : 1 });
+      const rowIndex = Math.max(0, rows.indexOf(dialog.row)) + (button === "UP" ? -1 : 1);
+      this.changeImageDialog({ row: rows[Math.min(rows.length - 1, Math.max(0, rowIndex))] });
       return;
     }
-    if (button === "X" && dialog.row === 0)
+    if (button === "X" && dialog.row !== "backdrop")
     {
       this.resetArt();
+      return;
+    }
+    if (button === "A" && dialog.row === "pictures")
+    {
+      this.applyArtCandidate(dialog.candidateIndex);
       return;
     }
     if (button !== "LEFT" && button !== "RIGHT")
@@ -1042,14 +1145,19 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       return;
     }
     const step = button === "LEFT" ? -1 : 1;
-    if (dialog.row === 0)
+    if (dialog.row === "kind")
     {
       const kinds = LauncherApp.artKinds;
       const kindIndex = Math.min(kinds.length - 1, Math.max(0, kinds.indexOf(dialog.kind) + step));
       if (kinds[kindIndex] !== dialog.kind)
       {
-        this.loadUploadToken(kinds[kindIndex]);
+        this.showArtKind(kinds[kindIndex]);
       }
+    }
+    else if (dialog.row === "pictures")
+    {
+      const candidateIndex = Math.min(dialog.candidates.length - 1, Math.max(0, dialog.candidateIndex + step));
+      this.changeImageDialog({ candidateIndex: Math.max(0, candidateIndex) });
     }
     else
     {
@@ -1261,8 +1369,13 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     return settings.backdropKind;
   }
 
+  /** A title image set by hand always wins: it is the picture the user chose for behind the menu. */
   public backdropKindFor(gameName: string | undefined): BackdropKind
   {
+    if (gameName !== undefined && this.companionArt.hasCustomArt(gameName, "hero"))
+    {
+      return "hero";
+    }
     return LauncherApp.backdropKindIn(this.settings, gameName);
   }
 
@@ -2204,7 +2317,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   // ---------------------------------------------------------------- connection and pairing
 
   /** Rows on the right side of the connection screen. */
-  public static readonly connectionRows = ["pair", "addresses", "moonlight", "afterStream", "backdrop"] as const;
+  public static readonly connectionRows = ["pair", "addresses", "moonlight", "afterStream", "backdrop", "steamGridDb"] as const;
 
   public openConnection(): void
   {
@@ -2260,6 +2373,33 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   public static readonly addressesRowIndex = LauncherApp.connectionRows.indexOf("addresses");
 
   public static readonly backdropRowIndex = LauncherApp.connectionRows.indexOf("backdrop");
+
+  public static readonly steamGridDbRowIndex = LauncherApp.connectionRows.indexOf("steamGridDb");
+
+  /** The key field; A focuses it, so the Deck's on-screen keyboard (Steam + X) can type into it. */
+  public focusSteamGridDbKey(): void
+  {
+    this.setState({ connectionZone: "rows", connectionRow: LauncherApp.steamGridDbRowIndex });
+    document.getElementById("steamgriddb-key")?.focus();
+  }
+
+  /** Stores the typed SteamGridDB key; an empty field keeps the stored one (X removes it). */
+  public saveSteamGridDbKey(typedKey: string): void
+  {
+    const steamGridDbKey = typedKey.trim();
+    this.setState({ steamGridDbKeyDraft: "" });
+    if (steamGridDbKey === "")
+    {
+      return;
+    }
+    this.updateSettings((settings) => ({ ...settings, steamGridDbKey }));
+    this.showToast({ kind: "ok", eyebrow: "SteamGridDB", name: "Schlüssel gespeichert", spec: "", sub: "Bild setzen sucht jetzt auch dort." });
+  }
+
+  public removeSteamGridDbKey(): void
+  {
+    this.updateSettings((settings) => ({ ...settings, steamGridDbKey: "" }));
+  }
 
   public focusExtraAddress(): void
   {
@@ -2339,6 +2479,10 @@ export default class LauncherApp extends React.Component<object, LauncherState>
         {
           this.addExtraAddress(state.extraAddressDraft);
         }
+        else if ((document.activeElement as HTMLInputElement).id === "steamgriddb-key")
+        {
+          this.saveSteamGridDbKey(state.steamGridDbKeyDraft);
+        }
         else
         {
           this.chooseHost(state.manualHostDraft, "");
@@ -2408,6 +2552,10 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       {
         this.removeLastExtraAddress();
       }
+      else if (button === "X" && state.connectionRow === LauncherApp.steamGridDbRowIndex)
+      {
+        this.removeSteamGridDbKey();
+      }
     }
   }
 
@@ -2434,6 +2582,10 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     else if (row === "backdrop")
     {
       this.cycleBackdropKind();
+    }
+    else if (row === "steamGridDb")
+    {
+      this.focusSteamGridDbKey();
     }
   }
 

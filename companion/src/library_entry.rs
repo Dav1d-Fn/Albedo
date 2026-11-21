@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use crate::art_override_store::ArtOverrideStore;
 use crate::cover_source::CoverSource;
 use crate::library_entry_response::LibraryEntryResponse;
 
@@ -46,6 +47,7 @@ impl LibraryEntry
             has_logo: !matches!(self.logo, CoverSource::None),
             screenshot_count: self.screenshots.len(),
             in_sunshine,
+            custom_art: ArtOverrideStore.custom_kinds(&self.id),
         }
     }
 }
