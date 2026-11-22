@@ -1,4 +1,4 @@
-//! The companion as a library: Albedo PC runs its HTTP server in-process (companion/API.md).
+//! The companion as a library: Albedo Companion (pc-app/) runs its HTTP server in-process (companion/API.md).
 
 mod api_server;
 mod art_override_store;

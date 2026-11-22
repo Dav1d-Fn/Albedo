@@ -3,7 +3,7 @@ use crate::companion_config::{home_directory, CompanionConfig};
 use crate::legacy_directory_mover::LegacyDirectoryMover;
 use crate::sunshine_client::SunshineClient;
 
-/// The whole companion for its host program (Albedo PC): takes over old folders, loads the
+/// The whole companion for its host program (Albedo Companion): takes over old folders, loads the
 /// config (writes a template on first start) and serves the API until the process ends.
 pub struct CompanionService
 {

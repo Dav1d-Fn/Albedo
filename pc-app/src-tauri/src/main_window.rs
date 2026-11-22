@@ -1,6 +1,6 @@
 use tauri::{AppHandle, Manager, WebviewWindowBuilder};
 
-/// The one window of Albedo PC. It only exists while it is open: closing destroys it with its
+/// The one window of Albedo Companion. It only exists while it is open: closing destroys it with its
 /// webview (the app keeps running in the tray), opening builds it again from tauri.conf.json.
 pub struct MainWindow;
 

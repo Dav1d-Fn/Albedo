@@ -21,18 +21,7 @@ dependencies = [
 name = "albedo-companion"
 version = "0.1.0"
 dependencies = [
- "percent-encoding",
- "qrcode",
- "serde",
- "serde_json",
- "tiny_http",
-]
-
-[[package]]
-name = "albedo-pc"
-version = "0.1.0"
-dependencies = [
- "albedo-companion",
+ "albedo-companion-core",
  "percent-encoding",
  "reqwest 0.12.28",
  "serde",
@@ -40,6 +29,17 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tauri-plugin-single-instance",
+]
+
+[[package]]
+name = "albedo-companion-core"
+version = "0.1.0"
+dependencies = [
+ "percent-encoding",
+ "qrcode",
+ "serde",
+ "serde_json",
+ "tiny_http",
 ]
 
 [[package]]

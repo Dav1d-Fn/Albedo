@@ -49,7 +49,7 @@ jobs:
           # Updater artifacts (.sig + latest.json) only here, so local builds need no signing key.
           args: --bundles appimage --config {"bundle":{"createUpdaterArtifacts":true}}
 
-  # PC side (Albedo PC: companion API + tray app in one AppImage), so nobody needs Rust or Node
+  # PC side (Albedo Companion: companion API + tray app in one AppImage), so nobody needs Rust or Node
   # on the gaming PC. pc-setup/install.sh downloads it under a fixed name from
   # releases/latest/download/, so the name must not carry the version.
   pc-app:
@@ -81,12 +81,12 @@ jobs:
         # PATH also for tsc and vite in the beforeBuildCommand
         run: |
           PATH="$PWD/../node_modules/.bin:$PATH" tauri build --bundles appimage
-          cp src-tauri/target/release/bundle/appimage/*.AppImage ../Albedo-PC-x86_64.AppImage
+          cp src-tauri/target/release/bundle/appimage/*.AppImage ../Albedo-Companion-x86_64.AppImage
 
       - uses: actions/upload-artifact@v4
         with:
           name: pc-app
-          path: Albedo-PC-x86_64.AppImage
+          path: Albedo-Companion-x86_64.AppImage
 
   # Adds the PC AppImage and SHA256SUMS to the release the appimage job created. Runs after it,
   # so the Deck AppImage and latest.json stay exactly as tauri-action made them.
@@ -111,4 +111,4 @@ jobs:
           cd assets
           sha256sum -- *.AppImage > SHA256SUMS
           cat SHA256SUMS
-          gh release upload "$tag" --clobber Albedo-PC-x86_64.AppImage SHA256SUMS
+          gh release upload "$tag" --clobber Albedo-Companion-x86_64.AppImage SHA256SUMS

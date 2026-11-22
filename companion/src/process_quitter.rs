@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 /// Ends a game when its stream is quit: SIGTERM to every process whose command line contains
 /// the pattern (like `pkill -f`), SIGKILL to whatever still runs after a few seconds.
-/// Runs as `Albedo-PC-x86_64.AppImage quit "<pattern>"` from a Sunshine undo step. Its own
+/// Runs as `Albedo-Companion-x86_64.AppImage quit "<pattern>"` from a Sunshine undo step. Its own
 /// process and its parents are skipped: their command lines contain the pattern too
 /// (a shell that runs `… quit "x"` would otherwise kill itself).
 pub struct ProcessQuitter
@@ -28,7 +28,7 @@ impl ProcessQuitter
         format!("{} quit \"{}\"", Self::companion_program(), pattern.replace('"', ""))
     }
 
-    /// Path of the running program (Albedo PC) as the program part of an undo command.
+    /// Path of the running program (Albedo Companion) as the program part of an undo command.
     pub fn companion_program() -> String
     {
         // Inside an AppImage the executable lives in a mount that is gone after the app ends;
@@ -39,7 +39,7 @@ impl ProcessQuitter
             Some(path) => path,
             None => std::env::current_exe()
                 .map(|path| path.display().to_string())
-                .unwrap_or_else(|_| "albedo-pc".into()),
+                .unwrap_or_else(|_| "albedo-companion".into()),
         };
         // Quotes around the program only when needed: Sunshine's undo log stays readable.
         if companion_path.contains(' ')

@@ -339,7 +339,7 @@ export const englishTexts: TextTable =
     loginNeeded: " · Adding and removing need the login. A or ☰ enters it.",
     helperUnreachable: "PC companion unreachable",
     worksWithoutHelper: "The launcher works without the companion: you play the apps set up in Sunshine. Only adding games needs the companion on the PC.",
-    startHelper: "Start Albedo PC on the PC (pc-setup/install.sh sets it up), then Y. B goes back to the games.",
+    startHelper: "Start Albedo Companion on the PC (pc-setup/install.sh sets it up), then Y. B goes back to the games.",
     group: "Group",
     enterLogin: "Enter login",
     remove: "Remove",

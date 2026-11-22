@@ -52,10 +52,16 @@ installs it and restarts.
 ### Gaming PC 🖥️
 
 Albedo only needs [Sunshine](https://github.com/LizardByte/Sunshine) on the PC to list and start
-games. The optional **Albedo PC** app adds everything that goes beyond that: adding games
-from the couch, cover art, picture upload and warnings about stream settings the PC's screen can't show.
-It is one program that starts with your desktop and waits in the tray.
-See [PC setup](#pc-setup-) below. Read [Requirements](#requirements-) first.
+games. For adding games from the couch, cover art and picture upload, install **Albedo Companion**
+on the PC (Linux) – open a terminal and run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/albedo/main/pc-setup/install.sh | bash
+```
+
+It starts with your desktop and waits in the tray; running the command again updates it,
+`| bash -s -- --uninstall` removes it. Sunshine login, the optional virtual monitor and
+troubleshooting are in [PC setup](#pc-setup-) below.
 
 ---
 
@@ -115,7 +121,7 @@ room TV and the desk monitor each get their own settings.
 
 ### 🧩 Companion: Add Games from the Couch
 
-With Albedo PC running on the PC, the last tile on the home screen, **Add games**, lists
+With Albedo Companion running on the PC, the last tile on the home screen, **Add games**, lists
 everything installed on the PC, grouped by source:
 
 - **Steam** (all library folders) and **non-Steam games** in Steam (with their custom artwork)
@@ -140,15 +146,15 @@ cover, hero or logo of that game – on the Deck and in Sunshine.
   <img src="docs/media/qr-upload.png" alt="The picture dialog with a QR code and pictures from the Steam store, next to the upload page on the phone" width="900">
 </p>
 
-### 🖱️ PC App: Manage It at the Desk
+### 🖱️ Albedo Companion: Manage It at the Desk
 
-Open [Albedo PC](pc-app/) from the tray to do the same with mouse and keyboard on the PC: add and remove games,
+Open [Albedo Companion](pc-app/) from the tray to do the same with mouse and keyboard on the PC: add and remove games,
 move a game into another group (or an own one, like *Couch co-op*) when the emulation detection
 gets it wrong, set pictures from the picture search or by dragging a file in, pair a device with
 its PIN, and enter the Sunshine login. Group changes show up on the Deck too.
 
 <p align="center">
-  <img src="docs/media/pc-app-library.png" alt="The PC app: the library by group with covers, a selected game and its group menu" width="900">
+  <img src="docs/media/pc-app-library.png" alt="Albedo Companion: the library by group with covers, a selected game and its group menu" width="900">
 </p>
 
 ### 🖥️ The PC Screen Follows the Deck
@@ -195,7 +201,7 @@ Releases are signed. The AppImage checks GitHub on start and updates itself afte
 | What you want | What the PC needs | Works on |
 |---|---|---|
 | List and start games | [Sunshine](https://github.com/LizardByte/Sunshine) | Any OS Sunshine runs on |
-| Albedo PC: add games, artwork, QR upload | Linux, `curl`, `magick` (ImageMagick), `gio`, `sqlite3` (Lutris only); a tray (StatusNotifier) to open the window | Any Linux desktop; the program list reads `.desktop` files. Without a desktop: `--headless` |
+| Albedo Companion: add games, artwork, QR upload | Linux, `curl`, `magick` (ImageMagick), `gio`, `sqlite3` (Lutris only); a tray (StatusNotifier) to open the window | Any Linux desktop; the program list reads `.desktop` files. Without a desktop: `--headless` |
 | Screen follows the Deck's resolution | `kscreen-doctor`, `jq`, `sunshine-match-client` (from [`pc-setup/`](pc-setup/)) | **KDE Plasma only** |
 | Virtual monitor without a real screen | DRM debugfs `edid_override` / `force` on a free connector | **Tested on AMD only** |
 
@@ -230,32 +236,23 @@ If you get it running on something else, please [tell us](https://github.com/Dav
 Install [Sunshine](https://github.com/LizardByte/Sunshine), set a web UI login and make sure
 Moonlight can connect. That is all Albedo needs to list and start games.
 
-### 2. Albedo PC
+### 2. Albedo Companion
 
-One program for the PC side: the **companion** the Deck talks to (port 47995) and the window to
-manage it. No Rust or Node needed: the installer downloads it from the latest
+Installed with the one command from [Gaming PC](#gaming-pc-) (no Rust or Node needed). The
+script downloads `Albedo-Companion-x86_64.AppImage` from the latest
 [release](https://github.com/Dav1d-Fn/albedo/releases), checks it against `SHA256SUMS`, installs it
-to `~/Applications/Albedo-PC-x86_64.AppImage` with a menu entry *Albedo PC* and an autostart entry,
-and starts it in the tray.
-
-```bash
-git clone https://github.com/Dav1d-Fn/albedo.git
-cd albedo/pc-setup
-./install.sh --companion-only
-```
+to `~/Applications/` with a menu entry and an autostart entry, and starts it in the tray. An older
+setup with the separate `albedo-companion` (or `streaming-launcher-companion`) service or the
+*Albedo PC* app is replaced; its config stays.
 
 At login it starts straight into the tray (`--hidden`). Click the tray icon and pick *Open* for the
 window; closing the window puts it back into the tray (the window is dropped then, so it uses little
 memory in the background), *Quit* in the tray menu ends it, and the Deck can no longer add games
 until you start it again. Starting it a second time only brings up the window.
 
-To update, run the same command again (after `git pull`). Without `--companion-only` the installer
-goes on with the virtual monitor (step 3). Developers can build from the checkout instead with
-`--build` (needs Rust and Node). An older setup with the separate `albedo-companion` (or
-`streaming-launcher-companion`) service is replaced; its config stays.
-
-On a PC without a desktop, run `Albedo-PC-x86_64.AppImage --headless` (for example from your own
-systemd user service): only the companion, no window, no tray.
+On a PC without a desktop, run `Albedo-Companion-x86_64.AppImage --headless` (for example from your own
+systemd user service): only the companion, no window, no tray. Developers build from a checkout
+with `pc-setup/install.sh --build` (needs Rust and Node).
 
 On first start it creates `~/.config/albedo-companion/config.json` (readable only by
 you):
@@ -270,9 +267,9 @@ you):
 ```
 
 Leave the login empty: the first time you press **A** in *Add games*, Albedo asks for the Sunshine
-login (or enter it under *Status & login* in Albedo PC), and the companion stores it. Without it the
+login (or enter it under *Status & login* in Albedo Companion), and the companion stores it. Without it the
 list still shows, but adding and removing don't work. After editing the file by hand, quit and
-start Albedo PC again.
+start Albedo Companion again.
 
 Open port **47995/tcp** in the firewall. The companion only answers the home network
 (private IPv4 ranges), Tailscale (`100.64.0.0/10`) and localhost, and it never runs commands
@@ -292,13 +289,12 @@ every stream switches the PC to it at the resolution and FPS of the Deck's profi
 monitors turn off for the stream and come back exactly as they were when it ends.
 
 ```bash
-cd albedo/pc-setup
-./install.sh --dry-run   # shows what it would do, changes nothing
-./install.sh
+curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/albedo/main/pc-setup/install.sh | bash -s -- --virtual-monitor --dry-run   # shows what it would do
+curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/albedo/main/pc-setup/install.sh | bash -s -- --virtual-monitor
 ```
 
-This is the same installer as in step 2; without `--companion-only` it installs or updates
-Albedo PC first, then
+This is the same installer as in step 2 (in a checkout: `pc-setup/install.sh --virtual-monitor`).
+It installs or updates Albedo Companion first, fetches its helper files from GitHub, then
 
 1. checks for KDE Plasma on Wayland, the `amdgpu` driver, `kscreen-doctor`, `jq` and `python3`,
 2. lists the free connectors (no monitor plugged in) and lets you pick one; don't plug a real
@@ -314,7 +310,7 @@ Albedo PC first, then
    log out and back in once.
 
 The EDID has 1280×720 (40/60), 1280×800 (60/90), 1920×1080, 2560×1440 (60/100/120) and
-3840×2160 (60/100). Add your own with `--mode`, e.g. `./install.sh --mode 3440x1440@100`; the
+3840×2160 (60/100). Add your own with `--mode`, e.g. `… | bash -s -- --mode 3440x1440@100`; the
 profile editor in Albedo marks values the PC doesn't have. Run the installer again to change the
 connector or the modes.
 
@@ -328,7 +324,7 @@ SUNSHINE_CLIENT_WIDTH=1280 SUNSHINE_CLIENT_HEIGHT=800 SUNSHINE_CLIENT_FPS=90 sun
 on the virtual monitor (crash during a stream), `sunshine-match-client --restore` brings your
 screens back.
 
-To remove everything: `./install.sh --uninstall` (Albedo PC with its autostart, old companion
+To remove everything: `… | bash -s -- --uninstall` (Albedo Companion with its autostart, old companion
 services and the virtual monitor; the config in `~/.config/albedo-companion/` with the Sunshine
 login stays).
 
@@ -352,7 +348,7 @@ Albedo is made for your **home network**. Nothing of it belongs on the open inte
 |---|---|
 | **Moonlight ↔ Sunshine** | Paired once with a PIN; after that both sides know each other's certificate and the stream is encrypted. Unpaired devices get nothing. |
 | **Sunshine web UI** (47990) | Sunshine's own username and password. |
-| **Companion in Albedo PC** (47995) | Runs while Albedo PC runs (also in the tray). No login. It only answers the home network (private IPv4 ranges), Tailscale (`100.64.0.0/10`) and localhost, and drops everything else, even if the port were forwarded. It never runs commands sent by a client: it only creates Sunshine apps for games it found on the PC itself. |
+| **Albedo Companion** (47995) | Runs while the app runs (also in the tray). No login. It only answers the home network (private IPv4 ranges), Tailscale (`100.64.0.0/10`) and localhost, and drops everything else, even if the port were forwarded. It never runs commands sent by a client: it only creates Sunshine apps for games it found on the PC itself. |
 | **Picture upload links** | Random, valid for a few minutes and usable once. |
 | **Sunshine login in the companion** | Stored in the companion's config on the PC (readable only by your user), never sent back to any client. |
 | **Updates** | Signed; the app only installs releases signed with the project's key. |

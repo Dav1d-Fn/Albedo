@@ -3,7 +3,7 @@ import { TextTable } from "./GermanTexts";
 /** Every English text of the PC app, same keys as `germanTexts`. */
 export const englishTexts: TextTable =
 {
-  appSubtitle: "PC companion",
+  appSubtitle: "Companion",
 
   nav:
   {
@@ -41,7 +41,7 @@ export const englishTexts: TextTable =
     inSunshineOf: (inSunshine: number, total: number) => `${inSunshine} of ${total} in Sunshine`,
     nothingFound: "Nothing found.",
     loading: "Reading the library …",
-    companionDown: "The PC companion does not answer. Is port 47995 taken by another program (old service \"albedo-companion\")? Then quit Albedo PC from the tray icon and start it again.",
+    companionDown: "The PC companion does not answer. Is port 47995 taken by another program (old service \"albedo-companion\")? Then quit Albedo Companion from the tray icon and start it again.",
     sunshineHint: "Adding and removing doesn't work right now:",
     toLogin: "To the login",
     pickHint: "Pick a game on the left.",
@@ -140,7 +140,7 @@ export const englishTexts: TextTable =
     companion: "Companion for the Deck",
     running: "Running",
     notRunning: "Not running",
-    notRunningHint: "Port taken? Quit Albedo PC (tray) and start it again",
+    notRunningHint: "Port taken? Quit Albedo Companion (tray) and start it again",
     sunshine: "Sunshine",
     connected: "Connected",
     problem: "Problem",

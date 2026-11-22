@@ -3,5 +3,5 @@
 
 fn main()
 {
-    albedo_pc_lib::run()
+    albedo_companion_lib::run()
 }

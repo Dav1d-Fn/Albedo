@@ -3,7 +3,7 @@
 version = 4
 
 [[package]]
-name = "albedo-companion"
+name = "albedo-companion-core"
 version = "0.1.0"
 dependencies = [
  "percent-encoding",

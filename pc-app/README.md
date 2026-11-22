@@ -1,4 +1,4 @@
-# Albedo PC
+# Albedo Companion
 
 The one program for the gaming PC (Tauri 2 + React + TypeScript). It runs the
 [companion](../companion/) the Deck talks to (port 47995) and is the window to manage it with
@@ -25,8 +25,8 @@ mouse and keyboard, so you can do at the desk what the launcher on the Deck does
 
 | Command | What it does |
 |---|---|
-| `Albedo-PC-x86_64.AppImage` | Companion + tray icon + window |
-| `… --hidden` | The same, starting in the tray (the autostart entry `~/.config/autostart/albedo-pc.desktop` uses it) |
+| `Albedo-Companion-x86_64.AppImage` | Companion + tray icon + window |
+| `… --hidden` | The same, starting in the tray (the autostart entry `~/.config/autostart/albedo-companion.desktop` uses it) |
 | `… --headless` | Only the companion: no window, no tray (PCs without a desktop) |
 | `… --exit` | Ends the running instance (the installer uses it before an update) |
 | `… quit "<pattern>"` | Undo step of a Sunshine app: ends the game's processes ([API.md](../companion/API.md)) |
@@ -44,7 +44,7 @@ find the same pictures.
 ## Run
 
 Needs the repository's npm packages (`npm install` in the repository root; this app uses them).
-The dev build serves the companion too, so quit an installed Albedo PC first (both want port
+The dev build serves the companion too, so quit an installed Albedo Companion first (both want port
 47995), or set another `port` in a test `HOME`'s `~/.config/albedo-companion/config.json`.
 
 ```bash

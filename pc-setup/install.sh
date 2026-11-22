@@ -1,25 +1,36 @@
 #!/bin/bash
-# Sets up the PC side of Albedo:
-#   - Albedo PC (~/Applications/Albedo-PC-x86_64.AppImage, menu entry, autostart at login in the
-#     tray), from the latest GitHub release. It serves the companion API the Deck talks to.
-# and the virtual streaming monitor and the automatic resolution switching for Sunshine
-# on KDE Plasma (Wayland) with an AMD GPU:
-#   - an EDID with the stream modes, forced onto a free connector at every boot (systemd, needs sudo)
+# Sets up the PC side of Albedo.
+#
+# Default: Albedo Companion (~/Applications/Albedo-Companion-x86_64.AppImage, menu entry,
+# autostart at login in the tray) from the latest GitHub release, checked against SHA256SUMS.
+# It serves the API the Deck talks to. Running the script again updates it. No sudo.
+#
+#   curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/albedo/main/pc-setup/install.sh | bash
+#   … | bash -s -- --uninstall           remove everything again (keeps ~/.config/albedo-companion/)
+#
+# Opt-in, KDE Plasma (Wayland) with an AMD GPU: --virtual-monitor also sets up the virtual
+# streaming monitor and the automatic resolution switching for Sunshine (needs sudo):
+#   - an EDID with the stream modes, forced onto a free connector at every boot (systemd)
 #   - ~/.local/bin/sunshine-match-client (Sunshine prep command: switch / --restore)
 #   - ~/.config/sunshine-match-client.conf (which connector is the virtual monitor)
 #   - optional: Sunshine global_prep_cmd that stops xwaylandvideobridge during a stream
 #
-#   ./install.sh                         interactive, everything
-#   ./install.sh --companion-only        only Albedo PC, e.g. to update or without KDE
-#   ./install.sh --build                 build Albedo PC from this checkout (needs Rust, Node)
-#   ./install.sh --connector DP-3        skip the connector question
-#   ./install.sh --mode 3440x1440@100    add a mode to the EDID (repeatable)
-#   ./install.sh --dry-run               only print what would be done
-#   ./install.sh --uninstall             remove everything again (keeps ~/.config/albedo-companion/)
-#   ALBEDO_RELEASE_URL=file:///some/dir ./install.sh   download from another place (testing)
+#   --virtual-monitor             also the virtual monitor (helper files come from GitHub when piped)
+#   --connector DP-3              skip the connector question (implies --virtual-monitor)
+#   --mode 3440x1440@100          add a mode to the EDID, repeatable (implies --virtual-monitor)
+#   --build                       build Albedo Companion from this checkout (needs Rust, Node)
+#   --dry-run                     only print what would be done
+#   --uninstall                   remove everything again (keeps ~/.config/albedo-companion/)
+#   ALBEDO_RELEASE_URL=file:///some/dir   download the release from another place (testing)
+#   ALBEDO_RAW_URL=file:///repo/pc-setup  fetch the helper files from another place (testing)
 set -euo pipefail
 
-script_dir="$(dirname "$(realpath "$0")")"
+# Empty when the script comes through a pipe (curl … | bash): then there is no checkout around it.
+script_dir=""
+if [ -f "${BASH_SOURCE[0]:-}" ]
+then
+    script_dir="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+fi
 config_file="$HOME/.config/sunshine-match-client.conf"
 match_client_target="$HOME/.local/bin/sunshine-match-client"
 saved_layout_file="$HOME/.local/state/sunshine-match-client-layout.json"
@@ -28,38 +39,54 @@ apply_script_target="/usr/local/bin/apply-virtual-display.sh"
 service_name="virtual-display-edid.service"
 service_target="/etc/systemd/system/$service_name"
 xwayland_unit="app-org.kde.xwaylandvideobridge@autostart.service"
-repo_dir="$(dirname "$script_dir")"
+repo_dir="$(dirname "${script_dir:-/nonexistent/pc-setup}")"
 release_url="${ALBEDO_RELEASE_URL:-https://github.com/Dav1d-Fn/albedo/releases/latest/download}"
-pc_app_file="Albedo-PC-x86_64.AppImage"
-pc_app_target="$HOME/Applications/$pc_app_file"
-pc_app_desktop_entry="$HOME/.local/share/applications/albedo-pc.desktop"
-pc_app_autostart_entry="$HOME/.config/autostart/albedo-pc.desktop"
-pc_app_icon="$HOME/.local/share/icons/hicolor/128x128/apps/albedo-pc.png"
+raw_url="${ALBEDO_RAW_URL:-https://raw.githubusercontent.com/Dav1d-Fn/albedo/main/pc-setup}"
+helper_files=("make-virtual-edid.py" "apply-virtual-display.sh" "sunshine-match-client")
+app_file="Albedo-Companion-x86_64.AppImage"
+app_target="$HOME/Applications/$app_file"
+app_desktop_entry="$HOME/.local/share/applications/albedo-companion.desktop"
+app_autostart_entry="$HOME/.config/autostart/albedo-companion.desktop"
+app_icon="$HOME/.local/share/icons/hicolor/128x128/apps/albedo-companion.png"
 # The companion used to be a separate systemd user service, first as streaming-launcher-companion,
-# then as albedo-companion; Albedo PC replaces both. Their binary paths stay as links to the
-# AppImage because Sunshine apps added back then call them in their undo step (Albedo PC rewrites
+# then as albedo-companion; the app replaces both. Their binary paths stay as links to the
+# AppImage because Sunshine apps added back then call them in their undo step (the app rewrites
 # those steps on its next start, the links cover the time until then). The config stays in
 # ~/.config/albedo-companion/.
 old_companion_names=("albedo-companion" "streaming-launcher-companion")
+# Files of the separate "Albedo PC" app from before it was renamed and merged into the companion.
+old_app_files=(
+    "$HOME/Applications/Albedo-PC-x86_64.AppImage"
+    "$HOME/.local/share/applications/albedo-pc.desktop"
+    "$HOME/.config/autostart/albedo-pc.desktop"
+    "$HOME/.local/share/icons/hicolor/128x128/apps/albedo-pc.png"
+)
 xwayland_prep_command="{\"do\":\"systemctl --user stop $xwayland_unit\",\"undo\":\"systemctl --user start --no-block $xwayland_unit\"}"
 
 connector=""
 extra_modes=()
 dry_run=false
 uninstall=false
-companion_only=false
+virtual_monitor=false
 build_locally=false
 while [ $# -gt 0 ]
 do
     case "$1" in
-        --connector) connector="${2:?--connector needs a name, e.g. DP-3}"; shift ;;
-        --mode) extra_modes+=("${2:?--mode needs WIDTHxHEIGHT@FPS}"); shift ;;
+        --virtual-monitor) virtual_monitor=true ;;
+        --connector) connector="${2:?--connector needs a name, e.g. DP-3}"; virtual_monitor=true; shift ;;
+        --mode) extra_modes+=("${2:?--mode needs WIDTHxHEIGHT@FPS}"); virtual_monitor=true; shift ;;
         --dry-run) dry_run=true ;;
         --uninstall) uninstall=true ;;
-        --companion-only) companion_only=true ;;
-        --pc-app) ;; # Albedo PC is always installed now, kept so old command lines still work
+        --companion-only|--pc-app) ;; # the default now, kept so old command lines still work
         --build) build_locally=true ;;
-        -h|--help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help)
+            if [ -n "$script_dir" ]
+            then
+                sed -n '2,25p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+            else
+                echo "See https://github.com/Dav1d-Fn/albedo/blob/main/pc-setup/install.sh"
+            fi
+            exit 0 ;;
         *) echo "Unknown option: $1 (see --help)" >&2; exit 2 ;;
     esac
     shift
@@ -95,11 +122,13 @@ ask_yes_no()
 {
     local question="$1"
     local answer
-    read -r -p "$question [y/N] " answer
+    # From the terminal: with curl … | bash, stdin is the script itself.
+    read -r -p "$question [y/N] " answer < /dev/tty
     [[ "$answer" =~ ^[YyJj] ]]
 }
 
-# Stops and removes the separate companion services from before Albedo PC (they hold port 47995)
+# Stops and removes the separate companion services from before the app (they hold port 47995)
+# and the files of the old "Albedo PC" app.
 remove_old_companion_services()
 {
     local old_name unit_target
@@ -108,10 +137,19 @@ remove_old_companion_services()
         unit_target="$HOME/.config/systemd/user/$old_name.service"
         if [ -f "$unit_target" ]
         then
-            info "Removing the old companion service $old_name (Albedo PC replaces it)"
+            info "Removing the old companion service $old_name (Albedo Companion replaces it)"
             run systemctl --user disable --now "$old_name.service" || true
             run rm -f "$unit_target"
             run systemctl --user daemon-reload
+        fi
+    done
+    local old_file
+    for old_file in "${old_app_files[@]}"
+    do
+        if [ -e "$old_file" ]
+        then
+            info "Removing $old_file (old Albedo PC)"
+            run rm -f "$old_file"
         fi
     done
 }
@@ -145,19 +183,22 @@ then
     fi
 
     remove_old_companion_services
-    if [ -x "$pc_app_target" ]
+    if [ -x "$app_target" ]
     then
-        info "Ending and removing Albedo PC (its config in ~/.config/albedo-companion/ stays)"
-        run "$pc_app_target" --exit > /dev/null 2>&1 || true
+        info "Ending and removing Albedo Companion (its config in ~/.config/albedo-companion/ stays)"
+        run "$app_target" --exit > /dev/null 2>&1 || true
     fi
-    run rm -f "$pc_app_target" "$pc_app_desktop_entry" "$pc_app_autostart_entry" "$pc_app_icon"
+    run rm -f "$app_target" "$app_desktop_entry" "$app_autostart_entry" "$app_icon"
     for old_name in "${old_companion_names[@]}"
     do
         run rm -f "$HOME/.local/bin/$old_name"
     done
 
-    info "Removing sunshine-match-client and its config"
-    run rm -f "$match_client_target" "$config_file" "$saved_layout_file"
+    if [ -e "$match_client_target" ] || [ -e "$config_file" ]
+    then
+        info "Removing sunshine-match-client and its config"
+        run rm -f "$match_client_target" "$config_file" "$saved_layout_file"
+    fi
 
     echo
     info "Done. Left alone on purpose:"
@@ -169,7 +210,7 @@ then
 fi
 
 # ---------------------------------------------------------------------------
-# Albedo PC (no sudo). Running the script again updates it.
+# Albedo Companion (no sudo). Running the script again updates it.
 # ---------------------------------------------------------------------------
 work_dir=$(mktemp -d)
 trap 'rm -rf "$work_dir"' EXIT
@@ -211,10 +252,15 @@ require_command()
     fi
 }
 
-info "Albedo PC"
+info "Albedo Companion"
+if $build_locally && [ ! -f "$repo_dir/pc-app/package.json" ]
+then
+    warn "--build needs a checkout: git clone https://github.com/Dav1d-Fn/albedo.git and run pc-setup/install.sh there."
+    exit 1
+fi
 if $dry_run
 then
-    echo "    [dry-run] get $pc_app_file ($($build_locally && echo "build from $repo_dir/pc-app" || echo "download from $release_url"))"
+    echo "    [dry-run] get $app_file ($($build_locally && echo "build from $repo_dir/pc-app" || echo "download from $release_url"))"
 elif $build_locally
 then
     require_command cargo "Install Rust (rustup.rs) or run without --build."
@@ -224,18 +270,18 @@ then
         (cd "$repo_dir" && npm ci)
     fi
     (cd "$repo_dir/pc-app" && PATH="$repo_dir/node_modules/.bin:$PATH" CARGO_BUILD_JOBS=4 nice -n 19 tauri build --bundles appimage)
-    cp "$repo_dir"/pc-app/src-tauri/target/release/bundle/appimage/*.AppImage "$work_dir/$pc_app_file"
+    cp "$repo_dir"/pc-app/src-tauri/target/release/bundle/appimage/*.AppImage "$work_dir/$app_file"
 else
     require_command curl "Please install it first."
-    download_release_file "$pc_app_file"
+    download_release_file "$app_file"
 fi
 
 remove_old_companion_services
-# install replaces the file instead of writing into it, so a running Albedo PC is not disturbed
-run install -Dm 755 "$work_dir/$pc_app_file" "$pc_app_target"
+# install replaces the file instead of writing into it, so a running instance is not disturbed
+run install -Dm 755 "$work_dir/$app_file" "$app_target"
 # An update must run the new version: the running one ends (--exit reaches it as a second start
 # of the single instance; with none running it does nothing) and frees the port before the start below.
-run "$pc_app_target" --exit > /dev/null 2>&1 || true
+run "$app_target" --exit > /dev/null 2>&1 || true
 if ! $dry_run
 then
     for attempt in 1 2 3 4 5 6 7 8 9 10
@@ -250,54 +296,54 @@ do
     old_target="$HOME/.local/bin/$old_name"
     if [ -e "$old_target" ] || [ -L "$old_target" ]
     then
-        run ln -sfn "$pc_app_target" "$old_target"
+        run ln -sfn "$app_target" "$old_target"
     fi
 done
 
 if $dry_run
 then
-    echo "    [dry-run] write $pc_app_desktop_entry and $pc_app_autostart_entry (--hidden)"
+    echo "    [dry-run] write $app_desktop_entry and $app_autostart_entry (--hidden)"
 else
     # Menu entry with the icon from inside the AppImage (extracting needs no FUSE)
-    icon_inside="usr/share/icons/hicolor/128x128/apps/albedo-pc.png"
-    (cd "$work_dir" && "$pc_app_target" --appimage-extract "$icon_inside" > /dev/null 2>&1) || true
+    icon_inside="usr/share/icons/hicolor/128x128/apps/albedo-companion.png"
+    (cd "$work_dir" && "$app_target" --appimage-extract "$icon_inside" > /dev/null 2>&1) || true
     if [ -f "$work_dir/squashfs-root/$icon_inside" ]
     then
-        install -Dm 644 "$work_dir/squashfs-root/$icon_inside" "$pc_app_icon"
+        install -Dm 644 "$work_dir/squashfs-root/$icon_inside" "$app_icon"
     fi
-    mkdir -p "$(dirname "$pc_app_desktop_entry")" "$(dirname "$pc_app_autostart_entry")"
-    cat > "$pc_app_desktop_entry" <<DESKTOP
+    mkdir -p "$(dirname "$app_desktop_entry")" "$(dirname "$app_autostart_entry")"
+    cat > "$app_desktop_entry" <<DESKTOP
 [Desktop Entry]
 Type=Application
-Name=Albedo PC
+Name=Albedo Companion
 Comment=Manage the games Albedo streams to the Steam Deck
-Exec=$pc_app_target
-Icon=albedo-pc
-StartupWMClass=albedo-pc
+Exec=$app_target
+Icon=albedo-companion
+StartupWMClass=albedo-companion
 Categories=Game;
 DESKTOP
     # At login straight into the tray: the Deck needs the companion API, not the window.
-    cat > "$pc_app_autostart_entry" <<DESKTOP
+    cat > "$app_autostart_entry" <<DESKTOP
 [Desktop Entry]
 Type=Application
-Name=Albedo PC
+Name=Albedo Companion
 Comment=Companion for Albedo on the Steam Deck (tray)
-Exec=$pc_app_target --hidden
-Icon=albedo-pc
+Exec=$app_target --hidden
+Icon=albedo-companion
 X-GNOME-Autostart-enabled=true
 DESKTOP
-    info "Installed to $pc_app_target (menu: Albedo PC, starts at login in the tray)"
+    info "Installed to $app_target (menu: Albedo Companion, starts at login in the tray)"
 fi
 
 if [ -z "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]
 then
-    warn "No graphical session here: Albedo PC starts at your next desktop login."
-    warn "Without a desktop, run it as: $pc_app_target --headless"
+    warn "No graphical session here: Albedo Companion starts at your next desktop login."
+    warn "Without a desktop, run it as: $app_target --headless"
 elif $dry_run
 then
-    echo "    [dry-run] start $pc_app_target --hidden"
+    echo "    [dry-run] start $app_target --hidden"
 else
-    setsid "$pc_app_target" --hidden > /dev/null 2>&1 < /dev/null &
+    setsid "$app_target" --hidden > /dev/null 2>&1 < /dev/null &
     companion_health=""
     for attempt in 1 2 3 4 5 6 7 8 9 10
     do
@@ -306,15 +352,30 @@ else
     done
     if [ -n "$companion_health" ]
     then
-        info "Albedo PC is running in the tray: $companion_health"
+        info "Albedo Companion is running in the tray: $companion_health"
     else
-        warn "Albedo PC doesn't answer on port 47995. Start it from the menu to see what's wrong."
+        warn "Albedo Companion doesn't answer on port 47995. Start it from the menu to see what's wrong."
     fi
 fi
 
-if $companion_only
+if ! $virtual_monitor
 then
+    info "Done. Open port 47995/tcp in the firewall so the Deck reaches it."
+    info "Virtual monitor and resolution switching (KDE + AMD): run again with --virtual-monitor."
     exit 0
+fi
+
+# Helper files of the virtual monitor: next to the script in a checkout, else from GitHub
+if [ -z "$script_dir" ] || [ ! -f "$script_dir/make-virtual-edid.py" ]
+then
+    require_command curl "Please install it first."
+    script_dir="$work_dir/pc-setup"
+    mkdir -p "$script_dir"
+    for helper_file in "${helper_files[@]}"
+    do
+        info "Downloading $helper_file"
+        curl -fsSL -o "$script_dir/$helper_file" "$raw_url/$helper_file"
+    done
 fi
 
 # ---------------------------------------------------------------------------
@@ -399,7 +460,7 @@ then
             connector="$picked_connector"
             break
         fi
-    done
+    done < /dev/tty
 fi
 
 if ! compgen -G "/sys/class/drm/card*-$connector" > /dev/null
@@ -518,7 +579,7 @@ echo
 if [ -n "$virtual_modes" ]
 then
     info "$connector has the modes: $virtual_modes"
-    echo "    Albedo's companion and sunshine-match-client use these. Games you add in Albedo switch"
+    echo "    Albedo Companion and sunshine-match-client use these. Games you add in Albedo switch"
     echo "    to $connector when the stream starts and restore your screens when it ends."
 else
     warn "$connector doesn't show up in KDE yet. Log out and back in (or reboot) and run"

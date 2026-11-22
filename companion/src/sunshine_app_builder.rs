@@ -82,11 +82,11 @@ impl SunshineAppBuilder
     /// Apps added before the rename to Albedo end their game with
     /// `…/streaming-launcher-companion quit "<pattern>"`, apps added by the separate companion
     /// service with `…/albedo-companion quit "<pattern>"`. Returns the app with that program
-    /// replaced by `companion_program` (the running Albedo PC), or None if nothing changed.
+    /// replaced by `companion_program` (the running Albedo Companion app), or None if nothing changed.
     pub fn migrate_quit_command(&self, app: &Value, companion_program: &str) -> Option<Value>
     {
         // Earlier companion binaries: before the rename to Albedo, and the separate service before
-        // it moved into Albedo PC. Kept only to find these old undo steps.
+        // it moved into the Albedo Companion app. Kept only to find these old undo steps.
         const LEGACY_PROGRAMS: [&str; 2] = ["streaming-launcher-companion", "albedo-companion"];
         let mut migrated_app = app.clone();
         let mut changed = false;
@@ -166,14 +166,14 @@ mod tests
     }
 
     #[test]
-    fn points_separate_companion_quit_steps_to_albedo_pc()
+    fn points_separate_companion_quit_steps_to_the_app()
     {
         let old_app = json!({ "name": "Crow", "prep-cmd": [
             { "do": "", "undo": "/home/user/.local/bin/albedo-companion quit \"/home/user/Games/Crow\"" }
         ] });
-        let new_program = "/home/user/Applications/Albedo-PC-x86_64.AppImage";
+        let new_program = "/home/user/Applications/Albedo-Companion-x86_64.AppImage";
         let migrated_app = SunshineAppBuilder.migrate_quit_command(&old_app, new_program).unwrap();
-        assert_eq!(migrated_app["prep-cmd"][0]["undo"], "/home/user/Applications/Albedo-PC-x86_64.AppImage quit \"/home/user/Games/Crow\"");
+        assert_eq!(migrated_app["prep-cmd"][0]["undo"], "/home/user/Applications/Albedo-Companion-x86_64.AppImage quit \"/home/user/Games/Crow\"");
         assert!(SunshineAppBuilder.migrate_quit_command(&migrated_app, new_program).is_none());
     }
 }

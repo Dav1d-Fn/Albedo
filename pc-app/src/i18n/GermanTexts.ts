@@ -1,7 +1,7 @@
 /** Every German text of the PC app. `EnglishTexts.ts` has the same keys (tsc checks it). */
 export const germanTexts =
 {
-  appSubtitle: "PC-Helfer",
+  appSubtitle: "Companion",
 
   nav:
   {
@@ -39,7 +39,7 @@ export const germanTexts =
     inSunshineOf: (inSunshine: number, total: number) => `${inSunshine} von ${total} in Sunshine`,
     nothingFound: "Nichts gefunden.",
     loading: "Lese die Bibliothek …",
-    companionDown: "Der PC-Helfer antwortet nicht. Ist Port 47995 von einem anderen Programm belegt (alter Dienst „albedo-companion“)? Dann Albedo PC über das Tray-Symbol beenden und neu starten.",
+    companionDown: "Der PC-Helfer antwortet nicht. Ist Port 47995 von einem anderen Programm belegt (alter Dienst „albedo-companion“)? Dann Albedo Companion über das Tray-Symbol beenden und neu starten.",
     sunshineHint: "Hinzufügen und Entfernen geht gerade nicht:",
     toLogin: "Zum Login",
     pickHint: "Wähle links ein Spiel.",
@@ -138,7 +138,7 @@ export const germanTexts =
     companion: "Helfer für das Deck",
     running: "Läuft",
     notRunning: "Läuft nicht",
-    notRunningHint: "Port belegt? Albedo PC beenden (Tray) und neu starten",
+    notRunningHint: "Port belegt? Albedo Companion beenden (Tray) und neu starten",
     sunshine: "Sunshine",
     connected: "Verbunden",
     problem: "Problem",

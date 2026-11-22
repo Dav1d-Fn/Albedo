@@ -21,7 +21,7 @@ use serde_json::Value;
 use tauri::ipc::{InvokeBody, Request};
 use tauri::{AppHandle, Manager};
 
-use albedo_companion::{CompanionService, ProcessQuitter};
+use albedo_companion_core::{CompanionService, ProcessQuitter};
 use art_search::ArtSearch;
 use art_search_result::ArtSearchResult;
 use companion_proxy::CompanionProxy;
@@ -153,12 +153,12 @@ fn art_search(app_handle: &AppHandle) -> Result<ArtSearch, String>
     ArtSearch::new(cache_directory.join("libretro"))
 }
 
-/// Albedo PC, one program for the PC side:
-///   albedo-pc                    window + tray icon, serves the companion API for the Deck
-///   albedo-pc --hidden           the same, starting in the tray (login autostart)
-///   albedo-pc --headless         only the companion API, no window or tray (PCs without a desktop)
-///   albedo-pc --exit             ends the running instance (the installer uses it to update)
-///   albedo-pc quit "<pattern>"   undo step of a Sunshine app: ends the game's processes
+/// Albedo Companion, one program for the PC side:
+///   albedo-companion                    window + tray icon, serves the companion API for the Deck
+///   albedo-companion --hidden           the same, starting in the tray (login autostart)
+///   albedo-companion --headless         only the companion API, no window or tray (PCs without a desktop)
+///   albedo-companion --exit             ends the running instance (the installer uses it to update)
+///   albedo-companion quit "<pattern>"   undo step of a Sunshine app: ends the game's processes
 pub fn run()
 {
     let arguments: Vec<String> = std::env::args().collect();
