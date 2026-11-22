@@ -30,11 +30,17 @@ service_name="virtual-display-edid.service"
 service_target="/etc/systemd/system/$service_name"
 xwayland_unit="app-org.kde.xwaylandvideobridge@autostart.service"
 repo_dir="$(dirname "$script_dir")"
-release_url="${ALBEDO_RELEASE_URL:-https://github.com/Dav1d-Fn/streaming-launcher/releases/latest/download}"
+release_url="${ALBEDO_RELEASE_URL:-https://github.com/Dav1d-Fn/albedo/releases/latest/download}"
 companion_archive="albedo-companion-x86_64-linux.tar.gz"
-companion_name="streaming-launcher-companion"
+companion_name="albedo-companion"
 companion_target="$HOME/.local/bin/$companion_name"
 companion_unit_target="$HOME/.config/systemd/user/$companion_name.service"
+# Name of the companion before the rename to Albedo: its service is replaced, its binary path
+# stays as a link because Sunshine apps added back then call it in their undo step (the
+# companion rewrites those steps on its next start, the link covers the time until then).
+legacy_companion_name="streaming-launcher-companion"
+legacy_companion_target="$HOME/.local/bin/$legacy_companion_name"
+legacy_companion_unit_target="$HOME/.config/systemd/user/$legacy_companion_name.service"
 pc_app_file="Albedo-PC-x86_64.AppImage"
 pc_app_target="$HOME/Applications/$pc_app_file"
 pc_app_desktop_entry="$HOME/.local/share/applications/albedo-pc.desktop"
@@ -126,14 +132,17 @@ then
         run_as_root systemctl daemon-reload
     fi
 
-    if [ -f "$companion_unit_target" ]
-    then
-        info "Removing the companion service (its config in ~/.config/$companion_name/ stays)"
-        run systemctl --user disable --now "$companion_name.service" || true
-        run rm -f "$companion_unit_target"
-        run systemctl --user daemon-reload
-    fi
-    run rm -f "$companion_target" "$pc_app_target" "$pc_app_desktop_entry" "$pc_app_icon"
+    for unit_target in "$companion_unit_target" "$legacy_companion_unit_target"
+    do
+        if [ -f "$unit_target" ]
+        then
+            info "Removing the companion service $(basename "$unit_target") (its config in ~/.config/$companion_name/ stays)"
+            run systemctl --user disable --now "$(basename "$unit_target")" || true
+            run rm -f "$unit_target"
+            run systemctl --user daemon-reload
+        fi
+    done
+    run rm -f "$companion_target" "$legacy_companion_target" "$pc_app_target" "$pc_app_desktop_entry" "$pc_app_icon"
 
     info "Removing sunshine-match-client and its config"
     run rm -f "$match_client_target" "$config_file" "$saved_layout_file"
@@ -208,6 +217,18 @@ fi
 # install replaces the file instead of writing into it, so the running binary is not disturbed
 run install -Dm 755 "$work_dir/albedo-companion/$companion_name" "$companion_target"
 run install -Dm 644 "$work_dir/albedo-companion/$companion_name.service" "$companion_unit_target"
+if [ -f "$legacy_companion_unit_target" ]
+then
+    # Stopped before the new one starts: both want port 47995. The new companion takes over
+    # ~/.config/$legacy_companion_name/ (login, pictures, groups) on its first start.
+    info "Replacing the old service $legacy_companion_name"
+    run systemctl --user disable --now "$legacy_companion_name.service" || true
+    run rm -f "$legacy_companion_unit_target"
+fi
+if [ -e "$legacy_companion_target" ] || [ -L "$legacy_companion_target" ]
+then
+    run ln -sfn "$companion_name" "$legacy_companion_target"
+fi
 run systemctl --user daemon-reload
 run systemctl --user enable "$companion_name.service"
 # restart, not start: an update must run the new binary now

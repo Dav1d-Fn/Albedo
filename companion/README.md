@@ -25,16 +25,16 @@ cd pc-setup
 ./install.sh --companion-only --build   # from this checkout (cargo build --release)
 ```
 
-Config: `~/.config/streaming-launcher-companion/config.json` (mode 600, created on first start).
+Config: `~/.config/albedo-companion/config.json` (mode 600, created on first start).
 The Sunshine login can be entered there or from Albedo. After editing the file:
-`systemctl --user restart streaming-launcher-companion`.
+`systemctl --user restart albedo-companion`.
 
 ## Check
 
 ```bash
 curl -s localhost:47995/api/health
 curl -s localhost:47995/api/library | jq '.entries | length'
-journalctl --user -u streaming-launcher-companion -f
+journalctl --user -u albedo-companion -f
 ```
 
 The service only answers the home network, Tailscale and localhost (403 otherwise).

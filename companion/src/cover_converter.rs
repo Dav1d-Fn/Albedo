@@ -57,7 +57,7 @@ impl CoverConverter
         let _ = fs::remove_file(Self::cache_path(cache_name, extension));
     }
 
-    /// Converted picture kept in ~/.cache/streaming-launcher-companion/<cache name>.<extension>.
+    /// Converted picture kept in ~/.cache/albedo-companion/<cache name>.<extension>.
     /// A file source is converted again when it is newer than the cached copy; a URL is downloaded once.
     fn cached_conversion(&self, picture: &CoverSource, cache_name: &str, extension: &str, output_arguments: &[&str]) -> Result<Vec<u8>, String>
     {
@@ -80,7 +80,7 @@ impl CoverConverter
 
     fn cache_directory() -> PathBuf
     {
-        home_directory().join(".cache/streaming-launcher-companion")
+        home_directory().join(".cache/albedo-companion")
     }
 
     fn cache_path(cache_name: &str, extension: &str) -> PathBuf

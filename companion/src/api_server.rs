@@ -13,6 +13,7 @@ use crate::display_mode_reader::DisplayModeReader;
 use crate::group_override_store::GroupOverrideStore;
 use crate::library_entry::LibraryEntry;
 use crate::library_scanner::LibraryScanner;
+use crate::process_quitter::ProcessQuitter;
 use crate::request_language::RequestLanguage;
 use crate::steam_grid_db_key_checker::SteamGridDbKeyChecker;
 use crate::sunshine_app_builder::SunshineAppBuilder;
@@ -152,7 +153,7 @@ impl ApiServer
     {
         let host_name = std::fs::read_to_string("/proc/sys/kernel/hostname").unwrap_or_else(|_| "pc".into());
         Self::json(200, json!({
-            "name": "streaming-launcher-companion",
+            "name": "albedo-companion",
             "version": env!("CARGO_PKG_VERSION"),
             "host": host_name.trim()
         }))
@@ -344,7 +345,7 @@ impl ApiServer
         let entry = LibraryScanner.find(entry_id).ok_or_else(|| (404, RequestLanguage::pick("Eintrag nicht gefunden", "Entry not found")))?;
 
         let sunshine = SunshineClient::new(self.config.clone());
-        Self::migrate_restore_commands(&sunshine);
+        Self::migrate_apps(&sunshine);
         let existing_names = sunshine.app_names().map_err(|message| (502, message))?;
         if existing_names.contains(&entry.name)
         {
@@ -366,11 +367,13 @@ impl ApiServer
         Ok(Self::json(200, json!({ "name": entry.name })))
     }
 
-    /// Moves apps created before pc-setup/ from screenprofiler to `sunshine-match-client --restore`.
-    /// Runs before every add, so old apps switch over the next time a game is added. A failure
-    /// is only logged: the old undo still works where screenprofiler is installed.
-    fn migrate_restore_commands(sunshine: &SunshineClient)
+    /// Moves apps created before pc-setup/ from screenprofiler to `sunshine-match-client --restore`
+    /// and old `streaming-launcher-companion quit` undo steps to this companion.
+    /// Runs at start and before every add. A failure is only logged: the old undo steps still work
+    /// (screenprofiler where installed, pc-setup/install.sh links the old companion name).
+    pub fn migrate_apps(sunshine: &SunshineClient)
     {
+        let companion_program = ProcessQuitter::companion_program();
         let apps = match sunshine.list_apps()
         {
             Ok(apps) => apps,
@@ -382,12 +385,15 @@ impl ApiServer
         };
         for (app_index, app) in apps.iter().enumerate()
         {
-            if let Some(migrated_app) = SunshineAppBuilder.migrate_restore_command(app)
+            let restore_migrated = SunshineAppBuilder.migrate_restore_command(app);
+            let base_app = restore_migrated.as_ref().unwrap_or(app);
+            let quit_migrated = SunshineAppBuilder.migrate_quit_command(base_app, &companion_program);
+            if let Some(migrated_app) = quit_migrated.or(restore_migrated)
             {
                 let app_name = app["name"].as_str().unwrap_or("?");
                 match sunshine.update_app(app_index, &migrated_app)
                 {
-                    Ok(()) => eprintln!("Bildschirm-Wiederherstellung umgestellt: {}", app_name),
+                    Ok(()) => eprintln!("Sunshine-App umgestellt: {}", app_name),
                     Err(message) => eprintln!("Umstellen fehlgeschlagen ({}): {}", app_name, message),
                 }
             }

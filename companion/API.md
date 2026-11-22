@@ -19,7 +19,7 @@ without anybody editing `apps.json` by hand.
 ### `GET /api/health`
 
 ```json
-{ "name": "streaming-launcher-companion", "version": "0.1.0", "host": "fedora" }
+{ "name": "albedo-companion", "version": "0.1.0", "host": "fedora" }
 ```
 
 ### `GET /api/library`
@@ -109,7 +109,7 @@ PNG (portrait, ideally 600x900) for an entry with `hasCover`. 404 otherwise. `<i
 ### `GET /api/hero/<id>`
 
 JPEG for an entry with `hasHero`, at most 1920 px wide, 404 otherwise. Cached in
-`~/.cache/streaming-launcher-companion/` (Heroic's is downloaded once).
+`~/.cache/albedo-companion/` (Heroic's is downloaded once).
 
 ### `GET /api/screenshot/<id>/<index>`
 
@@ -124,7 +124,7 @@ PNG (transparency kept), at most 1200 px wide, for an entry with `hasLogo`, 404 
 An override replaces the automatic cover, hero or logo of one entry everywhere (`/api/cover`,
 `/api/hero`, `/api/logo`, the `has…` flags, and the cover file of an app already in Sunshine;
 Moonlight may still show its cached old box art). Stored in
-`~/.config/streaming-launcher-companion/art/<id>-<kind>.png|jpg`. `kind` is `cover`, `hero` or `logo`.
+`~/.config/albedo-companion/art/<id>-<kind>.png|jpg`. `kind` is `cover`, `hero` or `logo`.
 
 - `POST /api/upload-token`, body `{ "id": "steam:1245620", "kind": "hero" }` →
   `{ "url": "http://<host>/upload/<token>", "qrSvg": "<svg …>", "expiresInSeconds": 600 }`.
@@ -162,7 +162,7 @@ Every created app gets:
 
 Ending a game: apps that Sunshine starts as `cmd` (Prism, native shortcuts like EmuDeck) are
 ended by Sunshine itself (SIGTERM to the process group, SIGKILL after `exit-timeout`). Detached
-apps get an undo `streaming-launcher-companion quit "<pattern>"`: SIGTERM to every process whose
+apps get an undo `albedo-companion quit "<pattern>"`: SIGTERM to every process whose
 command line contains the pattern (like `pkill -f`, skipping its own process and its parents),
 SIGKILL after 5 s. Patterns: Steam `SteamLaunch AppId=<appid> `, Heroic/Lutris the install
 folder, `.desktop` entries with `Categories=…Game…` their program (flatpak: the app id); other
@@ -191,7 +191,7 @@ nothing is saved. The password is never sent back or logged.
 Body `{ "id": "shortcut:2777831780", "group": "Couch-Koop" }`. Puts the entry into another group, a
 built-in one (label in either language, e.g. "Nicht-Steam" or "Non-Steam") or an own one (at most 40
 characters). `null`, `""` or the detected group goes back to the detection. `204`. Stored in
-`~/.config/streaming-launcher-companion/groups.json`; the launcher on the Deck gets the group from
+`~/.config/albedo-companion/groups.json`; the launcher on the Deck gets the group from
 `/api/library` like any other.
 
 ### `GET /api/clients`

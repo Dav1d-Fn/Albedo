@@ -145,11 +145,11 @@ impl StreamSession
         }
     }
 
-    /// `STREAMING_LAUNCHER_DRY_RUN=1` runs a 2 s sleep instead of Moonlight (testing on the host PC),
+    /// `ALBEDO_DRY_RUN=1` runs a 2 s sleep instead of Moonlight (testing on the host PC),
     /// `=hang` one that never ends, like a Moonlight waiting for a PC that does not answer.
     fn dry_run_arguments() -> Option<Vec<String>>
     {
-        let dry_run = std::env::var("STREAMING_LAUNCHER_DRY_RUN").ok()?;
+        let dry_run = std::env::var("ALBEDO_DRY_RUN").ok()?;
         let seconds = if dry_run == "hang"
         {
             "86400"

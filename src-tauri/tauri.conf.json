@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Albedo",
   "version": "0.1.0",
-  "identifier": "de.davidf.streaminglauncher",
+  "identifier": "de.davidf.albedo",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1430",
@@ -41,7 +41,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZBMzM4REM1MzZGM0VCMEQKUldRTjYvTTJ4WTB6YWoxb1lVUnc3bXVLdE9uMFBXbWx0WGlMUWU0dmxydEVsNkg0MDNzcnFGeGUK",
       "endpoints": [
-        "https://github.com/Dav1d-Fn/streaming-launcher/releases/latest/download/latest.json"
+        "https://github.com/Dav1d-Fn/albedo/releases/latest/download/latest.json"
       ]
     }
   }

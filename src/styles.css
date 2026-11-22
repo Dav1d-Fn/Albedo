@@ -1,4 +1,4 @@
-/* Ported from the Claude design canvas "Streaming-Launcher" (Main.dc.html). */
+/* Ported from the Claude design canvas (Main.dc.html). */
 html, body, #root { margin: 0; height: 100%; background: #08080B; overflow: hidden; }
 body { cursor: default; user-select: none; }
 @property --acc { syntax: '<color>'; inherits: true; initial-value: #5AA9FF; }

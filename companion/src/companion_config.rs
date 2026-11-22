@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 /// Settings David fills in once: where Sunshine's web API is and its web UI login.
-/// Stored in ~/.config/streaming-launcher-companion/config.json (mode 600).
+/// Stored in ~/.config/albedo-companion/config.json (mode 600).
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompanionConfig
@@ -20,7 +20,7 @@ impl CompanionConfig
 {
     pub fn config_path() -> PathBuf
     {
-        home_directory().join(".config/streaming-launcher-companion/config.json")
+        home_directory().join(".config/albedo-companion/config.json")
     }
 
     /// Reads the config. On first start it writes a template with an empty login,

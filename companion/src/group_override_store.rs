@@ -7,7 +7,7 @@ use crate::request_language::RequestLanguage;
 
 /// Groups the user picked by hand for single entries, e.g. an emulator game the detection put into
 /// "Nicht-Steam", or an own group like "Couch-Koop". Stored as one JSON object
-/// { "<entry id>": "<group>" } in ~/.config/streaming-launcher-companion/groups.json.
+/// { "<entry id>": "<group>" } in ~/.config/albedo-companion/groups.json.
 /// Built-in groups are stored with their German name (the companion's internal one).
 pub struct GroupOverrideStore;
 
@@ -50,6 +50,6 @@ impl GroupOverrideStore
 
     fn store_path() -> PathBuf
     {
-        home_directory().join(".config/streaming-launcher-companion/groups.json")
+        home_directory().join(".config/albedo-companion/groups.json")
     }
 }

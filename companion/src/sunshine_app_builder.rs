@@ -78,6 +78,41 @@ impl SunshineAppBuilder
             None
         }
     }
+
+    /// Apps added before the rename to Albedo end their game with
+    /// `…/streaming-launcher-companion quit "<pattern>"`. Returns the app with that program
+    /// replaced by `companion_program` (the running albedo-companion), or None if nothing changed.
+    pub fn migrate_quit_command(&self, app: &Value, companion_program: &str) -> Option<Value>
+    {
+        // Binary name before the rename, kept only to find these old undo steps.
+        const LEGACY_PROGRAM: &str = "streaming-launcher-companion";
+        let mut migrated_app = app.clone();
+        let mut changed = false;
+        for prep_command in migrated_app["prep-cmd"].as_array_mut()?
+        {
+            let undo_command = prep_command["undo"].as_str().unwrap_or_default().to_string();
+            let program_end = match undo_command.find(LEGACY_PROGRAM)
+            {
+                Some(program_start) => program_start + LEGACY_PROGRAM.len(),
+                None => continue,
+            };
+            // The old program may have been quoted ("/home/x y/.local/bin/…" quit "…").
+            let arguments = undo_command[program_end..].trim_start_matches('"');
+            if arguments.starts_with(" quit ")
+            {
+                prep_command["undo"] = json!(format!("{}{}", companion_program, arguments));
+                changed = true;
+            }
+        }
+        if changed
+        {
+            Some(migrated_app)
+        }
+        else
+        {
+            None
+        }
+    }
 }
 
 #[cfg(test)]
@@ -103,5 +138,21 @@ mod tests
         assert!(SunshineAppBuilder.migrate_restore_command(&own_profile_app).is_none());
         assert!(SunshineAppBuilder.migrate_restore_command(&migrated_app).is_none());
         assert!(SunshineAppBuilder.migrate_restore_command(&json!({ "name": "No prep" })).is_none());
+    }
+
+    #[test]
+    fn points_old_quit_steps_to_the_new_companion()
+    {
+        let old_app = json!({ "name": "Crow", "prep-cmd": [
+            { "do": "/home/user/.local/bin/sunshine-match-client", "undo": "/home/user/.local/bin/sunshine-match-client --restore" },
+            { "do": "", "undo": "/home/user/.local/bin/streaming-launcher-companion quit \"/home/user/Games/Crow\"" },
+            { "do": "", "undo": "\"/home/my user/.local/bin/streaming-launcher-companion\" quit \"SteamLaunch AppId=1 \"" }
+        ] });
+        let migrated_app = SunshineAppBuilder.migrate_quit_command(&old_app, "/home/user/.local/bin/albedo-companion").unwrap();
+        assert_eq!(migrated_app["prep-cmd"][0], old_app["prep-cmd"][0]);
+        assert_eq!(migrated_app["prep-cmd"][1]["undo"], "/home/user/.local/bin/albedo-companion quit \"/home/user/Games/Crow\"");
+        assert_eq!(migrated_app["prep-cmd"][2]["undo"], "/home/user/.local/bin/albedo-companion quit \"SteamLaunch AppId=1 \"");
+        assert!(SunshineAppBuilder.migrate_quit_command(&migrated_app, "/home/user/.local/bin/albedo-companion").is_none());
+        assert!(SunshineAppBuilder.migrate_quit_command(&json!({ "name": "No prep" }), "x").is_none());
     }
 }

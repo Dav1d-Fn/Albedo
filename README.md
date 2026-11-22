@@ -24,7 +24,7 @@
 Switch to **Desktop Mode**, open **Konsole** and run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/streaming-launcher/main/deck/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/albedo/main/deck/install.sh | bash
 ```
 
 The script
@@ -43,7 +43,7 @@ PIN it shows into Sunshine's web UI under *PIN*.
 To remove it again:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/streaming-launcher/main/deck/install.sh | bash -s -- --uninstall
+curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/albedo/main/deck/install.sh | bash -s -- --uninstall
 ```
 
 **Updates** come from the app itself: when a new release is out, Albedo asks on start, **A**
@@ -218,7 +218,7 @@ The *Desktop (ohne Profilwechsel)* preset and games you add to Sunshine yourself
 and work on any setup.
 
 Tested on: Steam Deck with SteamOS 3, Fedora with KDE Plasma 6 (Wayland) and an AMD GPU.
-If you get it running on something else, please [tell us](https://github.com/Dav1d-Fn/streaming-launcher/issues).
+If you get it running on something else, please [tell us](https://github.com/Dav1d-Fn/albedo/issues).
 
 ---
 
@@ -232,12 +232,12 @@ Moonlight can connect. That is all Albedo needs to list and start games.
 ### 2. Companion service
 
 No Rust or Node needed: the installer downloads the companion from the latest
-[release](https://github.com/Dav1d-Fn/streaming-launcher/releases), checks it against
+[release](https://github.com/Dav1d-Fn/albedo/releases), checks it against
 `SHA256SUMS`, installs it to `~/.local/bin` and starts it as a systemd user service.
 
 ```bash
-git clone https://github.com/Dav1d-Fn/streaming-launcher.git
-cd streaming-launcher/pc-setup
+git clone https://github.com/Dav1d-Fn/albedo.git
+cd albedo/pc-setup
 ./install.sh --companion-only --pc-app   # leave out --pc-app if you don't want the PC app
 ```
 
@@ -245,7 +245,7 @@ To update, run the same command again (after `git pull`). Without `--companion-o
 goes on with the virtual monitor (step 3). Developers can build from the checkout instead with
 `--build` (needs Rust, and Node for the PC app).
 
-On first start it creates `~/.config/streaming-launcher-companion/config.json` (readable only by
+On first start it creates `~/.config/albedo-companion/config.json` (readable only by
 you):
 
 ```json
@@ -283,7 +283,7 @@ every stream switches the PC to it at the resolution and FPS of the Deck's profi
 monitors turn off for the stream and come back exactly as they were when it ends.
 
 ```bash
-cd streaming-launcher/pc-setup
+cd albedo/pc-setup
 ./install.sh --dry-run   # shows what it would do, changes nothing
 ./install.sh
 ```
@@ -378,7 +378,7 @@ Albedo reads the gamepad itself; Steam Input's *Gamepad* template is all it need
 ## Configuration ⚙️
 
 Everything can be set in the app (*Connection* and the **☰** editor). The settings live in
-`~/.config/de.davidf.streaminglauncher/settings.json`; a few keys exist only there:
+`~/.config/de.davidf.albedo/settings.json`; a few keys exist only there:
 
 | Key | Meaning |
 |---|---|
@@ -398,7 +398,7 @@ npm install
 npm run tauri dev
 ```
 
-- `STREAMING_LAUNCHER_DRY_RUN=1 npm run tauri dev` – logs the Moonlight command instead of
+- `ALBEDO_DRY_RUN=1 npm run tauri dev` – logs the Moonlight command instead of
   streaming to the PC you are sitting at.
 - `npm run dev` – only the UI in a browser at <http://localhost:1430>, with fake data
   (`src/dev/BrowserMock.ts`).
@@ -458,7 +458,7 @@ If you enjoy using Albedo and want to support its development, you can buy me a 
 ## Feedback & Contributions
 
 Found a bug or have a feature idea?
-Feel free to [open an issue](https://github.com/Dav1d-Fn/streaming-launcher/issues) or reach out!
+Feel free to [open an issue](https://github.com/Dav1d-Fn/albedo/issues) or reach out!
 
 ---
 

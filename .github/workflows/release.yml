@@ -73,8 +73,8 @@ jobs:
       - name: Pack binary and service file
         run: |
           mkdir -p out/albedo-companion
-          cp companion/target/x86_64-unknown-linux-musl/release/streaming-launcher-companion out/albedo-companion/
-          cp companion/streaming-launcher-companion.service out/albedo-companion/
+          cp companion/target/x86_64-unknown-linux-musl/release/albedo-companion out/albedo-companion/
+          cp companion/albedo-companion.service out/albedo-companion/
           tar -C out -czf albedo-companion-x86_64-linux.tar.gz albedo-companion
 
       - uses: actions/upload-artifact@v4

@@ -13,7 +13,7 @@ impl MoonlightAppQuit
     pub fn quit(moonlight_command: &[String], host: &str) -> Result<(), String>
     {
         // Matches the stream dry run: nothing was started on the host, so nothing to end.
-        if std::env::var_os("STREAMING_LAUNCHER_DRY_RUN").is_some()
+        if std::env::var_os("ALBEDO_DRY_RUN").is_some()
         {
             println!("[quit] dry run, moonlight quit {} not run", host);
             return Ok(());

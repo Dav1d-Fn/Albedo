@@ -8,7 +8,7 @@ use crate::cover_source::CoverSource;
 use crate::library_entry::LibraryEntry;
 
 /// Pictures the user picked for an entry (uploaded from the phone), stored in
-/// ~/.config/streaming-launcher-companion/art/<entry id>-<kind>.<png|jpg>.
+/// ~/.config/albedo-companion/art/<entry id>-<kind>.<png|jpg>.
 /// They replace the automatic cover, hero or logo of that entry everywhere.
 pub struct ArtOverrideStore;
 
@@ -87,7 +87,7 @@ impl ArtOverrideStore
     {
         let extension = if art_kind == "hero" { "jpg" } else { "png" };
         home_directory()
-            .join(".config/streaming-launcher-companion/art")
+            .join(".config/albedo-companion/art")
             .join(format!("{}-{}.{}", CoverConverter::safe_file_name(entry_id), art_kind, extension))
     }
 }

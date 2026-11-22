@@ -8,7 +8,7 @@
 #   bash install.sh --yes                # answer every question with yes (e.g. closing Steam)
 #
 # Also works as a one-liner once the repository is public:
-#   curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/streaming-launcher/main/deck/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/albedo/main/deck/install.sh | bash
 set -euo pipefail
 
 # ------------------------------------------------------------------ names and paths
@@ -17,8 +17,11 @@ APP_NAME="Albedo"
 # Earlier names and file name parts: an existing Steam entry with one of these is taken over.
 KNOWN_NAMES="Streaming-Launcher Albedo"
 KNOWN_EXE_PARTS="streaming-launcher streaming_launcher albedo.appimage albedo_"
-REPO="Dav1d-Fn/streaming-launcher"
-CONFIG_DIR="$HOME/.config/de.davidf.streaminglauncher"
+REPO="Dav1d-Fn/albedo"
+CONFIG_DIR="$HOME/.config/de.davidf.albedo"
+# App id before the rename to Albedo: the app moves this folder to CONFIG_DIR on its first start,
+# --uninstall also removes what an old version left (settings, picture cache, WebKit data).
+LEGACY_APP_DIRS="$HOME/.config/de.davidf.streaminglauncher $HOME/.cache/de.davidf.streaminglauncher $HOME/.local/share/de.davidf.streaminglauncher"
 MOONLIGHT_FLATPAK="com.moonlight_stream.Moonlight"
 # Empty on purpose: also clears WEBKIT_DISABLE_DMABUF_RENDERER=1 that older installers set,
 # it forces WebKitGTK into software rendering and drops the home screen to a few FPS.
@@ -536,9 +539,19 @@ uninstall_launcher()
     rm -f "$APPIMAGE_TARGET"
     start_steam_again
     # --yes never deletes settings, that needs a real answer.
-    if [[ -d "$CONFIG_DIR" && $ASSUME_YES -eq 0 ]] && ask "Auch die Einstellungen ($CONFIG_DIR) löschen?"
+    local settingsDirs=""
+    local settingsDir
+    for settingsDir in "$CONFIG_DIR" $LEGACY_APP_DIRS
+    do
+        if [[ -d "$settingsDir" ]]
+        then
+            settingsDirs+="$settingsDir "
+        fi
+    done
+    if [[ -n "$settingsDirs" && $ASSUME_YES -eq 0 ]] && ask "Auch die Einstellungen (${settingsDirs% }) löschen?"
     then
-        rm -rf "$CONFIG_DIR"
+        # Unquoted on purpose: one word per folder (the paths have no spaces).
+        rm -rf $settingsDirs
     fi
     say "Deinstalliert."
 }

@@ -12,7 +12,8 @@ Design source: Claude design canvas https://claude.ai/artifact/UpFs3Nat5Q983TyyA
 
 - `src-tauri/src/` – Rust side, one struct per file
   - `lib.rs` – Tauri commands (thin wrappers) and app setup
-  - `settings_store.rs` – reads/writes `settings.json` in the app config dir (`~/.config/de.davidf.streaminglauncher/`)
+  - `settings_store.rs` – reads/writes `settings.json` in the app config dir (`~/.config/de.davidf.albedo/`)
+  - `legacy_directory_mover.rs` – moves the folders from before the rename (`de.davidf.streaminglauncher`, companion `streaming-launcher-companion`) once at start; the companion uses it via `#[path]`
   - `game_list_source.rs` – app list from the companion (`GET /api/apps`, live from Sunshine), else Sunshine web API (port 47990, Basic Auth) or `moonlight list <host>` (only Moonlight's cache)
   - `moonlight_command.rs` – builds the Moonlight argument list (has the unit test)
   - `stream_session.rs` – spawns Moonlight, emits `stream-ended`
@@ -59,7 +60,7 @@ virtual monitor (companion `/api/display-modes`, FPS per resolution), else fixed
 ## Commands
 
 - `npm run tauri dev` – run on the PC (dev port 1430; 1420 is used by other projects)
-- `STREAMING_LAUNCHER_DRY_RUN=1 npm run tauri dev` – log the Moonlight command instead of streaming to itself
+- `ALBEDO_DRY_RUN=1 npm run tauri dev` – log the Moonlight command instead of streaming to itself
 - `npm run dev` – UI only in a browser with fake data (`src/dev/BrowserMock.ts`; a settings.json put into localStorage `mockSettings` is loaded instead of defaults)
 - `cd src-tauri && cargo test` – Rust tests (`-- --ignored` also runs the LAN discovery test)
 - `npx tsc --noEmit` – type check

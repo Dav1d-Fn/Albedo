@@ -10,6 +10,7 @@ mod gamepad_listener;
 mod host_address_picker;
 mod host_discovery;
 mod host_environment;
+mod legacy_directory_mover;
 mod library_entry;
 mod libretro_thumbnails;
 mod moonlight_app_quit;
@@ -39,6 +40,7 @@ use game_list_source::GameListSource;
 use gamepad_listener::GamepadListener;
 use host_address_picker::HostAddressPicker;
 use host_discovery::{DiscoveredHost, HostDiscovery};
+use legacy_directory_mover::LegacyDirectoryMover;
 use moonlight_app_quit::MoonlightAppQuit;
 use moonlight_box_art::MoonlightBoxArt;
 use moonlight_command::MoonlightCommand;
@@ -325,6 +327,30 @@ async fn install_update(app: AppHandle) -> Result<(), String>
     AppUpdater::install(&app).await
 }
 
+/// Takes over settings.json and the picture cache from the old app id once, before the UI loads
+/// the settings. The WebKit data in ~/.local/share/<old id> holds nothing of the app and stays.
+fn move_legacy_directories(app_handle: &AppHandle)
+{
+    // Old app id from before the rename to Albedo, kept only for this move.
+    const LEGACY_IDENTIFIER: &str = "de.davidf.streaminglauncher";
+    let paths = app_handle.path();
+    for new_directory in [paths.app_config_dir(), paths.app_cache_dir()].into_iter().flatten()
+    {
+        let old_directory = match new_directory.parent()
+        {
+            Some(parent_directory) => parent_directory.join(LEGACY_IDENTIFIER),
+            None => continue,
+        };
+        match LegacyDirectoryMover::move_if_needed(&old_directory, &new_directory)
+        {
+            Ok(true) => println!("[setup] moved {} to {}", old_directory.display(), new_directory.display()),
+            Ok(false) =>
+            {}
+            Err(message) => eprintln!("[setup] could not take over old folder: {}", message),
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run()
 {
@@ -333,6 +359,7 @@ pub fn run()
         .manage(StreamSession::default())
         .setup(|app|
         {
+            move_legacy_directories(app.handle());
             GamepadListener::start(app.handle().clone());
             Ok(())
         })
