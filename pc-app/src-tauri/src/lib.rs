@@ -1,4 +1,6 @@
 mod companion_proxy;
+mod main_window;
+mod tray_icon;
 
 // The picture search is the Deck launcher's (src-tauri), used as it is so both apps find the same pictures.
 #[path = "../../../src-tauri/src/art_candidate.rs"]
@@ -19,10 +21,13 @@ use serde_json::Value;
 use tauri::ipc::{InvokeBody, Request};
 use tauri::{AppHandle, Manager};
 
+use albedo_companion::{CompanionService, ProcessQuitter};
 use art_search::ArtSearch;
 use art_search_result::ArtSearchResult;
 use companion_proxy::CompanionProxy;
 use host_environment::HostEnvironment;
+use main_window::MainWindow;
+use tray_icon::TrayIcon;
 use ui_language::UiLanguage;
 
 #[tauri::command]
@@ -148,10 +153,45 @@ fn art_search(app_handle: &AppHandle) -> Result<ArtSearch, String>
     ArtSearch::new(cache_directory.join("libretro"))
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// Albedo PC, one program for the PC side:
+///   albedo-pc                    window + tray icon, serves the companion API for the Deck
+///   albedo-pc --hidden           the same, starting in the tray (login autostart)
+///   albedo-pc --headless         only the companion API, no window or tray (PCs without a desktop)
+///   albedo-pc --exit             ends the running instance (the installer uses it to update)
+///   albedo-pc quit "<pattern>"   undo step of a Sunshine app: ends the game's processes
 pub fn run()
 {
+    let arguments: Vec<String> = std::env::args().collect();
+    if arguments.len() == 3 && arguments[1] == "quit"
+    {
+        ProcessQuitter::new(&arguments[2]).quit();
+        return;
+    }
+    if arguments.iter().any(|argument| argument == "--headless")
+    {
+        // Blocks while serving; only returns with an error (e.g. the port is taken).
+        if let Err(message) = CompanionService::load().and_then(|service| service.run())
+        {
+            eprintln!("{}", message);
+            std::process::exit(1);
+        }
+        return;
+    }
+    let start_hidden = arguments.iter().any(|argument| argument == "--hidden");
+    let exit_requested = arguments.iter().any(|argument| argument == "--exit");
+
     tauri::Builder::default()
+        // First: a second start only hands its arguments to the running instance and ends.
+        .plugin(tauri_plugin_single_instance::init(|app_handle, arguments, _working_directory| {
+            if arguments.iter().any(|argument| argument == "--exit")
+            {
+                app_handle.exit(0);
+            }
+            else if !arguments.iter().any(|argument| argument == "--hidden")
+            {
+                MainWindow::show(app_handle);
+            }
+        }))
         .invoke_handler(tauri::generate_handler![
             set_language,
             companion,
@@ -160,6 +200,51 @@ pub fn run()
             apply_art,
             open_steam_grid_db_key_page
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .setup(move |app| {
+            if exit_requested
+            {
+                // No instance was running to hand --exit to: nothing to end.
+                app.handle().exit(0);
+                return Ok(());
+            }
+            start_companion();
+            TrayIcon::create(app.handle())?;
+            if !start_hidden
+            {
+                MainWindow::show(app.handle());
+            }
+            Ok(())
+        })
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app_handle, event| {
+            // Closing the window only drops it; the app (and the Deck's API) stays in the tray
+            // until "Quit" ends it with an exit code.
+            if let tauri::RunEvent::ExitRequested { api, code: None, .. } = event
+            {
+                api.prevent_exit();
+            }
+        });
+}
+
+/// The companion API on its own thread, for the Deck and this app's UI. A failure (port taken,
+/// config not writable) is logged; the UI then reports the companion as not answering.
+fn start_companion()
+{
+    let service = match CompanionService::load()
+    {
+        Ok(service) => service,
+        Err(message) =>
+        {
+            eprintln!("[companion] {}", message);
+            return;
+        }
+    };
+    CompanionProxy::set_port(service.port());
+    std::thread::spawn(move || {
+        if let Err(message) = service.run()
+        {
+            eprintln!("[companion] {}", message);
+        }
+    });
 }

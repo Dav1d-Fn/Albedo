@@ -1,7 +1,7 @@
 #!/bin/bash
 # Sets up the PC side of Albedo:
-#   - the companion service (~/.local/bin, systemd user service), from the latest GitHub release
-#   - optional: the PC app (~/Applications/Albedo-PC-x86_64.AppImage + menu entry)
+#   - Albedo PC (~/Applications/Albedo-PC-x86_64.AppImage, menu entry, autostart at login in the
+#     tray), from the latest GitHub release. It serves the companion API the Deck talks to.
 # and the virtual streaming monitor and the automatic resolution switching for Sunshine
 # on KDE Plasma (Wayland) with an AMD GPU:
 #   - an EDID with the stream modes, forced onto a free connector at every boot (systemd, needs sudo)
@@ -10,13 +10,12 @@
 #   - optional: Sunshine global_prep_cmd that stops xwaylandvideobridge during a stream
 #
 #   ./install.sh                         interactive, everything
-#   ./install.sh --companion-only        only companion (and PC app), e.g. to update or without KDE
-#   ./install.sh --pc-app                also install the PC app (updated on every run once installed)
-#   ./install.sh --build                 build companion / PC app from this checkout (needs Rust, Node)
+#   ./install.sh --companion-only        only Albedo PC, e.g. to update or without KDE
+#   ./install.sh --build                 build Albedo PC from this checkout (needs Rust, Node)
 #   ./install.sh --connector DP-3        skip the connector question
 #   ./install.sh --mode 3440x1440@100    add a mode to the EDID (repeatable)
 #   ./install.sh --dry-run               only print what would be done
-#   ./install.sh --uninstall             remove everything again (keeps the companion's config)
+#   ./install.sh --uninstall             remove everything again (keeps ~/.config/albedo-companion/)
 #   ALBEDO_RELEASE_URL=file:///some/dir ./install.sh   download from another place (testing)
 set -euo pipefail
 
@@ -31,20 +30,17 @@ service_target="/etc/systemd/system/$service_name"
 xwayland_unit="app-org.kde.xwaylandvideobridge@autostart.service"
 repo_dir="$(dirname "$script_dir")"
 release_url="${ALBEDO_RELEASE_URL:-https://github.com/Dav1d-Fn/albedo/releases/latest/download}"
-companion_archive="albedo-companion-x86_64-linux.tar.gz"
-companion_name="albedo-companion"
-companion_target="$HOME/.local/bin/$companion_name"
-companion_unit_target="$HOME/.config/systemd/user/$companion_name.service"
-# Name of the companion before the rename to Albedo: its service is replaced, its binary path
-# stays as a link because Sunshine apps added back then call it in their undo step (the
-# companion rewrites those steps on its next start, the link covers the time until then).
-legacy_companion_name="streaming-launcher-companion"
-legacy_companion_target="$HOME/.local/bin/$legacy_companion_name"
-legacy_companion_unit_target="$HOME/.config/systemd/user/$legacy_companion_name.service"
 pc_app_file="Albedo-PC-x86_64.AppImage"
 pc_app_target="$HOME/Applications/$pc_app_file"
 pc_app_desktop_entry="$HOME/.local/share/applications/albedo-pc.desktop"
+pc_app_autostart_entry="$HOME/.config/autostart/albedo-pc.desktop"
 pc_app_icon="$HOME/.local/share/icons/hicolor/128x128/apps/albedo-pc.png"
+# The companion used to be a separate systemd user service, first as streaming-launcher-companion,
+# then as albedo-companion; Albedo PC replaces both. Their binary paths stay as links to the
+# AppImage because Sunshine apps added back then call them in their undo step (Albedo PC rewrites
+# those steps on its next start, the links cover the time until then). The config stays in
+# ~/.config/albedo-companion/.
+old_companion_names=("albedo-companion" "streaming-launcher-companion")
 xwayland_prep_command="{\"do\":\"systemctl --user stop $xwayland_unit\",\"undo\":\"systemctl --user start --no-block $xwayland_unit\"}"
 
 connector=""
@@ -52,7 +48,6 @@ extra_modes=()
 dry_run=false
 uninstall=false
 companion_only=false
-want_pc_app=false
 build_locally=false
 while [ $# -gt 0 ]
 do
@@ -62,9 +57,9 @@ do
         --dry-run) dry_run=true ;;
         --uninstall) uninstall=true ;;
         --companion-only) companion_only=true ;;
-        --pc-app) want_pc_app=true ;;
+        --pc-app) ;; # Albedo PC is always installed now, kept so old command lines still work
         --build) build_locally=true ;;
-        -h|--help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "Unknown option: $1 (see --help)" >&2; exit 2 ;;
     esac
     shift
@@ -104,6 +99,23 @@ ask_yes_no()
     [[ "$answer" =~ ^[YyJj] ]]
 }
 
+# Stops and removes the separate companion services from before Albedo PC (they hold port 47995)
+remove_old_companion_services()
+{
+    local old_name unit_target
+    for old_name in "${old_companion_names[@]}"
+    do
+        unit_target="$HOME/.config/systemd/user/$old_name.service"
+        if [ -f "$unit_target" ]
+        then
+            info "Removing the old companion service $old_name (Albedo PC replaces it)"
+            run systemctl --user disable --now "$old_name.service" || true
+            run rm -f "$unit_target"
+            run systemctl --user daemon-reload
+        fi
+    done
+}
+
 # ---------------------------------------------------------------------------
 # Uninstall
 # ---------------------------------------------------------------------------
@@ -132,17 +144,17 @@ then
         run_as_root systemctl daemon-reload
     fi
 
-    for unit_target in "$companion_unit_target" "$legacy_companion_unit_target"
+    remove_old_companion_services
+    if [ -x "$pc_app_target" ]
+    then
+        info "Ending and removing Albedo PC (its config in ~/.config/albedo-companion/ stays)"
+        run "$pc_app_target" --exit > /dev/null 2>&1 || true
+    fi
+    run rm -f "$pc_app_target" "$pc_app_desktop_entry" "$pc_app_autostart_entry" "$pc_app_icon"
+    for old_name in "${old_companion_names[@]}"
     do
-        if [ -f "$unit_target" ]
-        then
-            info "Removing the companion service $(basename "$unit_target") (its config in ~/.config/$companion_name/ stays)"
-            run systemctl --user disable --now "$(basename "$unit_target")" || true
-            run rm -f "$unit_target"
-            run systemctl --user daemon-reload
-        fi
+        run rm -f "$HOME/.local/bin/$old_name"
     done
-    run rm -f "$companion_target" "$legacy_companion_target" "$pc_app_target" "$pc_app_desktop_entry" "$pc_app_icon"
 
     info "Removing sunshine-match-client and its config"
     run rm -f "$match_client_target" "$config_file" "$saved_layout_file"
@@ -157,7 +169,7 @@ then
 fi
 
 # ---------------------------------------------------------------------------
-# Companion and PC app (no sudo). Running the script again updates them.
+# Albedo PC (no sudo). Running the script again updates it.
 # ---------------------------------------------------------------------------
 work_dir=$(mktemp -d)
 trap 'rm -rf "$work_dir"' EXIT
@@ -199,90 +211,62 @@ require_command()
     fi
 }
 
-info "Companion service"
+info "Albedo PC"
 if $dry_run
 then
-    echo "    [dry-run] get $companion_name ($($build_locally && echo "build from $repo_dir/companion" || echo "download from $release_url"))"
+    echo "    [dry-run] get $pc_app_file ($($build_locally && echo "build from $repo_dir/pc-app" || echo "download from $release_url"))"
 elif $build_locally
 then
     require_command cargo "Install Rust (rustup.rs) or run without --build."
-    (cd "$repo_dir/companion" && nice -n 19 cargo build --release --locked -j 4)
-    mkdir -p "$work_dir/albedo-companion"
-    cp "$repo_dir/companion/target/release/$companion_name" "$repo_dir/companion/$companion_name.service" "$work_dir/albedo-companion/"
+    require_command npm "Install Node.js or run without --build."
+    if [ ! -d "$repo_dir/node_modules" ]
+    then
+        (cd "$repo_dir" && npm ci)
+    fi
+    (cd "$repo_dir/pc-app" && PATH="$repo_dir/node_modules/.bin:$PATH" CARGO_BUILD_JOBS=4 nice -n 19 tauri build --bundles appimage)
+    cp "$repo_dir"/pc-app/src-tauri/target/release/bundle/appimage/*.AppImage "$work_dir/$pc_app_file"
 else
     require_command curl "Please install it first."
-    download_release_file "$companion_archive"
-    tar -C "$work_dir" -xzf "$work_dir/$companion_archive"
-fi
-# install replaces the file instead of writing into it, so the running binary is not disturbed
-run install -Dm 755 "$work_dir/albedo-companion/$companion_name" "$companion_target"
-run install -Dm 644 "$work_dir/albedo-companion/$companion_name.service" "$companion_unit_target"
-if [ -f "$legacy_companion_unit_target" ]
-then
-    # Stopped before the new one starts: both want port 47995. The new companion takes over
-    # ~/.config/$legacy_companion_name/ (login, pictures, groups) on its first start.
-    info "Replacing the old service $legacy_companion_name"
-    run systemctl --user disable --now "$legacy_companion_name.service" || true
-    run rm -f "$legacy_companion_unit_target"
-fi
-if [ -e "$legacy_companion_target" ] || [ -L "$legacy_companion_target" ]
-then
-    run ln -sfn "$companion_name" "$legacy_companion_target"
-fi
-run systemctl --user daemon-reload
-run systemctl --user enable "$companion_name.service"
-# restart, not start: an update must run the new binary now
-run systemctl --user restart "$companion_name.service"
-if ! $dry_run
-then
-    companion_health=""
-    for attempt in 1 2 3 4 5
-    do
-        sleep 1
-        companion_health=$(curl -fsS --max-time 2 http://127.0.0.1:47995/api/health 2>/dev/null) && break
-    done
-    if [ -n "$companion_health" ]
-    then
-        info "Companion is running: $companion_health"
-    else
-        warn "Companion doesn't answer on port 47995. See: journalctl --user -u $companion_name"
-    fi
+    download_release_file "$pc_app_file"
 fi
 
-# The PC app is updated on every run once it is installed
-if [ -f "$pc_app_target" ]
+remove_old_companion_services
+# install replaces the file instead of writing into it, so a running Albedo PC is not disturbed
+run install -Dm 755 "$work_dir/$pc_app_file" "$pc_app_target"
+# An update must run the new version: the running one ends (--exit reaches it as a second start
+# of the single instance; with none running it does nothing) and frees the port before the start below.
+run "$pc_app_target" --exit > /dev/null 2>&1 || true
+if ! $dry_run
 then
-    want_pc_app=true
+    for attempt in 1 2 3 4 5 6 7 8 9 10
+    do
+        curl -fsS --max-time 1 http://127.0.0.1:47995/api/health > /dev/null 2>&1 || break
+        sleep 1
+    done
 fi
-if $want_pc_app
-then
-    info "PC app"
-    if $dry_run
+
+for old_name in "${old_companion_names[@]}"
+do
+    old_target="$HOME/.local/bin/$old_name"
+    if [ -e "$old_target" ] || [ -L "$old_target" ]
     then
-        echo "    [dry-run] get $pc_app_file and install it to $pc_app_target"
-    else
-        if $build_locally
-        then
-            require_command npm "Install Node.js or run without --build."
-            if [ ! -d "$repo_dir/node_modules" ]
-            then
-                (cd "$repo_dir" && npm ci)
-            fi
-            (cd "$repo_dir/pc-app" && PATH="$repo_dir/node_modules/.bin:$PATH" CARGO_BUILD_JOBS=4 nice -n 19 tauri build --bundles appimage)
-            cp "$repo_dir"/pc-app/src-tauri/target/release/bundle/appimage/*.AppImage "$work_dir/$pc_app_file"
-        else
-            download_release_file "$pc_app_file"
-        fi
-        install -Dm 755 "$work_dir/$pc_app_file" "$pc_app_target"
-        # Menu entry with the icon from inside the AppImage (extracting needs no FUSE)
-        icon_inside="usr/share/icons/hicolor/128x128/apps/albedo-pc.png"
-        (cd "$work_dir" && "$pc_app_target" --appimage-extract "$icon_inside" > /dev/null 2>&1) || true
-        if [ -f "$work_dir/squashfs-root/$icon_inside" ]
-        then
-            install -Dm 644 "$work_dir/squashfs-root/$icon_inside" "$pc_app_icon"
-        fi
-        mkdir -p "$(dirname "$pc_app_desktop_entry")"
-        cat > "$pc_app_desktop_entry" <<DESKTOP
+        run ln -sfn "$pc_app_target" "$old_target"
+    fi
+done
+
+if $dry_run
+then
+    echo "    [dry-run] write $pc_app_desktop_entry and $pc_app_autostart_entry (--hidden)"
+else
+    # Menu entry with the icon from inside the AppImage (extracting needs no FUSE)
+    icon_inside="usr/share/icons/hicolor/128x128/apps/albedo-pc.png"
+    (cd "$work_dir" && "$pc_app_target" --appimage-extract "$icon_inside" > /dev/null 2>&1) || true
+    if [ -f "$work_dir/squashfs-root/$icon_inside" ]
+    then
+        install -Dm 644 "$work_dir/squashfs-root/$icon_inside" "$pc_app_icon"
+    fi
+    mkdir -p "$(dirname "$pc_app_desktop_entry")" "$(dirname "$pc_app_autostart_entry")"
+    cat > "$pc_app_desktop_entry" <<DESKTOP
 [Desktop Entry]
 Type=Application
 Name=Albedo PC
@@ -292,7 +276,39 @@ Icon=albedo-pc
 StartupWMClass=albedo-pc
 Categories=Game;
 DESKTOP
-        info "Installed to $pc_app_target (menu: Albedo PC)"
+    # At login straight into the tray: the Deck needs the companion API, not the window.
+    cat > "$pc_app_autostart_entry" <<DESKTOP
+[Desktop Entry]
+Type=Application
+Name=Albedo PC
+Comment=Companion for Albedo on the Steam Deck (tray)
+Exec=$pc_app_target --hidden
+Icon=albedo-pc
+X-GNOME-Autostart-enabled=true
+DESKTOP
+    info "Installed to $pc_app_target (menu: Albedo PC, starts at login in the tray)"
+fi
+
+if [ -z "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]
+then
+    warn "No graphical session here: Albedo PC starts at your next desktop login."
+    warn "Without a desktop, run it as: $pc_app_target --headless"
+elif $dry_run
+then
+    echo "    [dry-run] start $pc_app_target --hidden"
+else
+    setsid "$pc_app_target" --hidden > /dev/null 2>&1 < /dev/null &
+    companion_health=""
+    for attempt in 1 2 3 4 5 6 7 8 9 10
+    do
+        sleep 1
+        companion_health=$(curl -fsS --max-time 2 http://127.0.0.1:47995/api/health 2>/dev/null) && break
+    done
+    if [ -n "$companion_health" ]
+    then
+        info "Albedo PC is running in the tray: $companion_health"
+    else
+        warn "Albedo PC doesn't answer on port 47995. Start it from the menu to see what's wrong."
     fi
 fi
 

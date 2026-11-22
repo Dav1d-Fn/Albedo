@@ -344,7 +344,7 @@ export const germanTexts =
     loginNeeded: " · Hinzufügen und Entfernen gehen erst mit Login. A oder ☰ trägt ihn ein.",
     helperUnreachable: "PC-Helfer nicht erreichbar",
     worksWithoutHelper: "Der Launcher geht auch ohne Helfer: Du spielst dann die Apps, die in Sunshine eingerichtet sind. Nur Hinzufügen braucht den Helfer auf dem PC.",
-    startHelper: "Helfer auf dem PC starten (companion/README.md), dann Y. B geht zurück zu den Spielen.",
+    startHelper: "Albedo PC auf dem PC starten (pc-setup/install.sh richtet es ein), dann Y. B geht zurück zu den Spielen.",
     group: "Gruppe",
     enterLogin: "Login eintragen",
     remove: "Entfernen",

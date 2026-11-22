@@ -4,7 +4,8 @@ Small HTTP service on the gaming PC. It knows which games and programs are insta
 turns a chosen one into a Sunshine app, so the launcher on the Deck can add and remove games
 without anybody editing `apps.json` by hand.
 
-- Runs as a systemd user service next to Sunshine, port **47995**, plain HTTP + JSON.
+- Runs inside Albedo PC (window or tray, `--headless` without a desktop) next to Sunshine,
+  port **47995**, plain HTTP + JSON.
 - Only answers requests from the home network and Tailscale (private IPv4 ranges, `100.64.0.0/10`,
   loopback). No token: the companion never runs commands sent by the client, it only adds
   entries it discovered itself.
@@ -162,11 +163,14 @@ Every created app gets:
 
 Ending a game: apps that Sunshine starts as `cmd` (Prism, native shortcuts like EmuDeck) are
 ended by Sunshine itself (SIGTERM to the process group, SIGKILL after `exit-timeout`). Detached
-apps get an undo `albedo-companion quit "<pattern>"`: SIGTERM to every process whose
+apps get an undo `<Albedo PC> quit "<pattern>"` (the AppImage path, `$APPIMAGE`): SIGTERM to every process whose
 command line contains the pattern (like `pkill -f`, skipping its own process and its parents),
 SIGKILL after 5 s. Patterns: Steam `SteamLaunch AppId=<appid> `, Heroic/Lutris the install
 folder, `.desktop` entries with `Categories=…Game…` their program (flatpak: the app id); other
 desktop programs keep running. Apps added before this keep their old undo until re-added.
+Undo steps of the earlier separate companion (`…/albedo-companion quit` and, from before the
+rename, `…/streaming-launcher-companion quit`) are pointed to Albedo PC at start and before every
+add; until then the installer keeps those paths as links to the AppImage.
 
 Before adding, apps from older versions with the undo `screenprofilercmd load main` after
 `sunshine-match-client` get `sunshine-match-client --restore` instead (updated in place by list

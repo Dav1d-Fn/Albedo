@@ -41,7 +41,7 @@ export const englishTexts: TextTable =
     inSunshineOf: (inSunshine: number, total: number) => `${inSunshine} of ${total} in Sunshine`,
     nothingFound: "Nothing found.",
     loading: "Reading the library …",
-    companionDown: "The PC companion does not answer. Is the service \"albedo-companion\" running?",
+    companionDown: "The PC companion does not answer. Is port 47995 taken by another program (old service \"albedo-companion\")? Then quit Albedo PC from the tray icon and start it again.",
     sunshineHint: "Adding and removing doesn't work right now:",
     toLogin: "To the login",
     pickHint: "Pick a game on the left.",
@@ -137,10 +137,10 @@ export const englishTexts: TextTable =
   status:
   {
     title: "Status & login",
-    companion: "Companion service",
+    companion: "Companion for the Deck",
     running: "Running",
     notRunning: "Not running",
-    notRunningHint: "systemctl --user start albedo-companion",
+    notRunningHint: "Port taken? Quit Albedo PC (tray) and start it again",
     sunshine: "Sunshine",
     connected: "Connected",
     problem: "Problem",

@@ -49,39 +49,9 @@ jobs:
           # Updater artifacts (.sig + latest.json) only here, so local builds need no signing key.
           args: --bundles appimage --config {"bundle":{"createUpdaterArtifacts":true}}
 
-  # PC side, so nobody needs Rust or Node on the gaming PC. pc-setup/install.sh downloads these
-  # under fixed names from releases/latest/download/, so the names must not carry the version.
-  companion:
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-
-      # musl: a fully static binary that runs on any x86_64 distribution, whatever its glibc.
-      # The companion is pure Rust (it calls curl as a program), so no musl C toolchain is needed.
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-unknown-linux-musl
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: companion
-
-      - name: Build
-        working-directory: companion
-        run: cargo build --release --locked --target x86_64-unknown-linux-musl
-
-      - name: Pack binary and service file
-        run: |
-          mkdir -p out/albedo-companion
-          cp companion/target/x86_64-unknown-linux-musl/release/albedo-companion out/albedo-companion/
-          cp companion/albedo-companion.service out/albedo-companion/
-          tar -C out -czf albedo-companion-x86_64-linux.tar.gz albedo-companion
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: companion
-          path: albedo-companion-x86_64-linux.tar.gz
-
+  # PC side (Albedo PC: companion API + tray app in one AppImage), so nobody needs Rust or Node
+  # on the gaming PC. pc-setup/install.sh downloads it under a fixed name from
+  # releases/latest/download/, so the name must not carry the version.
   pc-app:
     runs-on: ubuntu-22.04
     steps:
@@ -118,10 +88,10 @@ jobs:
           name: pc-app
           path: Albedo-PC-x86_64.AppImage
 
-  # Adds the PC files and SHA256SUMS to the release the appimage job created. Runs after it,
+  # Adds the PC AppImage and SHA256SUMS to the release the appimage job created. Runs after it,
   # so the Deck AppImage and latest.json stay exactly as tauri-action made them.
   pc-assets:
-    needs: [appimage, companion, pc-app]
+    needs: [appimage, pc-app]
     runs-on: ubuntu-22.04
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -139,6 +109,6 @@ jobs:
           tag="v$(jq -r .version src-tauri/tauri.conf.json)"
           gh release download "$tag" --pattern "*.AppImage" --dir assets --skip-existing
           cd assets
-          sha256sum -- *.AppImage *.tar.gz > SHA256SUMS
+          sha256sum -- *.AppImage > SHA256SUMS
           cat SHA256SUMS
-          gh release upload "$tag" --clobber albedo-companion-x86_64-linux.tar.gz Albedo-PC-x86_64.AppImage SHA256SUMS
+          gh release upload "$tag" --clobber Albedo-PC-x86_64.AppImage SHA256SUMS

@@ -39,7 +39,7 @@ export const germanTexts =
     inSunshineOf: (inSunshine: number, total: number) => `${inSunshine} von ${total} in Sunshine`,
     nothingFound: "Nichts gefunden.",
     loading: "Lese die Bibliothek …",
-    companionDown: "Der PC-Helfer antwortet nicht. Läuft der Dienst „albedo-companion“?",
+    companionDown: "Der PC-Helfer antwortet nicht. Ist Port 47995 von einem anderen Programm belegt (alter Dienst „albedo-companion“)? Dann Albedo PC über das Tray-Symbol beenden und neu starten.",
     sunshineHint: "Hinzufügen und Entfernen geht gerade nicht:",
     toLogin: "Zum Login",
     pickHint: "Wähle links ein Spiel.",
@@ -135,10 +135,10 @@ export const germanTexts =
   status:
   {
     title: "Status & Login",
-    companion: "Helfer-Dienst",
+    companion: "Helfer für das Deck",
     running: "Läuft",
     notRunning: "Läuft nicht",
-    notRunningHint: "systemctl --user start albedo-companion",
+    notRunningHint: "Port belegt? Albedo PC beenden (Tray) und neu starten",
     sunshine: "Sunshine",
     connected: "Verbunden",
     problem: "Problem",
