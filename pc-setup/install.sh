@@ -1,16 +1,23 @@
 #!/bin/bash
-# Sets up the virtual streaming monitor and the automatic resolution switching for Sunshine
+# Sets up the PC side of Albedo:
+#   - the companion service (~/.local/bin, systemd user service), from the latest GitHub release
+#   - optional: the PC app (~/Applications/Albedo-PC-x86_64.AppImage + menu entry)
+# and the virtual streaming monitor and the automatic resolution switching for Sunshine
 # on KDE Plasma (Wayland) with an AMD GPU:
 #   - an EDID with the stream modes, forced onto a free connector at every boot (systemd, needs sudo)
 #   - ~/.local/bin/sunshine-match-client (Sunshine prep command: switch / --restore)
 #   - ~/.config/sunshine-match-client.conf (which connector is the virtual monitor)
 #   - optional: Sunshine global_prep_cmd that stops xwaylandvideobridge during a stream
 #
-#   ./install.sh                         interactive
+#   ./install.sh                         interactive, everything
+#   ./install.sh --companion-only        only companion (and PC app), e.g. to update or without KDE
+#   ./install.sh --pc-app                also install the PC app (updated on every run once installed)
+#   ./install.sh --build                 build companion / PC app from this checkout (needs Rust, Node)
 #   ./install.sh --connector DP-3        skip the connector question
 #   ./install.sh --mode 3440x1440@100    add a mode to the EDID (repeatable)
 #   ./install.sh --dry-run               only print what would be done
-#   ./install.sh --uninstall             remove everything again
+#   ./install.sh --uninstall             remove everything again (keeps the companion's config)
+#   ALBEDO_RELEASE_URL=file:///some/dir ./install.sh   download from another place (testing)
 set -euo pipefail
 
 script_dir="$(dirname "$(realpath "$0")")"
@@ -22,12 +29,25 @@ apply_script_target="/usr/local/bin/apply-virtual-display.sh"
 service_name="virtual-display-edid.service"
 service_target="/etc/systemd/system/$service_name"
 xwayland_unit="app-org.kde.xwaylandvideobridge@autostart.service"
+repo_dir="$(dirname "$script_dir")"
+release_url="${ALBEDO_RELEASE_URL:-https://github.com/Dav1d-Fn/streaming-launcher/releases/latest/download}"
+companion_archive="albedo-companion-x86_64-linux.tar.gz"
+companion_name="streaming-launcher-companion"
+companion_target="$HOME/.local/bin/$companion_name"
+companion_unit_target="$HOME/.config/systemd/user/$companion_name.service"
+pc_app_file="Albedo-PC-x86_64.AppImage"
+pc_app_target="$HOME/Applications/$pc_app_file"
+pc_app_desktop_entry="$HOME/.local/share/applications/albedo-pc.desktop"
+pc_app_icon="$HOME/.local/share/icons/hicolor/128x128/apps/albedo-pc.png"
 xwayland_prep_command="{\"do\":\"systemctl --user stop $xwayland_unit\",\"undo\":\"systemctl --user start --no-block $xwayland_unit\"}"
 
 connector=""
 extra_modes=()
 dry_run=false
 uninstall=false
+companion_only=false
+want_pc_app=false
+build_locally=false
 while [ $# -gt 0 ]
 do
     case "$1" in
@@ -35,7 +55,10 @@ do
         --mode) extra_modes+=("${2:?--mode needs WIDTHxHEIGHT@FPS}"); shift ;;
         --dry-run) dry_run=true ;;
         --uninstall) uninstall=true ;;
-        -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        --companion-only) companion_only=true ;;
+        --pc-app) want_pc_app=true ;;
+        --build) build_locally=true ;;
+        -h|--help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "Unknown option: $1 (see --help)" >&2; exit 2 ;;
     esac
     shift
@@ -103,6 +126,15 @@ then
         run_as_root systemctl daemon-reload
     fi
 
+    if [ -f "$companion_unit_target" ]
+    then
+        info "Removing the companion service (its config in ~/.config/$companion_name/ stays)"
+        run systemctl --user disable --now "$companion_name.service" || true
+        run rm -f "$companion_unit_target"
+        run systemctl --user daemon-reload
+    fi
+    run rm -f "$companion_target" "$pc_app_target" "$pc_app_desktop_entry" "$pc_app_icon"
+
     info "Removing sunshine-match-client and its config"
     run rm -f "$match_client_target" "$config_file" "$saved_layout_file"
 
@@ -112,6 +144,139 @@ then
     echo "      remove them in Albedo (X in Add games) or edit them in Sunshine's web UI."
     echo "    - A global_prep_cmd for xwaylandvideobridge in sunshine.conf, if you added one."
     echo "    The connector may still show up until the next reboot."
+    exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# Companion and PC app (no sudo). Running the script again updates them.
+# ---------------------------------------------------------------------------
+work_dir=$(mktemp -d)
+trap 'rm -rf "$work_dir"' EXIT
+
+# Downloads a release file into the work dir and checks it against SHA256SUMS
+download_release_file()
+{
+    local file_name="$1"
+    if [ ! -f "$work_dir/SHA256SUMS" ]
+    then
+        if ! curl -fsSL -o "$work_dir/SHA256SUMS" "$release_url/SHA256SUMS"
+        then
+            warn "No release found at $release_url."
+            warn "The repository may still be private, or there is no release with the PC files yet."
+            warn "Developers can build from this checkout instead: ./install.sh --build (needs Rust and Node)."
+            exit 1
+        fi
+    fi
+    info "Downloading $file_name"
+    curl -fL --progress-bar -o "$work_dir/$file_name" "$release_url/$file_name"
+    if ! grep -q "  $file_name\$" "$work_dir/SHA256SUMS"
+    then
+        warn "$file_name is not listed in SHA256SUMS, not installing it."
+        exit 1
+    fi
+    if ! (cd "$work_dir" && grep "  $file_name\$" SHA256SUMS | sha256sum --check --quiet -)
+    then
+        warn "Checksum of $file_name doesn't match, not installing it."
+        exit 1
+    fi
+}
+
+require_command()
+{
+    if ! command -v "$1" > /dev/null
+    then
+        warn "$1 is missing. $2"
+        exit 1
+    fi
+}
+
+info "Companion service"
+if $dry_run
+then
+    echo "    [dry-run] get $companion_name ($($build_locally && echo "build from $repo_dir/companion" || echo "download from $release_url"))"
+elif $build_locally
+then
+    require_command cargo "Install Rust (rustup.rs) or run without --build."
+    (cd "$repo_dir/companion" && nice -n 19 cargo build --release --locked -j 4)
+    mkdir -p "$work_dir/albedo-companion"
+    cp "$repo_dir/companion/target/release/$companion_name" "$repo_dir/companion/$companion_name.service" "$work_dir/albedo-companion/"
+else
+    require_command curl "Please install it first."
+    download_release_file "$companion_archive"
+    tar -C "$work_dir" -xzf "$work_dir/$companion_archive"
+fi
+# install replaces the file instead of writing into it, so the running binary is not disturbed
+run install -Dm 755 "$work_dir/albedo-companion/$companion_name" "$companion_target"
+run install -Dm 644 "$work_dir/albedo-companion/$companion_name.service" "$companion_unit_target"
+run systemctl --user daemon-reload
+run systemctl --user enable "$companion_name.service"
+# restart, not start: an update must run the new binary now
+run systemctl --user restart "$companion_name.service"
+if ! $dry_run
+then
+    companion_health=""
+    for attempt in 1 2 3 4 5
+    do
+        sleep 1
+        companion_health=$(curl -fsS --max-time 2 http://127.0.0.1:47995/api/health 2>/dev/null) && break
+    done
+    if [ -n "$companion_health" ]
+    then
+        info "Companion is running: $companion_health"
+    else
+        warn "Companion doesn't answer on port 47995. See: journalctl --user -u $companion_name"
+    fi
+fi
+
+# The PC app is updated on every run once it is installed
+if [ -f "$pc_app_target" ]
+then
+    want_pc_app=true
+fi
+if $want_pc_app
+then
+    info "PC app"
+    if $dry_run
+    then
+        echo "    [dry-run] get $pc_app_file and install it to $pc_app_target"
+    else
+        if $build_locally
+        then
+            require_command npm "Install Node.js or run without --build."
+            if [ ! -d "$repo_dir/node_modules" ]
+            then
+                (cd "$repo_dir" && npm ci)
+            fi
+            (cd "$repo_dir/pc-app" && PATH="$repo_dir/node_modules/.bin:$PATH" CARGO_BUILD_JOBS=4 nice -n 19 tauri build --bundles appimage)
+            cp "$repo_dir"/pc-app/src-tauri/target/release/bundle/appimage/*.AppImage "$work_dir/$pc_app_file"
+        else
+            download_release_file "$pc_app_file"
+        fi
+        install -Dm 755 "$work_dir/$pc_app_file" "$pc_app_target"
+        # Menu entry with the icon from inside the AppImage (extracting needs no FUSE)
+        icon_inside="usr/share/icons/hicolor/128x128/apps/albedo-pc.png"
+        (cd "$work_dir" && "$pc_app_target" --appimage-extract "$icon_inside" > /dev/null 2>&1) || true
+        if [ -f "$work_dir/squashfs-root/$icon_inside" ]
+        then
+            install -Dm 644 "$work_dir/squashfs-root/$icon_inside" "$pc_app_icon"
+        fi
+        mkdir -p "$(dirname "$pc_app_desktop_entry")"
+        cat > "$pc_app_desktop_entry" <<DESKTOP
+[Desktop Entry]
+Type=Application
+Name=Albedo PC
+Comment=Manage the games Albedo streams to the Steam Deck
+Exec=$pc_app_target
+Icon=albedo-pc
+StartupWMClass=albedo-pc
+Categories=Game;
+DESKTOP
+        info "Installed to $pc_app_target (menu: Albedo PC)"
+    fi
+fi
+
+if $companion_only
+then
     exit 0
 fi
 
@@ -210,9 +375,6 @@ info "Virtual monitor: $connector"
 # ---------------------------------------------------------------------------
 # EDID
 # ---------------------------------------------------------------------------
-work_dir=$(mktemp -d)
-trap 'rm -rf "$work_dir"' EXIT
-
 extra_mode_arguments=()
 for extra_mode in "${extra_modes[@]}"
 do

@@ -15,12 +15,14 @@ without profile switch, Steam Big Picture). Covers are stored as PNG in `~/.conf
 
 ## Install
 
+With [`pc-setup/install.sh`](../pc-setup/install.sh): it downloads the static binary
+(`albedo-companion-x86_64-linux.tar.gz`, binary + service file) from the latest release, checks
+`SHA256SUMS`, installs it to `~/.local/bin/` and enables the systemd user service.
+
 ```bash
-cargo build --release
-install -Dm 755 target/release/streaming-launcher-companion ~/.local/bin/streaming-launcher-companion
-install -Dm 644 streaming-launcher-companion.service ~/.config/systemd/user/streaming-launcher-companion.service
-systemctl --user daemon-reload
-systemctl --user enable --now streaming-launcher-companion
+cd pc-setup
+./install.sh --companion-only           # from the latest release
+./install.sh --companion-only --build   # from this checkout (cargo build --release)
 ```
 
 Config: `~/.config/streaming-launcher-companion/config.json` (mode 600, created on first start).
@@ -40,5 +42,5 @@ The firewall has to let port 47995/tcp through.
 
 ## Update
 
-Rebuild, copy the binary to `~/.local/bin/` as above, then
-`systemctl --user restart streaming-launcher-companion`.
+Run `pc-setup/install.sh --companion-only` again (with `--build` for a local build). It replaces
+the binary and restarts the service; the config stays.
