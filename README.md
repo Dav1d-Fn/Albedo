@@ -451,4 +451,10 @@ Feel free to [open an issue](https://github.com/Dav1d-Fn/streaming-launcher/issu
 
 ---
 
+## License 📄
+
+[GPL-3.0](LICENSE) — if you build something with this code, your project has to stay open source too.
+
+---
+
 Thank you for using Albedo 🙌

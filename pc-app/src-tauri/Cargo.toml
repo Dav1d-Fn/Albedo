@@ -3,6 +3,7 @@ name = "albedo-pc"
 version = "0.1.0"
 description = "Albedo PC app: manages the PC companion (library, groups, pictures, pairing, Sunshine login)"
 authors = ["David F"]
+license = "GPL-3.0-or-later"
 edition = "2024"
 
 [lib]
