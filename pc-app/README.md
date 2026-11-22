@@ -16,8 +16,6 @@ on the Deck does from the couch:
   Sunshine login; language (system, German, English) and SteamGridDB key (with a link to the
   key page; the companion checks a new key with a real SteamGridDB request).
 
-![Library with the group menu open](../docs/media/pc-app.png)
-
 The app has no logic of its own: it calls the companion's HTTP API
 ([`companion/API.md`](../companion/API.md)) on `127.0.0.1:47995` through its Rust side (the
 companion sends no CORS headers). The picture search is the Deck launcher's own code
