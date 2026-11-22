@@ -194,7 +194,7 @@ Releases are signed. The AppImage checks GitHub on start and updates itself afte
 | What you want | What the PC needs | Works on |
 |---|---|---|
 | List and start games | [Sunshine](https://github.com/LizardByte/Sunshine) | Any OS Sunshine runs on |
-| Companion: add games, artwork, QR upload | Linux, systemd user session, `curl`, `magick` (ImageMagick), `gio`, `sqlite3` (Lutris only), Rust to build it | Any Linux desktop; the program list reads `.desktop` files |
+| Companion: add games, artwork, QR upload | Linux, systemd user session, `curl`, `magick` (ImageMagick), `gio`, `sqlite3` (Lutris only) | Any Linux desktop; the program list reads `.desktop` files |
 | Screen follows the Deck's resolution | `kscreen-doctor`, `jq`, `sunshine-match-client` (from [`pc-setup/`](pc-setup/)) | **KDE Plasma only** |
 | Virtual monitor without a real screen | DRM debugfs `edid_override` / `force` on a free connector | **Tested on AMD only** |
 
@@ -231,15 +231,19 @@ Moonlight can connect. That is all Albedo needs to list and start games.
 
 ### 2. Companion service
 
+No Rust or Node needed: the installer downloads the companion from the latest
+[release](https://github.com/Dav1d-Fn/streaming-launcher/releases), checks it against
+`SHA256SUMS`, installs it to `~/.local/bin` and starts it as a systemd user service.
+
 ```bash
 git clone https://github.com/Dav1d-Fn/streaming-launcher.git
-cd streaming-launcher/companion
-cargo build --release
-install -Dm 755 target/release/streaming-launcher-companion ~/.local/bin/streaming-launcher-companion
-install -Dm 644 streaming-launcher-companion.service ~/.config/systemd/user/streaming-launcher-companion.service
-systemctl --user daemon-reload
-systemctl --user enable --now streaming-launcher-companion
+cd streaming-launcher/pc-setup
+./install.sh --companion-only --pc-app   # leave out --pc-app if you don't want the PC app
 ```
+
+To update, run the same command again (after `git pull`). Without `--companion-only` the installer
+goes on with the virtual monitor (step 3). Developers can build from the checkout instead with
+`--build` (needs Rust, and Node for the PC app).
 
 On first start it creates `~/.config/streaming-launcher-companion/config.json` (readable only by
 you):
@@ -263,7 +267,8 @@ sent by the client: it only creates Sunshine apps from games it found itself. Th
 [`companion/API.md`](companion/API.md).
 
 Optional: the [PC app](pc-app/README.md) manages the companion from the PC (library, groups,
-pictures, pairing, Sunshine login).
+pictures, pairing, Sunshine login). `--pc-app` installs it to `~/Applications/Albedo-PC-x86_64.AppImage`
+with a menu entry *Albedo PC*; once installed, every run of the installer updates it too.
 
 Check that it runs:
 
@@ -283,7 +288,8 @@ cd streaming-launcher/pc-setup
 ./install.sh
 ```
 
-The installer
+This is the same installer as in step 2; without `--companion-only` it installs or updates the
+companion first, then
 
 1. checks for KDE Plasma on Wayland, the `amdgpu` driver, `kscreen-doctor`, `jq` and `python3`,
 2. lists the free connectors (no monitor plugged in) and lets you pick one; don't plug a real
@@ -313,7 +319,8 @@ SUNSHINE_CLIENT_WIDTH=1280 SUNSHINE_CLIENT_HEIGHT=800 SUNSHINE_CLIENT_FPS=90 sun
 on the virtual monitor (crash during a stream), `sunshine-match-client --restore` brings your
 screens back.
 
-To remove everything: `./install.sh --uninstall`.
+To remove everything: `./install.sh --uninstall` (companion, PC app and virtual monitor; the
+companion's config with the Sunshine login stays).
 
 > [!NOTE]
 > Coming from a setup with [screenprofiler](https://github.com/Kakiharu/screenprofiler)? Albedo
