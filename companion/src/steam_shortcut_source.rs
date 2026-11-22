@@ -9,6 +9,7 @@ use crate::companion_config::home_directory;
 use crate::cover_source::CoverSource;
 use crate::library_entry::LibraryEntry;
 use crate::process_quitter::ProcessQuitter;
+use crate::shortcut_name_cleaner::ShortcutNameCleaner;
 
 /// Non-Steam games added to Steam (userdata/<account>/config/shortcuts.vdf of every account),
 /// e.g. the EmuDeck entries. Emulators go to the group "Emulation", the rest to "Nicht-Steam".
@@ -25,13 +26,33 @@ pub struct SteamShortcutSource
 impl SteamShortcutSource
 {
     const EMULATOR_NAMES: [&'static str; 20] = [
-        "retroarch", "eden", "yuzu", "ryujinx", "citron", "sudachi", "dolphin", "primehack", "pcsx2", "rpcs3",
-        "cemu", "melonds", "duckstation", "ppsspp", "xemu", "mgba", "azahar", "citra", "lichii", "es-de",
+        "retroarch",
+        "eden",
+        "yuzu",
+        "ryujinx",
+        "citron",
+        "sudachi",
+        "dolphin",
+        "primehack",
+        "pcsx2",
+        "rpcs3",
+        "cemu",
+        "melonds",
+        "duckstation",
+        "ppsspp",
+        "xemu",
+        "mgba",
+        "azahar",
+        "citra",
+        "lichii",
+        "es-de",
     ];
 
     pub fn new() -> SteamShortcutSource
     {
-        SteamShortcutSource { steam_root: home_directory().join(".local/share/Steam") }
+        SteamShortcutSource {
+            steam_root: home_directory().join(".local/share/Steam"),
+        }
     }
 
     pub fn scan(&self) -> Vec<LibraryEntry>
@@ -63,7 +84,8 @@ impl SteamShortcutSource
                 let app_id = shortcut["appid"].as_u64().unwrap_or_default();
                 if seen_app_ids.insert(app_id)
                 {
-                    if let Some(mut entry) = Self::entry_from_shortcut(shortcut, app_id, &config_directory.join("grid"))
+                    if let Some(mut entry) =
+                        Self::entry_from_shortcut(shortcut, app_id, &config_directory.join("grid"))
                     {
                         let system_name = Self::system_name(shortcut);
                         if entry.group == "Emulation"
@@ -80,13 +102,17 @@ impl SteamShortcutSource
 
     /// Sunshine and the launcher match apps by name, so two "Breath of the Wild" (Switch, Wii U)
     /// become "… (Nintendo Switch)" and "… (Nintendo Wii U)".
-    fn make_names_unique(entries_with_system: Vec<(LibraryEntry, Option<String>)>) -> Vec<LibraryEntry>
+    fn make_names_unique(
+        entries_with_system: Vec<(LibraryEntry, Option<String>)>,
+    ) -> Vec<LibraryEntry>
     {
-        let all_names: Vec<String> = entries_with_system.iter().map(|(entry, _)| entry.name.clone()).collect();
+        let all_names: Vec<String> = entries_with_system
+            .iter()
+            .map(|(entry, _)| entry.name.clone())
+            .collect();
         entries_with_system
             .into_iter()
-            .map(|(mut entry, system_name)|
-            {
+            .map(|(mut entry, system_name)| {
                 let name_count = all_names.iter().filter(|name| **name == entry.name).count();
                 if let (true, Some(system_name)) = (name_count > 1, system_name)
                 {
@@ -105,11 +131,23 @@ impl SteamShortcutSource
         (!system_name.is_empty()).then(|| system_name.to_string())
     }
 
-    fn entry_from_shortcut(shortcut: &Value, app_id: u64, grid_directory: &Path) -> Option<LibraryEntry>
+    fn entry_from_shortcut(
+        shortcut: &Value,
+        app_id: u64,
+        grid_directory: &Path,
+    ) -> Option<LibraryEntry>
     {
         let name = shortcut["appname"].as_str().unwrap_or_default().to_string();
-        let executable = shortcut["exe"].as_str().unwrap_or_default().trim().to_string();
-        let launch_options = shortcut["LaunchOptions"].as_str().unwrap_or_default().trim().to_string();
+        let executable = shortcut["exe"]
+            .as_str()
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+        let launch_options = shortcut["LaunchOptions"]
+            .as_str()
+            .unwrap_or_default()
+            .trim()
+            .to_string();
         let is_hidden = shortcut["IsHidden"].as_u64().unwrap_or_default() != 0;
         if name.is_empty() || executable.is_empty() || is_hidden
         {
@@ -125,9 +163,15 @@ impl SteamShortcutSource
 
         let executable_path = Self::executable_path(&executable);
         // Only the program's file name is matched, so a "dolphin" in some game path does not count.
-        let executable_file_name = executable_path.rsplit('/').next().unwrap_or_default().to_lowercase();
+        let executable_file_name = executable_path
+            .rsplit('/')
+            .next()
+            .unwrap_or_default()
+            .to_lowercase();
         let is_emulation = launch_line.to_lowercase().contains("/emulation/")
-            || Self::EMULATOR_NAMES.iter().any(|emulator_name| executable_file_name.contains(emulator_name));
+            || Self::EMULATOR_NAMES
+                .iter()
+                .any(|emulator_name| executable_file_name.contains(emulator_name));
         let needs_proton = executable_path.to_lowercase().ends_with(".exe");
 
         let (command, detached_command, quit_command) = if needs_proton
@@ -142,7 +186,11 @@ impl SteamShortcutSource
         }
         else
         {
-            let start_directory = shortcut["StartDir"].as_str().unwrap_or_default().trim().trim_matches('"');
+            let start_directory = shortcut["StartDir"]
+                .as_str()
+                .unwrap_or_default()
+                .trim()
+                .trim_matches('"');
             let change_directory = if start_directory.is_empty()
             {
                 String::new()
@@ -151,14 +199,24 @@ impl SteamShortcutSource
             {
                 format!("-C \"{}\" ", start_directory)
             };
-            (format!("env {}{}", change_directory, launch_line), None, None)
+            (
+                format!("env {}{}", change_directory, launch_line),
+                None,
+                None,
+            )
         };
 
-        Some(LibraryEntry
-        {
+        Some(LibraryEntry {
             id: format!("shortcut:{}", app_id),
-            name,
-            group: if is_emulation { "Emulation".into() } else { "Nicht-Steam".into() },
+            name: ShortcutNameCleaner::clean(&name),
+            group: if is_emulation
+            {
+                "Emulation".into()
+            }
+            else
+            {
+                "Nicht-Steam".into()
+            },
             cover: Self::grid_image(grid_directory, &format!("{}p", app_id)),
             hero: Self::grid_image(grid_directory, &format!("{}_hero", app_id)),
             logo: Self::grid_image(grid_directory, &format!("{}_logo", app_id)),
@@ -194,8 +252,16 @@ impl SteamShortcutSource
     {
         match executable.strip_prefix('"')
         {
-            Some(after_quote) => after_quote.split('"').next().unwrap_or_default().to_string(),
-            None => executable.split_whitespace().next().unwrap_or_default().to_string(),
+            Some(after_quote) => after_quote
+                .split('"')
+                .next()
+                .unwrap_or_default()
+                .to_string(),
+            None => executable
+                .split_whitespace()
+                .next()
+                .unwrap_or_default()
+                .to_string(),
         }
     }
 
@@ -224,7 +290,13 @@ mod tests
             SteamShortcutSource::launch_line(eden, "vblank_mode=0 %command% -f -g \"/r/z.nsp\""),
             "vblank_mode=0 \"/e/eden.sh\" -f -g \"/r/z.nsp\""
         );
-        assert_eq!(SteamShortcutSource::launch_line(eden, "\"/r/a.nds\" -f"), "\"/e/eden.sh\" \"/r/a.nds\" -f");
-        assert_eq!(SteamShortcutSource::executable_path("\"/a b/c.exe\" -x"), "/a b/c.exe");
+        assert_eq!(
+            SteamShortcutSource::launch_line(eden, "\"/r/a.nds\" -f"),
+            "\"/e/eden.sh\" \"/r/a.nds\" -f"
+        );
+        assert_eq!(
+            SteamShortcutSource::executable_path("\"/a b/c.exe\" -x"),
+            "/a b/c.exe"
+        );
     }
 }
