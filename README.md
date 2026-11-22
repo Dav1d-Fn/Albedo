@@ -146,6 +146,10 @@ move a game into another group (or an own one, like *Couch co-op*) when the emul
 gets it wrong, set pictures from the picture search or by dragging a file in, pair a device with
 its PIN, and enter the Sunshine login. Group changes show up on the Deck too.
 
+<p align="center">
+  <img src="docs/media/pc-app-library.png" alt="The PC app: the library by group with covers, a selected game and its group menu" width="900">
+</p>
+
 ### 🖥️ The PC Screen Follows the Deck
 
 Each game added through the companion switches the PC's (virtual) streaming monitor to the

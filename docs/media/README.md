@@ -31,7 +31,14 @@ and ffmpeg turns it into a GIF. Redo them after UI changes.
    nice -n 19 node docs/media/record.mjs record hero library
    ```
 
-   Scenes: `hero`, `profiles`, `devices`, `library`, `qr-upload`, `stats`.
+   Scenes: `hero`, `profiles`, `devices`, `library`, `qr-upload`, `stats`, `pc-app`.
+
+4. **PC app picture** (`pc-app` scene, `pc-app-library.png`): needs the PC app's dev server
+   (`cd pc-app && npm run dev`, port 1440, `PC_APP_URL` for another one). The scene answers the
+   companion calls itself from `capture-data/` (only the exported Steam games and presets, host
+   `gaming-pc`, no paired device names), so the real companion and library never reach the page.
+   The own group (`pcAppOwnGroup`) and the selected game (`pcAppSelectedGame`) are set at the top of
+   the script; the rail games count as *In Sunshine*.
 
 ## Setup and options
 

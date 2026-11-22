@@ -4,6 +4,11 @@ Desktop app (Tauri 2 + React + TypeScript) for the gaming PC. It manages the [co
 service](../companion/) with mouse and keyboard, so you can do at the desk what the launcher
 on the Deck does from the couch:
 
+<p align="center">
+  <img src="../docs/media/pc-app-library.png" alt="The library by group with covers, a selected game and its group menu" width="900">
+</p>
+
+
 - **Library:** everything the companion found, by group (Steam, Non-Steam, Emulation, Heroic,
   Lutris, Minecraft, Apps, Presets), with covers and the *In Sunshine* state. Add and remove.
 - **Group per game:** move a game into another group or into an own one ("Couch co-op"), or back

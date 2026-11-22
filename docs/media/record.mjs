@@ -5,7 +5,7 @@
 //   node docs/media/record.mjs record hero library   only these scenes
 import { chromium } from "playwright-core";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import path from "node:path";
 
@@ -23,6 +23,15 @@ const shownSources = ["preset:", "steam:"];
 
 /** The game whose picture dialog is shown. */
 const pictureGame = "Subnautica";
+
+/** PC app picture (`pc-app` scene): served by `cd pc-app && npm run dev`, PC_APP_URL for another port. */
+const pcAppUrl = process.env.PC_APP_URL ?? "http://localhost:1440/";
+
+/** An own group in the PC app picture, with these games moved into it. */
+const pcAppOwnGroup = { name: "Couch co-op", games: ["Split Fiction", "Golf With Your Friends", "Lethal Company"] };
+
+/** The game selected in the PC app picture (its group menu is open). */
+const pcAppSelectedGame = "Baldur's Gate 3";
 
 /** German texts of an older companion that ignores Accept-Language. */
 const englishTexts = { "Voreinstellungen": "Presets", "Desktop (ohne Profilwechsel)": "Desktop (no display switch)" };
@@ -143,6 +152,74 @@ class CompanionExport
       request.on("error", reject);
       request.end(body);
     });
+  }
+}
+
+// ------------------------------------------------------------------ PC app companion
+
+/**
+ * The companion API as the PC app sees it, from the exported data only: Steam games and presets
+ * (no programs or emulators of this PC), a neutral host name, no paired device names.
+ */
+class PcAppCompanionMock
+{
+  constructor()
+  {
+    const data = JSON.parse(readFileSync(path.join(captureFolder, "data.json"), "utf8"));
+    this.pictures = data.pictures;
+    const entries = data.library.map((entry) =>
+    {
+      const ownGroup = pcAppOwnGroup.games.includes(entry.name);
+      return {
+        id: entry.id,
+        name: entry.name,
+        group: ownGroup ? pcAppOwnGroup.name : entry.group,
+        detectedGroup: entry.group,
+        customGroup: ownGroup,
+        hasCover: entry.hasCover,
+        hasHero: entry.hasHero,
+        hasLogo: entry.hasLogo,
+        // As on the Deck: the rail games are the ones in Sunshine.
+        inSunshine: data.games.includes(entry.name),
+        customArt: [],
+        system: null,
+      };
+    });
+    // Groups show in entry order: Steam, the own group, then the presets.
+    const groupRank = (entry) => entry.group === "Steam" ? 0 : entry.customGroup ? 1 : 2;
+    entries.sort((first, second) => groupRank(first) - groupRank(second));
+    this.answers =
+    {
+      "api/health": { name: "albedo-companion", version: "1.0.0", host: "gaming-pc" },
+      "api/library": { entries, sunshineProblem: null },
+      "api/display-modes": { output: "DP-2", modes: [1280, 1920, 2560].map((width) => ({ width, height: width * 10 / 16, refreshRate: 60 })) },
+      "api/clients": { clients: [{ uuid: "deck", name: "Steam Deck" }] },
+      "api/pairings": { pairings: [] },
+    };
+  }
+
+  /** `/companion/<api path>` as forwarded by Vite's proxy. */
+  answer(route)
+  {
+    const apiPath = new URL(route.request().url()).pathname.replace(/^\/companion\//, "");
+    const answer = this.answers[apiPath];
+    if (answer === undefined)
+    {
+      return route.fulfill({ status: 404, json: { error: "not in the recording" } });
+    }
+    return route.fulfill({ json: answer });
+  }
+
+  /** `http://127.0.0.1:47995/api/<kind>/<entry id>`: the exported picture. */
+  picture(route)
+  {
+    const [, , kind, encodedId] = new URL(route.request().url()).pathname.split("/");
+    const fileName = this.pictures[decodeURIComponent(encodedId)]?.[kind];
+    if (fileName === undefined)
+    {
+      return route.fulfill({ status: 404 });
+    }
+    return route.fulfill({ path: path.join(captureFolder, fileName) });
   }
 }
 
@@ -312,6 +389,32 @@ const scenes =
     // Deck screen and phone side by side, scaled to 1200 px wide.
     const layout = "[0][1]hstack,scale=1200:-1";
     execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", deckShot, "-i", phoneShot, "-filter_complex", layout, output]);
+    console.log("wrote", output);
+  },
+
+  /** PC app: library by group, a game of an own group selected, its group menu open. */
+  async "pc-app"(browser)
+  {
+    const companionMock = new PcAppCompanionMock();
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, locale: "en-US" });
+    // English UI whatever the system language is (AppSettings in the webview's localStorage).
+    await page.addInitScript(() => localStorage.setItem("albedoPcSettings", JSON.stringify({ language: "en", steamGridDbKey: "" })));
+    await page.route("**/companion/**", (route) => companionMock.answer(route));
+    await page.route("http://127.0.0.1:47995/api/**", (route) => companionMock.picture(route));
+    await page.goto(pcAppUrl);
+    await page.waitForLoadState("networkidle");
+    await page.locator(".card", { hasText: pcAppSelectedGame }).first().click();
+    await page.locator(".selbtn").click();
+    // The click scrolls the card into view; the picture starts at the top of the library.
+    await page.locator(".lib").evaluate((library) => library.scrollTo(0, 0));
+    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(800);
+    const output = path.join(mediaFolder, "pc-app-library.png");
+    await page.screenshot({ path: output });
+    await page.close();
+    // Smaller file: 1200 px wide is enough for the README.
+    execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", output, "-vf", "scale=1200:-1", output + ".tmp.png"]);
+    renameSync(output + ".tmp.png", output);
     console.log("wrote", output);
   },
 
