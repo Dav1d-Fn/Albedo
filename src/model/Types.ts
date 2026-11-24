@@ -69,6 +69,8 @@ export interface Settings
   host: string;
   /** More addresses of the same PC (e.g. its Tailscale IP), tried after `host`; the first reachable one is used. */
   extraHostAddresses: string[];
+  /** MAC address of the PC for Wake-on-LAN, learned from the ARP table once it answered on the home network. Empty = unknown. */
+  hostMac: string;
   /** Display name of the host (mDNS name), falls back to `host`. */
   hostName: string;
   /** Program plus fixed arguments, e.g. ["flatpak", "run", "com.moonlight_stream.Moonlight"]. */

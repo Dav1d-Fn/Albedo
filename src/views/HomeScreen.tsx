@@ -18,9 +18,10 @@ export function HomeScreen(props: { app: LauncherApp })
   {
     loading: t.home.loadingGames,
     online: t.home.online(state.games.length),
-    error: app.settings.host ? t.home.unreachable : t.home.notSetUp,
+    waking: t.home.waking(state.wakeSeconds),
+    error: app.settings.host ? (app.canWakeHost() ? t.home.unreachableWake : t.home.unreachable) : t.home.notSetUp,
   }[state.hostState];
-  const dotClass = { loading: "wake", online: "on", error: "err" }[state.hostState];
+  const dotClass = { loading: "wake", waking: "wake", online: "on", error: "err" }[state.hostState];
   const deviceOrder = app.settings.deviceOrder;
   const activeIndex = Math.max(0, deviceOrder.indexOf(state.device));
   // The switch is 520px wide with 4px padding; each device gets an equal share.
@@ -131,7 +132,7 @@ export function HomeScreen(props: { app: LauncherApp })
         {state.games.length === 0 && (
           <div className="ht on">
             <div className="eyebrow">{t.common.library}</div>
-            <div className="htitle">{state.hostState === "loading" ? t.home.loading : t.home.noGames}</div>
+            <div className="htitle">{state.hostState === "loading" ? t.home.loading : state.hostState === "waking" ? hostSubtitle : t.home.noGames}</div>
             <div className="hmeta"><span>{state.hostError || t.home.noApps}</span></div>
           </div>
         )}

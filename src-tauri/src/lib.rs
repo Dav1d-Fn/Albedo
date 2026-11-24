@@ -24,6 +24,7 @@ mod settings_store;
 mod stream_session;
 mod ui_language;
 mod upload_token;
+mod wake_on_lan;
 
 use std::collections::HashMap;
 use std::time::Duration;
@@ -51,6 +52,7 @@ use settings_store::SettingsStore;
 use stream_session::StreamSession;
 use ui_language::UiLanguage;
 use upload_token::UploadToken;
+use wake_on_lan::WakeOnLan;
 
 // Tauri commands must be free functions; each one only forwards to its class.
 
@@ -130,6 +132,22 @@ async fn pick_host_address(addresses: Vec<String>) -> Result<Option<String>, Str
         .map_err(|error| error.to_string())?;
     println!("[host] {:?} -> {:?}", addresses, picked);
     Ok(picked)
+}
+
+/// MAC of the PC from the Deck's ARP table, only known right after a connection over the home network.
+#[tauri::command]
+fn host_mac_address(addresses: Vec<String>) -> Option<String>
+{
+    WakeOnLan::mac_address_for(&addresses)
+}
+
+/// Sends the Wake-on-LAN magic packet; reaches the PC only from the home network.
+#[tauri::command]
+fn wake_host(mac_address: String, addresses: Vec<String>) -> Result<(), String>
+{
+    let sent_to = WakeOnLan::wake(&mac_address, &addresses)?;
+    println!("[wake] magic packet for {} sent to {:?}", mac_address, sent_to);
+    Ok(())
 }
 
 #[tauri::command]
@@ -374,6 +392,8 @@ pub fn run()
             stop_stream,
             discover_hosts,
             pick_host_address,
+            host_mac_address,
+            wake_host,
             pair_host,
             quit_host_app,
             running_host_app,

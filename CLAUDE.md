@@ -21,6 +21,7 @@ Design source: Claude design canvas https://claude.ai/artifact/UpFs3Nat5Q983TyyA
   - `display_detector.rs` – external screen connected? (`/sys/class/drm/*/status`)
   - `host_discovery.rs` – finds Sunshine PCs via mDNS (`_nvstream._tcp`)
   - `host_address_picker.rs` – first reachable PC address (home IP before Tailscale, settings `host` + `extraHostAddresses`); every call uses the address it picked
+  - `wake_on_lan.rs` – PC MAC from the Deck's ARP table (settings `hostMac`), magic packet (broadcast, home network only); see `docs/wake-on-lan.md`
   - `moonlight_pairing.rs` – `moonlight pair <host> --pin <pin>`
   - `moonlight_app_quit.rs` – `moonlight quit <host>`, ends the game still running on the PC after a disconnect
   - `running_host_app.rs` – what runs on the PC (Sunshine `serverinfo` `currentgame` on port 47989, name from Moonlight.conf's app cache) for the "Fortsetzen" tile and the "X läuft noch" question

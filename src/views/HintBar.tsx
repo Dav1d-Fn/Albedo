@@ -27,7 +27,8 @@ export function HintBar(props: { app: LauncherApp })
     hints.push({ glyph: "A", label: state.zone === "games" ? gamesLabel : t.home.select, button: "A" });
     hints.push({ glyph: "X", label: t.common.device, button: "X" });
     hints.push({ glyph: "L1 · R1", label: t.common.profile, button: "R1", pill: true });
-    hints.push({ glyph: "Y", label: t.common.reload, button: "Y" });
+    const wakeOffered = state.hostState === "error" && app.canWakeHost();
+    hints.push({ glyph: "Y", label: wakeOffered ? t.common.wakePc : t.common.reload, button: "Y" });
     hints.push({ glyph: "☰", label: t.common.devices, button: "MENU", pill: true });
   }
   else if (state.screen === "detail" && state.imageDialog !== null)

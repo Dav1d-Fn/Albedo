@@ -91,6 +91,18 @@ export class Backend
     return invoke<string | null>("pick_host_address", { addresses });
   }
 
+  /** MAC of the PC from the ARP table, null unless it just answered on the home network. */
+  public hostMacAddress(addresses: string[]): Promise<string | null>
+  {
+    return invoke<string | null>("host_mac_address", { addresses });
+  }
+
+  /** Sends the Wake-on-LAN magic packet (broadcast, home network only). */
+  public wakeHost(macAddress: string, addresses: string[]): Promise<void>
+  {
+    return invoke<void>("wake_host", { macAddress, addresses });
+  }
+
   /** Runs `moonlight pair`; resolves once the PIN was accepted in Sunshine. */
   public pairHost(settings: Settings, host: string, pin: string): Promise<void>
   {

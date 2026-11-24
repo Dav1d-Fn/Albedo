@@ -28,7 +28,7 @@ import { UpdateDialog } from "./views/UpdateDialog";
 
 export type ScreenName = "home" | "detail" | "connect" | "stream" | "afterStream" | "streamSummary" | "editor" | "connection" | "library";
 
-export type HostState = "loading" | "online" | "error";
+export type HostState = "loading" | "waking" | "online" | "error";
 
 export interface LauncherState
 {
@@ -51,6 +51,8 @@ export interface LauncherState
   boxArt: Record<string, string>;
   hostState: HostState;
   hostError: string;
+  /** Seconds since the Wake-on-LAN packet went out, shown while `hostState` is "waking". */
+  wakeSeconds: number;
   /** The PC address that answered last (home network or Tailscale); "" = not checked yet. */
   activeHost: string;
   toast: ToastContent | null;
@@ -196,6 +198,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       boxArt: {},
       hostState: "loading",
       hostError: "",
+      wakeSeconds: 0,
       activeHost: "",
       toast: null,
       connectSteps: [],
@@ -516,10 +519,104 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       }));
       this.loadBoxArt(settings, host, games);
       this.refreshRunningApp(settings, host, true);
+      this.rememberHostMac(settings);
     }
     catch (fetchError)
     {
       this.setState({ hostState: "error", hostError: String(fetchError) });
+    }
+  }
+
+  // ---------------------------------------------------------------- wake-on-lan
+
+  /** How long a PC gets to boot and start Sunshine after the magic packet. */
+  private static readonly wakeTimeoutSeconds = 120;
+
+  private static readonly wakeCheckSeconds = 3;
+
+  public canWakeHost(): boolean
+  {
+    return this.settings.hostMac !== "";
+  }
+
+  /**
+   * The ARP table only knows the PC right after it answered on the home network, so this runs after every
+   * successful reload and keeps the last MAC it found (over Tailscale it finds none and keeps the old one).
+   */
+  private async rememberHostMac(settings: Settings): Promise<void>
+  {
+    try
+    {
+      const macAddress = await this.backend.hostMacAddress(this.hostAddresses(settings));
+      if (macAddress !== null && macAddress !== this.settings.hostMac)
+      {
+        console.info("PC MAC address for Wake-on-LAN:", macAddress);
+        this.updateSettings((current) => ({ ...current, hostMac: macAddress }));
+      }
+    }
+    catch (macError)
+    {
+      console.warn("cannot read the PC's MAC address", macError);
+    }
+  }
+
+  /**
+   * Y on an unreachable PC: sends the magic packet, then checks every few seconds whether Sunshine answers.
+   * It is a broadcast, so it only works on the home network; the timeout message says so.
+   */
+  public async wakeHost(): Promise<void>
+  {
+    const settings = this.settings;
+    if (!this.canWakeHost())
+    {
+      this.showError(UiText.current.toasts.wakeNoMac, UiText.current.toasts.wakeNoMacText);
+      return;
+    }
+    const addresses = this.hostAddresses(settings);
+    try
+    {
+      await this.backend.wakeHost(settings.hostMac, addresses);
+    }
+    catch (wakeError)
+    {
+      this.setState({ hostState: "error", hostError: String(wakeError) });
+      this.showError(UiText.current.toasts.wakeFailed, String(wakeError));
+      return;
+    }
+
+    this.setState({ hostState: "waking", hostError: "", wakeSeconds: 0 });
+    const startTime = Date.now();
+    // `this.state` is only updated after the next render, so the loop checks it after each wait, not before.
+    while (true)
+    {
+      await new Promise((resolve) => window.setTimeout(resolve, LauncherApp.wakeCheckSeconds * 1000));
+      const wakeSeconds = Math.round((Date.now() - startTime) / 1000);
+      let answeringAddress: string | null = null;
+      try
+      {
+        answeringAddress = await this.backend.pickHostAddress(addresses);
+      }
+      catch (pickError)
+      {
+        console.warn("address check failed", pickError);
+      }
+      if (this.state.hostState !== "waking")
+      {
+        // Something else (a reload, the settings) took over meanwhile.
+        return;
+      }
+      if (answeringAddress !== null)
+      {
+        this.reloadGames();
+        return;
+      }
+      if (wakeSeconds >= LauncherApp.wakeTimeoutSeconds)
+      {
+        this.setState({ hostState: "error", hostError: UiText.current.toasts.wakeFailedText });
+        this.showError(UiText.current.toasts.wakeFailed, UiText.current.toasts.wakeFailedText);
+        return;
+      }
+      this.setState({ wakeSeconds });
     }
   }
 
@@ -815,7 +912,14 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }
     if (button === "Y")
     {
-      this.reloadGames();
+      if (state.hostState === "error" && this.canWakeHost())
+      {
+        this.wakeHost();
+      }
+      else if (state.hostState !== "waking")
+      {
+        this.reloadGames();
+      }
       return;
     }
 
@@ -2738,7 +2842,9 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     // Another named PC brings its own addresses; the same PC (or a typed address) keeps the extra ones.
     const isOtherPc = hostName !== "" && this.settings.hostName !== "" && hostName !== this.settings.hostName;
     const extraHostAddresses = isOtherPc ? [] : this.settings.extraHostAddresses.filter((address) => address !== trimmedHost);
-    const changedSettings = { ...this.settings, host: trimmedHost, hostName, extraHostAddresses };
+    // The MAC belongs to the old PC; the next successful reload learns the new one.
+    const hostMac = isOtherPc ? "" : this.settings.hostMac;
+    const changedSettings = { ...this.settings, host: trimmedHost, hostName, extraHostAddresses, hostMac };
     this.updateSettings(() => changedSettings);
     this.setState({ pairState: "idle", pairMessage: "", connectionZone: "rows", connectionRow: 0, activeHost: "" });
     this.reloadGames(changedSettings);

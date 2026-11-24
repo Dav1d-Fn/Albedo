@@ -142,7 +142,8 @@ export class BrowserMock
     let storedSettings: string | null = window.localStorage.getItem("mockSettings");
     const urlParameters = new URLSearchParams(window.location.search);
     const hang = urlParameters.has("hang");
-    const offline = urlParameters.has("offline");
+    // "?offline": the PC does not answer until a Wake-on-LAN packet "wakes" it 8 seconds later.
+    let offline = urlParameters.has("offline");
     // Like a fresh companion: no Sunshine login until the launcher hands one over.
     let sunshineLoginMissing = true;
     // Entry id -> picture kinds set by hand; "?customHero" starts with a title image set for Hades II.
@@ -177,12 +178,24 @@ export class BrowserMock
         case "has_external_display":
           return false;
         case "fetch_games":
+          if (offline)
+          {
+            throw "PC not reachable";
+          }
           return BrowserMock.sampleGames;
         case "discover_hosts":
           return [{ name: "fedora", address: "192.168.178.36" }];
         case "pick_host_address":
           // "?offline": the PC does not answer.
           return offline ? null : (args.addresses as string[])[0] ?? null;
+        case "host_mac_address":
+          return offline ? null : "b4:2e:99:9f:d1:d9";
+        case "wake_host":
+          window.setTimeout(() =>
+          {
+            offline = false;
+          }, 8000);
+          return null;
         case "pair_host":
           return new Promise((resolve) => window.setTimeout(resolve, 4000));
         case "start_stream":
