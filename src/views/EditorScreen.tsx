@@ -32,6 +32,7 @@ export function EditorScreen(props: { app: LauncherApp })
   const deviceEntryConfirming = onDeviceEntry && state.editConfirmDelete === "device" && state.editZone === "modes";
   const isDefault = state.editModeIndex === profile.defaultModeIndex;
   const pcModeHint = PcModeMatcher.hint(state.pcDisplayModes, editMode);
+  const pcModeRequestStatus = PcModeMatcher.requestStatus(state.pcModeRequest, editMode);
   const deviceOrder = app.settings.deviceOrder;
   const editDeviceIndex = Math.max(0, deviceOrder.indexOf(editDevice));
   const animationClass = (editDeviceIndex + state.editModeIndex + (onDeviceEntry ? 1 : 0)) % 2 ? "swapA" : "swapB";
@@ -262,7 +263,12 @@ export function EditorScreen(props: { app: LauncherApp })
                     )}
                   </div>
                 </div>
-                {row.key === "codec" && pcModeHint && <div className="pchint">{pcModeHint}</div>}
+                {row.key === "codec" && (pcModeHint || pcModeRequestStatus) && (
+                  <div className="pchint">
+                    {pcModeHint}
+                    {pcModeRequestStatus && <div className="pcrequest">{pcModeRequestStatus}</div>}
+                  </div>
+                )}
               </div>
             );
           })}

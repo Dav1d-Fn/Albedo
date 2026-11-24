@@ -6,7 +6,7 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT_LANGUAGE};
 use reqwest::{Client, RequestBuilder, Response, StatusCode, Url};
 use serde::Deserialize;
-use serde_json::json;
+use serde_json::{json, Value};
 
 use crate::companion_library::CompanionLibrary;
 use crate::pc_display_mode::PcDisplayMode;
@@ -93,6 +93,25 @@ impl CompanionClient
         let response = self.send(self.http_client.get(self.url(&["api", "display-modes"]))).await?;
         let display_modes: DisplayModesResponse = response.json().await.map_err(|error| error.to_string())?;
         Ok(display_modes.modes)
+    }
+
+    /// Asks the PC to put a mode into its virtual monitor's EDID (`POST /api/display-modes`).
+    /// The PC user confirms with a root prompt; the answer is the request status, see `display_mode_request`.
+    pub async fn add_display_mode(&self, width: u32, height: u32, refresh_rate: u32) -> Result<Value, String>
+    {
+        let request = self
+            .http_client
+            .post(self.url(&["api", "display-modes"]))
+            .json(&json!({ "width": width, "height": height, "refreshRate": refresh_rate }));
+        let response = self.send(request).await?;
+        response.json().await.map_err(|error| error.to_string())
+    }
+
+    /// `{ "state": "idle" | "waiting" | "done" | "reboot" | "cancelled" | "failed" | "dryRun", "mode", "message" }`
+    pub async fn display_mode_request(&self) -> Result<Value, String>
+    {
+        let response = self.send(self.http_client.get(self.url(&["api", "display-modes", "request"]))).await?;
+        response.json().await.map_err(|error| error.to_string())
     }
 
     pub async fn library(&self) -> Result<CompanionLibrary, String>

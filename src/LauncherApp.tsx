@@ -2,10 +2,11 @@ import React, { CSSProperties } from "react";
 import { UiText } from "./i18n/UiText";
 import { InputRouter } from "./input/InputRouter";
 import { ModeText } from "./model/ModeText";
+import { PcModeMatcher } from "./model/PcModeMatcher";
 import { DefaultSettings } from "./model/DefaultSettings";
 import { DevicePalette } from "./model/DevicePalette";
 import { GameArt } from "./model/GameArt";
-import { AfterStreamAction, ArtKind, BackdropKind, DeviceId, UiLanguage, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, PcDisplayMode, Settings, StreamMode, SunshineLoginDraft, SteamGridDbKeyCheck, ImageDialogState, ImageDialogRow, RunningHostApp } from "./model/Types";
+import { AfterStreamAction, ArtKind, BackdropKind, DeviceId, UiLanguage, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, PcDisplayMode, PcModeRequest, Settings, StreamMode, SunshineLoginDraft, SteamGridDbKeyCheck, ImageDialogState, ImageDialogRow, RunningHostApp } from "./model/Types";
 import { AvailableUpdate, Backend } from "./services/Backend";
 import { CompanionArt } from "./services/CompanionArt";
 import { AfterStreamDialog } from "./views/AfterStreamDialog";
@@ -76,6 +77,8 @@ export interface LauncherState
   bumps: Record<string, number>;
   /** Modes of the PC's virtual monitor, for the "no matching mode" hint; null = unknown (no companion). */
   pcDisplayModes: PcDisplayMode[] | null;
+  /** Last "add this mode to the PC" request, shown under the PC mode hint. */
+  pcModeRequest: PcModeRequest | null;
   /** Connection screen: found hosts on the left, pairing and Moonlight on the right. */
   discoveredHosts: DiscoveredHost[];
   searchingHosts: boolean;
@@ -210,6 +213,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       editRow: 0,
       bumps: {},
       pcDisplayModes: null,
+      pcModeRequest: null,
       discoveredHosts: [],
       searchingHosts: false,
       connectionZone: "hosts",
@@ -1832,6 +1836,60 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.loadPcDisplayModes();
   }
 
+  /** The edited profile has a mode the PC's virtual monitor lacks and no request for it is waiting. */
+  public canAddEditModeToPc(): boolean
+  {
+    const state = this.state;
+    if (state.editSection !== "profile")
+    {
+      return false;
+    }
+    const editMode = this.profile(state.editDevice).modes[state.editModeIndex];
+    if (editMode === undefined || PcModeMatcher.hint(state.pcDisplayModes, editMode) === null)
+    {
+      return false;
+    }
+    return state.pcModeRequest?.state !== "waiting";
+  }
+
+  /**
+   * Y next to the PC mode hint: the companion puts the mode into the virtual monitor's EDID once
+   * someone types the root password on the PC. Asks for the outcome until the prompt is answered.
+   */
+  private async addEditModeToPc(): Promise<void>
+  {
+    if (!this.canAddEditModeToPc())
+    {
+      return;
+    }
+    const editMode = this.profile(this.state.editDevice).modes[this.state.editModeIndex];
+    const wanted = ModeText.size(editMode.resolution);
+    const modeText = PcModeMatcher.requestText(editMode);
+    this.setState({ pcModeRequest: { state: "waiting", mode: modeText } });
+    try
+    {
+      const host = await this.resolveHost();
+      let request = await this.backend.companionAddDisplayMode(host, wanted.width, wanted.height, editMode.fps);
+      const pollIntervalMs = 2000;
+      // The prompt waits for the user; after half an hour the Deck stops asking.
+      const maximumPolls = 900;
+      for (let pollCount = 0; request.state === "waiting" && pollCount < maximumPolls; pollCount++)
+      {
+        await new Promise((resolve) => window.setTimeout(resolve, pollIntervalMs));
+        request = await this.backend.companionDisplayModeRequest(host);
+      }
+      this.setState({ pcModeRequest: { ...request, mode: modeText } });
+      if (request.state === "done")
+      {
+        this.loadPcDisplayModes();
+      }
+    }
+    catch (requestError)
+    {
+      this.setState({ pcModeRequest: { state: "failed", mode: modeText, message: String(requestError) } });
+    }
+  }
+
   /** Asks the companion which modes the PC's virtual monitor has; without companion there is simply no hint. */
   private async loadPcDisplayModes(): Promise<void>
   {
@@ -2019,6 +2077,10 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       else if (button === "A")
       {
         this.activateEditorRow(state.editRow);
+      }
+      else if (button === "Y")
+      {
+        this.addEditModeToPc();
       }
       else if (button === "X")
       {

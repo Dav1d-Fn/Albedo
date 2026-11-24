@@ -298,6 +298,19 @@ async fn companion_display_modes(host: String) -> Result<Vec<PcDisplayMode>, Str
 }
 
 #[tauri::command]
+async fn companion_add_display_mode(host: String, width: u32, height: u32, refresh_rate: u32) -> Result<serde_json::Value, String>
+{
+    println!("[companion] add display mode {}x{}@{}", width, height, refresh_rate);
+    CompanionClient::for_host(&host)?.add_display_mode(width, height, refresh_rate).await
+}
+
+#[tauri::command]
+async fn companion_display_mode_request(host: String) -> Result<serde_json::Value, String>
+{
+    CompanionClient::for_host(&host)?.display_mode_request().await
+}
+
+#[tauri::command]
 async fn companion_set_sunshine_login(host: String, user: String, password: String) -> Result<(), String>
 {
     let result = CompanionClient::for_host(&host)?.set_sunshine_login(&user, &password).await;
@@ -393,6 +406,8 @@ pub fn run()
             companion_set_sunshine_login,
             companion_test_steam_grid_db_key,
             companion_display_modes,
+            companion_add_display_mode,
+            companion_display_mode_request,
             check_for_update,
             install_update
         ])

@@ -100,6 +100,10 @@ export function HintBar(props: { app: LauncherApp })
       hints.push({ glyph: "A", label: state.editConfirmDelete !== "" && rowType === "delete" ? t.editor.reallyDelete : rowActionLabel, button: "A" });
       const deleteLabel = EditorRows.rows[state.editRow]?.scope === "mode" ? t.editor.deleteProfile : t.editor.deleteDevice;
       hints.push({ glyph: "X", label: state.editConfirmDelete !== "" ? t.editor.reallyDelete : deleteLabel, button: "X" });
+      if (app.canAddEditModeToPc())
+      {
+        hints.push({ glyph: "Y", label: t.editor.addModeToPc, button: "Y" });
+      }
       hints.push({ glyph: "B", label: t.editor.toList, button: "B" });
     }
   }

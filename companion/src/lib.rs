@@ -11,6 +11,9 @@ mod desktop_file_source;
 mod display_mode_reader;
 mod group_override_store;
 mod heroic_source;
+// Shared with the Deck launcher: strips the AppImage's environment from host programs.
+#[path = "../../src-tauri/src/host_environment.rs"]
+mod host_environment;
 mod library_entry;
 mod library_entry_response;
 mod library_scanner;
@@ -31,6 +34,7 @@ mod sunshine_client;
 mod upload_page;
 mod upload_qr_code;
 mod upload_token_store;
+mod virtual_edid_writer;
 
 mod companion_service;
 

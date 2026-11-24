@@ -213,6 +213,15 @@ export interface DiscoveredHost
 }
 
 /** One mode of the PC's virtual streaming monitor (companion `GET /api/display-modes`). */
+/** Outcome of "add this mode to the PC" (companion `GET /api/display-modes/request`). */
+export interface PcModeRequest
+{
+  state: "idle" | "waiting" | "done" | "reboot" | "cancelled" | "failed" | "dryRun";
+  /** "2560x1600@90" */
+  mode?: string;
+  message?: string;
+}
+
 export interface PcDisplayMode
 {
   width: number;

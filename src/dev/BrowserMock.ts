@@ -16,6 +16,8 @@ let runningGame: string | null = new URLSearchParams(window.location.search).get
 
 /** Goes up when the fake phone "uploads" a picture. */
 let artVersion = 0;
+// "Add this mode to the PC": waits like the PC's password prompt, then needs a reboot.
+let pcModeRequest: { state: string; mode?: string } = { state: "idle" };
 
 /** The fake companion and Rust side answer in the UI language, like the real ones. */
 function pick(german: string, english: string): string
@@ -204,6 +206,12 @@ export class BrowserMock
             window.setTimeout(() => setCustomArt(args.entryId as string, args.kind as string, true), 5000);
           }
           return { url: "http://192.168.178.36:47995/upload/mock-" + (args.kind as string), qrSvg: BrowserMock.fakeQrSvg(), expiresInSeconds: 600 };
+        case "companion_add_display_mode":
+          pcModeRequest = { state: "waiting", mode: args.width + "x" + args.height + "@" + args.refreshRate };
+          window.setTimeout(() => { pcModeRequest = { ...pcModeRequest, state: "reboot" }; }, 4000);
+          return pcModeRequest;
+        case "companion_display_mode_request":
+          return pcModeRequest;
         case "companion_art_version":
           return artVersion;
         case "companion_reset_art":

@@ -103,6 +103,30 @@ The output name comes from `~/.config/sunshine-match-client.conf` (`VIRTUAL_OUTP
 `pc-setup/install.sh`). Refresh rates are rounded. `502` when that file is missing, kscreen-doctor
 fails or the output is missing.
 
+### `POST /api/display-modes`
+
+Body `{ "width": 2560, "height": 1600, "refreshRate": 90 }`: adds the mode to the virtual
+monitor's EDID. The companion builds a new EDID with `pc-setup/make-virtual-edid.py` (built in),
+keeping every mode of `/etc/virtual-display-edid.bin`, and installs it with `pkexec` (the KDE
+password prompt opens **on the PC**; the password never reaches the companion), then restarts
+`virtual-display-edid.service`. Answers `202` with the status right away (see below).
+`400` when the mode can't go into an EDID (size 640–8192, 24–360 Hz, at most 5 modes above
+655 MHz pixel clock or 4095 pixels), `409` when the virtual monitor isn't set up or a prompt is
+already open. A mode that is already in the EDID needs no prompt. `ALBEDO_DRY_RUN=1` only logs
+the pkexec command.
+
+### `GET /api/display-modes/request`
+
+Outcome of the last `POST /api/display-modes`:
+
+```json
+{ "state": "waiting", "mode": "2560x1600@90" }
+```
+
+`state`: `idle` (nothing asked yet), `waiting` (prompt open on the PC), `done` (KWin shows the
+mode), `reboot` (installed, KWin shows it after a restart or new login), `cancelled` (prompt
+closed), `failed` (`message` says why), `dryRun`.
+
 ### `GET /api/cover/<id>`
 
 PNG (portrait, ideally 600x900) for an entry with `hasCover`. 404 otherwise. `<id>` is URL-encoded.
