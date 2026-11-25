@@ -173,7 +173,7 @@ find_appimage()
     say "Lade die neueste Version von GitHub …" >&2
     local downloadUrl
     downloadUrl="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
-        | python3 -c 'import json, sys; print(next(asset["browser_download_url"] for asset in json.load(sys.stdin)["assets"] if asset["name"].endswith(".AppImage")))' \
+        | python3 -c 'import json, sys; print(next(asset["browser_download_url"] for asset in json.load(sys.stdin)["assets"] if asset["name"].endswith(".AppImage") and "Companion" not in asset["name"]))' \
         2>/dev/null)" || true
     if [[ -z "$downloadUrl" ]]
     then
