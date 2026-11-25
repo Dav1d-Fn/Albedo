@@ -8,7 +8,7 @@
 #   bash install.sh --yes                # answer every question with yes (e.g. closing Steam)
 #
 # Also works as a one-liner once the repository is public:
-#   curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/albedo/main/deck/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/Albedo/main/deck/install.sh | bash
 set -euo pipefail
 
 # ------------------------------------------------------------------ names and paths
@@ -17,7 +17,7 @@ APP_NAME="Albedo"
 # Earlier names and file name parts: an existing Steam entry with one of these is taken over.
 KNOWN_NAMES="Streaming-Launcher Albedo"
 KNOWN_EXE_PARTS="streaming-launcher streaming_launcher albedo.appimage albedo_"
-REPO="Dav1d-Fn/albedo"
+REPO="Dav1d-Fn/Albedo"
 CONFIG_DIR="$HOME/.config/de.davidf.albedo"
 # App id before the rename to Albedo: the app moves this folder to CONFIG_DIR on its first start,
 # --uninstall also removes what an old version left (settings, picture cache, WebKit data).

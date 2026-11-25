@@ -24,7 +24,7 @@
 Switch to **Desktop Mode**, open **Konsole** and run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/albedo/main/deck/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/Albedo/main/deck/install.sh | bash
 ```
 
 The script
@@ -43,7 +43,7 @@ PIN it shows into Sunshine's web UI under *PIN*.
 To remove it again:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/albedo/main/deck/install.sh | bash -s -- --uninstall
+curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/Albedo/main/deck/install.sh | bash -s -- --uninstall
 ```
 
 **Updates** come from the app itself: when a new release is out, Albedo asks on start, **A**
@@ -56,7 +56,7 @@ games. For adding games from the couch, cover art and picture upload, install **
 on the PC (Linux) – open a terminal and run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/albedo/main/pc-setup/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/Albedo/main/pc-setup/install.sh | bash
 ```
 
 It starts with your desktop and waits in the tray; running the command again updates it,
@@ -236,7 +236,7 @@ The *Desktop (ohne Profilwechsel)* preset and games you add to Sunshine yourself
 and work on any setup.
 
 Tested on: Steam Deck with SteamOS 3, Fedora with KDE Plasma 6 (Wayland) and an AMD GPU.
-If you get it running on something else, please [tell us](https://github.com/Dav1d-Fn/albedo/issues).
+If you get it running on something else, please [tell us](https://github.com/Dav1d-Fn/Albedo/issues).
 
 ---
 
@@ -251,7 +251,7 @@ Moonlight can connect. That is all Albedo needs to list and start games.
 
 Installed with the one command from [Gaming PC](#gaming-pc-) (no Rust or Node needed). The
 script downloads `Albedo-Companion-x86_64.AppImage` from the latest
-[release](https://github.com/Dav1d-Fn/albedo/releases), checks it against `SHA256SUMS`, installs it
+[release](https://github.com/Dav1d-Fn/Albedo/releases), checks it against `SHA256SUMS`, installs it
 to `~/Applications/` with a menu entry and an autostart entry, and starts it in the tray. An older
 setup with the separate `albedo-companion` (or `streaming-launcher-companion`) service or the
 *Albedo PC* app is replaced; its config stays.
@@ -300,8 +300,8 @@ every stream switches the PC to it at the resolution and FPS of the Deck's profi
 monitors turn off for the stream and come back exactly as they were when it ends.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/albedo/main/pc-setup/install.sh | bash -s -- --virtual-monitor --dry-run   # shows what it would do
-curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/albedo/main/pc-setup/install.sh | bash -s -- --virtual-monitor
+curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/Albedo/main/pc-setup/install.sh | bash -s -- --virtual-monitor --dry-run   # shows what it would do
+curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/Albedo/main/pc-setup/install.sh | bash -s -- --virtual-monitor
 ```
 
 This is the same installer as in step 2 (in a checkout: `pc-setup/install.sh --virtual-monitor`).
@@ -476,7 +476,7 @@ If you enjoy using Albedo and want to support its development, you can buy me a 
 ## Feedback & Contributions
 
 Found a bug or have a feature idea?
-Feel free to [open an issue](https://github.com/Dav1d-Fn/albedo/issues) or reach out!
+Feel free to [open an issue](https://github.com/Dav1d-Fn/Albedo/issues) or reach out!
 
 ---
 

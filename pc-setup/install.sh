@@ -5,7 +5,7 @@
 # autostart at login in the tray) from the latest GitHub release, checked against SHA256SUMS.
 # It serves the API the Deck talks to. Running the script again updates it. No sudo.
 #
-#   curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/albedo/main/pc-setup/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/Albedo/main/pc-setup/install.sh | bash
 #   … | bash -s -- --uninstall           remove everything again (keeps ~/.config/albedo-companion/)
 #
 # Opt-in, KDE Plasma (Wayland) with an AMD GPU: --virtual-monitor also sets up the virtual
@@ -40,8 +40,8 @@ service_name="virtual-display-edid.service"
 service_target="/etc/systemd/system/$service_name"
 xwayland_unit="app-org.kde.xwaylandvideobridge@autostart.service"
 repo_dir="$(dirname "${script_dir:-/nonexistent/pc-setup}")"
-release_url="${ALBEDO_RELEASE_URL:-https://github.com/Dav1d-Fn/albedo/releases/latest/download}"
-raw_url="${ALBEDO_RAW_URL:-https://raw.githubusercontent.com/Dav1d-Fn/albedo/main/pc-setup}"
+release_url="${ALBEDO_RELEASE_URL:-https://github.com/Dav1d-Fn/Albedo/releases/latest/download}"
+raw_url="${ALBEDO_RAW_URL:-https://raw.githubusercontent.com/Dav1d-Fn/Albedo/main/pc-setup}"
 helper_files=("make-virtual-edid.py" "apply-virtual-display.sh" "sunshine-match-client")
 app_file="Albedo-Companion-x86_64.AppImage"
 app_target="$HOME/Applications/$app_file"
@@ -84,7 +84,7 @@ do
             then
                 sed -n '2,25p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
             else
-                echo "See https://github.com/Dav1d-Fn/albedo/blob/main/pc-setup/install.sh"
+                echo "See https://github.com/Dav1d-Fn/Albedo/blob/main/pc-setup/install.sh"
             fi
             exit 0 ;;
         *) echo "Unknown option: $1 (see --help)" >&2; exit 2 ;;
@@ -255,7 +255,7 @@ require_command()
 info "Albedo Companion"
 if $build_locally && [ ! -f "$repo_dir/pc-app/package.json" ]
 then
-    warn "--build needs a checkout: git clone https://github.com/Dav1d-Fn/albedo.git and run pc-setup/install.sh there."
+    warn "--build needs a checkout: git clone https://github.com/Dav1d-Fn/Albedo.git and run pc-setup/install.sh there."
     exit 1
 fi
 if $dry_run

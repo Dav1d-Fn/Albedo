@@ -22,7 +22,7 @@ without profile switch, Steam Big Picture). Covers are stored as PNG in `~/.conf
 Install Albedo Companion with [`pc-setup/install.sh`](../pc-setup/install.sh):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/albedo/main/pc-setup/install.sh | bash   # latest release
+curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/Albedo/main/pc-setup/install.sh | bash   # latest release
 pc-setup/install.sh --build   # from this checkout (needs Rust and Node)
 ```
 

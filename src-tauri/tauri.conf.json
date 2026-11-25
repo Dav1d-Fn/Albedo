@@ -41,7 +41,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZBMzM4REM1MzZGM0VCMEQKUldRTjYvTTJ4WTB6YWoxb1lVUnc3bXVLdE9uMFBXbWx0WGlMUWU0dmxydEVsNkg0MDNzcnFGeGUK",
       "endpoints": [
-        "https://github.com/Dav1d-Fn/albedo/releases/latest/download/latest.json"
+        "https://github.com/Dav1d-Fn/Albedo/releases/latest/download/latest.json"
       ]
     }
   }
