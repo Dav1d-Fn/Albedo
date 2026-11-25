@@ -1,6 +1,6 @@
 import { UiText } from "../i18n/UiText";
 import { ModeText } from "./ModeText";
-import { PcDisplayMode, StreamMode } from "./Types";
+import { PcDisplayMode, PcModeRequest, StreamMode } from "./Types";
 
 /**
  * Picks the PC monitor mode a stream mode ends up with, the same way `sunshine-match-client` does on the PC:
@@ -52,6 +52,34 @@ export class PcModeMatcher
       hintText += UiText.current.editor.pcModeMatching(sameResolutionRates.join(" / "));
     }
     return hintText;
+  }
+
+  /** "2560x1600@90", the form the companion uses for a mode request. */
+  public static requestText(mode: StreamMode): string
+  {
+    const wanted = ModeText.size(mode.resolution);
+    return wanted.width + "x" + wanted.height + "@" + mode.fps;
+  }
+
+  /** Line about an "add to PC" request for this mode, null when there is none. */
+  public static requestStatus(request: PcModeRequest | null, mode: StreamMode): string | null
+  {
+    if (request === null || request.mode !== PcModeMatcher.requestText(mode))
+    {
+      return null;
+    }
+    const texts = UiText.current.editor;
+    const statusTexts: Record<PcModeRequest["state"], string | null> =
+    {
+      idle: null,
+      waiting: texts.pcModeWaiting,
+      done: texts.pcModeDone,
+      reboot: texts.pcModeReboot,
+      cancelled: texts.pcModeCancelled,
+      failed: texts.pcModeFailed(request.message ?? ""),
+      dryRun: texts.pcModeDryRun,
+    };
+    return statusTexts[request.state];
   }
 
   /** "1280 × 800 ＠ 90 Hz" */

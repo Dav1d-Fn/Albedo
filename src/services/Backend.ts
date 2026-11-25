@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { DefaultSettings } from "../model/DefaultSettings";
 import { ModeText } from "../model/ModeText";
-import { UiLanguage, ArtKind, ArtSearchResult, CompanionLibrary, UploadToken, DeviceProfile, DiscoveredHost, PadButton, PcDisplayMode, RunningHostApp, Settings, StreamMode, SteamGridDbKeyCheck } from "../model/Types";
+import { UiLanguage, ArtKind, ArtSearchResult, CompanionLibrary, UploadToken, DeviceProfile, DiscoveredHost, PadButton, PcDisplayMode, PcModeRequest, RunningHostApp, Settings, StreamMode, SteamGridDbKeyCheck } from "../model/Types";
 
 export interface StreamEnded
 {
@@ -125,6 +125,17 @@ export class Backend
   public companionDisplayModes(host: string): Promise<PcDisplayMode[]>
   {
     return invoke<PcDisplayMode[]>("companion_display_modes", { host });
+  }
+
+  /** Asks the PC to add a mode to its virtual monitor; the PC user confirms with the root password there. */
+  public companionAddDisplayMode(host: string, width: number, height: number, refreshRate: number): Promise<PcModeRequest>
+  {
+    return invoke<PcModeRequest>("companion_add_display_mode", { host, width, height, refreshRate });
+  }
+
+  public companionDisplayModeRequest(host: string): Promise<PcModeRequest>
+  {
+    return invoke<PcModeRequest>("companion_display_mode_request", { host });
   }
 
   /** Hands the Sunshine web UI login to the companion; rejects with its German message when Sunshine refuses it. */

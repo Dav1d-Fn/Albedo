@@ -217,6 +217,8 @@ body { cursor: default; user-select: none; }
 .valinput:focus { border-color: var(--acc); background: rgba(0,0,0,.35); }
 .valinput.off { color: #FDE68A; }
 .pchint { flex: none; margin: 2px 12px 4px 20px; padding: 10px 14px; border-radius: 12px; background: rgba(251,191,36,.12); border: 1px solid rgba(251,191,36,.35); color: #FDE68A; font-size: 14px; line-height: 1.35; }
+.pchint .pcrequest { margin-top: 6px; color: #fff; font-weight: 600; }
+.pchint .pcrequest:first-child { margin-top: 0; }
 .b0 { animation: bump0 .45s cubic-bezier(.3,1.6,.5,1); }
 .b1 { animation: bump1 .45s cubic-bezier(.3,1.6,.5,1); }
 @keyframes bump0 { from { transform: translateY(-9px) scale(1.18); opacity: .3; } to { transform: none; opacity: 1; } }

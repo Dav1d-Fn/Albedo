@@ -21,6 +21,7 @@ use crate::sunshine_client::SunshineClient;
 use crate::upload_page::UploadPage;
 use crate::upload_qr_code::UploadQrCode;
 use crate::upload_token_store::UploadTokenStore;
+use crate::virtual_edid_writer::VirtualEdidWriter;
 
 /// The HTTP API from companion/API.md. Requests are handled one after another;
 /// the only client is the launcher.
@@ -30,6 +31,7 @@ pub struct ApiServer
     upload_tokens: UploadTokenStore,
     /// Goes up with every override change, so the launcher knows when to reload pictures.
     art_version: u64,
+    virtual_edid: VirtualEdidWriter,
 }
 
 /// Status code + body (JSON, PNG, JPEG or HTML) + content type of one answer.
@@ -39,7 +41,7 @@ impl ApiServer
 {
     pub fn new(config: CompanionConfig) -> ApiServer
     {
-        ApiServer { config, upload_tokens: UploadTokenStore::new(), art_version: 0 }
+        ApiServer { config, upload_tokens: UploadTokenStore::new(), art_version: 0, virtual_edid: VirtualEdidWriter::new() }
     }
 
     pub fn run(&mut self) -> Result<(), String>
@@ -123,6 +125,8 @@ impl ApiServer
             }
             (Method::Get, "/api/apps") => self.sunshine_apps(),
             (Method::Get, "/api/display-modes") => Self::display_modes(),
+            (Method::Post, "/api/display-modes") => Self::read_body(request).and_then(|body| self.add_display_mode(&body)),
+            (Method::Get, "/api/display-modes/request") => Ok(Self::json(200, self.virtual_edid.status())),
             (Method::Post, "/api/apps") => Self::read_body(request).and_then(|body| self.add_app(&body)),
             (Method::Delete, "/api/apps") => Self::read_body(request).and_then(|body| self.delete_app(&body)),
             (Method::Put, "/api/sunshine-login") => Self::read_body(request).and_then(|body| self.set_sunshine_login(&body)),
@@ -192,6 +196,17 @@ impl ApiServer
         let output_name = DisplayModeReader::virtual_output().map_err(|message| (502, message))?;
         let modes = DisplayModeReader::read(&output_name).map_err(|message| (502, message))?;
         Ok(Self::json(200, json!({ "output": output_name, "modes": modes })))
+    }
+
+    /// Body { "width", "height", "refreshRate" }: puts the mode into the virtual monitor's EDID
+    /// after the PC user confirms the root prompt. Answers at once, the outcome comes from
+    /// `GET /api/display-modes/request`.
+    fn add_display_mode(&self, body: &Value) -> Result<ApiAnswer, (u16, String)>
+    {
+        let number = |field: &str| body[field].as_u64().ok_or_else(|| (400, format!("{} „{}“", RequestLanguage::pick("Feld fehlt:", "Field missing:"), field)));
+        let status = self.virtual_edid.add_mode(number("width")?, number("height")?, number("refreshRate")?)?;
+        eprintln!("Neuer Bildschirmmodus angefragt: {}", status["mode"]);
+        Ok(Self::json(202, status))
     }
 
     fn cover(&self, entry_id: &str) -> Result<ApiAnswer, (u16, String)>
