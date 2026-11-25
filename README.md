@@ -163,6 +163,17 @@ Each game added through the companion switches the PC's (virtual) streaming moni
 resolution and refresh rate the Deck asked for, and back when the stream ends. If the PC's screen
 can't do a profile exactly, Albedo tells you what you will actually get.
 
+With the virtual monitor set up, a missing mode can be added right from the profile editor on the
+Deck: **Y** (*Add on PC*) asks Albedo Companion to put it into the virtual monitor's EDID. The PC
+shows a password prompt first, so nothing changes without you.
+
+### ⏰ Wake-on-LAN
+
+When the PC is asleep or off, **Y** on the home screen wakes it with a magic packet and waits for
+Sunshine to answer. It works on the home network once Albedo has connected to the PC there once;
+the PC needs Wake-on-LAN enabled in its BIOS and network driver, see
+[docs/wake-on-lan.md](docs/wake-on-lan.md).
+
 ### ⏹️ After the Stream
 
 When Moonlight disconnects, Albedo asks whether the game should keep running on the PC
