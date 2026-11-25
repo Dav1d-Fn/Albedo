@@ -469,7 +469,7 @@ from your own PC and belongs to its respective owners.
 
 If you enjoy using Albedo and want to support its development, you can buy me a coffee:
 
-[![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/davidfn)
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/davidfn)
 
 ---
 
