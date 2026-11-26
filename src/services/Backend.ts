@@ -144,10 +144,22 @@ export class Backend
     return invoke<void>("companion_set_sunshine_login", { host, user, password });
   }
 
-  /** Lets the PC helper try a SteamGridDB key; it stores nothing. "unchecked" when the helper is too old to check. */
-  public companionTestSteamGridDbKey(host: string, key: string): Promise<SteamGridDbKeyCheck>
+  /** Lets the PC helper try its stored SteamGridDB key. "unchecked" when the helper is too old to check. */
+  public companionTestSteamGridDbKey(host: string): Promise<SteamGridDbKeyCheck>
   {
-    return invoke<SteamGridDbKeyCheck>("companion_test_steam_grid_db_key", { host, key });
+    return invoke<SteamGridDbKeyCheck>("companion_test_steam_grid_db_key", { host });
+  }
+
+  /** Last four characters of the SteamGridDB key the PC helper holds, "" = none. The key itself stays on the PC. */
+  public companionSteamGridDbKey(host: string): Promise<string>
+  {
+    return invoke<string>("companion_steam_grid_db_key", { host });
+  }
+
+  /** Stores the SteamGridDB key in the PC helper (shared with its PC app); "" removes it. */
+  public companionSetSteamGridDbKey(host: string, key: string): Promise<void>
+  {
+    return invoke<void>("companion_set_steam_grid_db_key", { host, key });
   }
 
   /** Wide title image of a library entry as `data:` URL, null when the PC has none. */
@@ -174,10 +186,10 @@ export class Backend
     return invoke<UploadToken>("companion_upload_token", { host, entryId, kind });
   }
 
-  /** Pictures of this kind from the Steam shop and, with a key, SteamGridDB. */
-  public searchArt(gameName: string, entryId: string, system: string | undefined, kind: ArtKind, steamGridDbKey: string): Promise<ArtSearchResult>
+  /** Pictures of this kind from the Steam shop, libretro and, when the PC helper holds a key, SteamGridDB. */
+  public searchArt(host: string, gameName: string, entryId: string, system: string | undefined, kind: ArtKind): Promise<ArtSearchResult>
   {
-    return invoke<ArtSearchResult>("search_art", { gameName, entryId, system: system ?? null, kind, steamGridDbKey });
+    return invoke<ArtSearchResult>("search_art", { host, gameName, entryId, system: system ?? null, kind });
   }
 
   /** Downloads a found picture and sets it on the PC like a phone upload. */

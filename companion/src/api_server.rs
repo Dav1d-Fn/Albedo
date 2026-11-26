@@ -15,7 +15,7 @@ use crate::library_entry::LibraryEntry;
 use crate::library_scanner::LibraryScanner;
 use crate::process_quitter::ProcessQuitter;
 use crate::request_language::RequestLanguage;
-use crate::steam_grid_db_key_checker::SteamGridDbKeyChecker;
+use crate::steam_grid_db_client::SteamGridDbClient;
 use crate::sunshine_app_builder::SunshineAppBuilder;
 use crate::sunshine_client::SunshineClient;
 use crate::upload_page::UploadPage;
@@ -137,7 +137,16 @@ impl ApiServer
                 let client_uuid = percent_decode_str(&client_path["/api/clients/".len()..]).decode_utf8_lossy().to_string();
                 self.unpair_client(&client_uuid)
             }
-            (Method::Post, "/api/steamgriddb-key/test") => Self::read_body(request).and_then(|body| Self::test_steam_grid_db_key(&body)),
+            (Method::Get, "/api/steamgriddb-key") => Ok(self.steam_grid_db_key_state()),
+            (Method::Put, "/api/steamgriddb-key") => Self::read_body(request).and_then(|body| self.set_steam_grid_db_key(&body)),
+            (Method::Delete, "/api/steamgriddb-key") => self.store_steam_grid_db_key(""),
+            (Method::Post, "/api/steamgriddb-key/test") => Self::read_body(request).and_then(|body| self.test_steam_grid_db_key(&body)),
+            (Method::Get, grid_db_path) if grid_db_path.starts_with("/api/steamgriddb/") =>
+            {
+                // With the query: it carries the search filters.
+                let path_and_query = request.url()["/api/steamgriddb/".len()..].to_string();
+                self.steam_grid_db(&path_and_query)
+            }
             (Method::Get, "/api/pairings") => self.pending_pairings(),
             (Method::Post, "/api/pair") => Self::read_body(request).and_then(|body| self.pair_client(&body)),
             _ => Err((404, RequestLanguage::pick("Unbekannter Pfad", "Unknown path"))),
@@ -464,12 +473,60 @@ impl ApiServer
         Ok((204, Vec::new(), "application/json"))
     }
 
-    /// Body { "key": "…" }: one real request to SteamGridDB. Nothing is stored or logged.
-    fn test_steam_grid_db_key(body: &Value) -> Result<ApiAnswer, (u16, String)>
+    /// Body { "key": "…" }: one real request to SteamGridDB with that key, nothing is stored or
+    /// logged. Without "key" the stored key is tested.
+    fn test_steam_grid_db_key(&self, body: &Value) -> Result<ApiAnswer, (u16, String)>
+    {
+        let key = body["key"].as_str().unwrap_or(&self.config.steam_grid_db_key).trim();
+        SteamGridDbClient::check(key)?;
+        Ok((204, Vec::new(), "application/json"))
+    }
+
+    /// Whether a key is stored and its last four characters, so the UIs can show which one.
+    /// The key itself never leaves the PC.
+    fn steam_grid_db_key_state(&self) -> ApiAnswer
+    {
+        let key = &self.config.steam_grid_db_key;
+        let last_characters: Vec<char> = key.chars().rev().take(4).collect();
+        let hint = (!key.is_empty()).then(|| last_characters.iter().rev().collect::<String>());
+        Self::json(200, json!({ "set": !key.is_empty(), "hint": hint }))
+    }
+
+    /// Body { "key": "…" }: stored without asking SteamGridDB, so it also works offline;
+    /// the UIs test it afterwards with `POST /api/steamgriddb-key/test`.
+    fn set_steam_grid_db_key(&mut self, body: &Value) -> Result<ApiAnswer, (u16, String)>
     {
         let key = body["key"].as_str().unwrap_or_default().trim();
-        SteamGridDbKeyChecker.check(key)?;
+        if !SteamGridDbClient::is_plausible_key(key)
+        {
+            return Err((400, RequestLanguage::pick("SteamGridDB-Schlüssel ungültig", "SteamGridDB key invalid")));
+        }
+        self.store_steam_grid_db_key(key)
+    }
+
+    /// "" removes the key.
+    fn store_steam_grid_db_key(&mut self, key: &str) -> Result<ApiAnswer, (u16, String)>
+    {
+        let mut new_config = self.config.clone();
+        new_config.steam_grid_db_key = key.to_string();
+        new_config
+            .write_to(&CompanionConfig::config_path())
+            .map_err(|message| (500, format!("{}: {}", RequestLanguage::pick("Config nicht speicherbar", "Cannot store config"), message)))?;
+        self.config = new_config;
+        eprintln!("SteamGridDB-Schlüssel {}", if key.is_empty() { "gelöscht" } else { "gespeichert" });
         Ok((204, Vec::new(), "application/json"))
+    }
+
+    /// SteamGridDB's answer with the stored key, status code and body passed through.
+    /// 409 when no key is stored: the picture search then simply skips SteamGridDB.
+    fn steam_grid_db(&self, path_and_query: &str) -> Result<ApiAnswer, (u16, String)>
+    {
+        if self.config.steam_grid_db_key.is_empty()
+        {
+            return Err((409, RequestLanguage::pick("Kein SteamGridDB-Schlüssel gespeichert", "No SteamGridDB key stored")));
+        }
+        let (status_code, body) = SteamGridDbClient::get(path_and_query, &self.config.steam_grid_db_key)?;
+        Ok((status_code, body, "application/json; charset=utf-8"))
     }
 
     fn paired_clients(&self) -> Result<ApiAnswer, (u16, String)>

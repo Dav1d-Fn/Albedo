@@ -4,8 +4,8 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-/// Settings David fills in once: where Sunshine's web API is and its web UI login.
-/// Stored in ~/.config/albedo-companion/config.json (mode 600).
+/// Settings David fills in once: where Sunshine's web API is, its web UI login and the
+/// SteamGridDB API key the Deck and the PC app share. Stored in ~/.config/albedo-companion/config.json (mode 600).
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompanionConfig
@@ -14,6 +14,9 @@ pub struct CompanionConfig
     pub sunshine_url: String,
     pub sunshine_user: String,
     pub sunshine_password: String,
+    /// Empty = none. Never sent to clients; they search SteamGridDB through the companion.
+    #[serde(default)]
+    pub steam_grid_db_key: String,
 }
 
 impl CompanionConfig
@@ -36,6 +39,7 @@ impl CompanionConfig
                 sunshine_url: "https://localhost:47990".into(),
                 sunshine_user: String::new(),
                 sunshine_password: String::new(),
+                steam_grid_db_key: String::new(),
             };
             template.write_to(&config_path)?;
             eprintln!("Neue Config angelegt: {} – bitte Sunshine-Login eintragen", config_path.display());
@@ -56,7 +60,7 @@ impl CompanionConfig
         }
         let file_content = serde_json::to_string_pretty(self).map_err(|error| error.to_string())?;
         fs::write(config_path, file_content + "\n").map_err(|error| error.to_string())?;
-        // The file holds a password: only David may read it.
+        // The file holds a password and an API key: only David may read it.
         fs::set_permissions(config_path, fs::Permissions::from_mode(0o600)).map_err(|error| error.to_string())
     }
 

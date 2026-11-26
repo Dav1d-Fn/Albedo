@@ -244,20 +244,50 @@ PIN the device shows. Without `pairingId` the single waiting device is meant (`4
 several wait); older Sunshine versions get the PIN alone. `204` when the device took the PIN, `400`
 with the reason otherwise (wrong PIN, not four digits).
 
-### `POST /api/steamgriddb-key/test`
+### SteamGridDB key
 
-Body `{ "key": "<SteamGridDB API key>" }`. Checks the key with one real SteamGridDB request
-(`/api/v2/search/autocomplete/…`) and stores nothing: the clients keep the key themselves (Deck:
-settings `steamGridDbKey`, PC app: its own settings) and use it for the picture search. The key is
-never logged or sent back.
+One API key for the picture search, shared by the Deck and Albedo Companion. Stored as
+`steamGridDbKey` in `config.json` (mode 600, like the Sunshine login); never logged and never sent
+back to any client. Users get a key at <https://www.steamgriddb.com/profile/preferences/api>
+(SteamGridDB account needed).
+
+#### `GET /api/steamgriddb-key`
+
+`{ "set": true, "hint": "1a2b" }`: whether a key is stored and its last four characters (`hint` is
+`null` without a key).
+
+#### `PUT /api/steamgriddb-key`
+
+Body `{ "key": "<SteamGridDB API key>" }`. Stores the key without asking SteamGridDB (so it also
+works offline), `204`. `400` `{ "error": "SteamGridDB key invalid" }` when it can't be a key (empty,
+more than 128 characters, other characters than letters and digits).
+
+#### `DELETE /api/steamgriddb-key`
+
+Removes the key, `204`.
+
+#### `POST /api/steamgriddb-key/test`
+
+Body `{ "key": "…" }` checks that key, `{}` the stored one, with one real SteamGridDB request
+(`/api/v2/search/autocomplete/…`). Stores nothing.
 
 - `204`: SteamGridDB accepts the key.
-- `400` `{ "error": "SteamGridDB key invalid" }`: rejected (401/403) or not a key at all (empty,
-  other characters than letters and digits).
-- `502` `{ "error": "SteamGridDB unreachable" }` (no answer within 10 s), or
+- `400` `{ "error": "SteamGridDB key invalid" }`: rejected (401/403) or not a key at all.
+- `502` `{ "error": "SteamGridDB unreachable" }` (no answer within 15 s), or
   `"SteamGridDB answered with <status>"` for anything else.
 
-Users get a key at <https://www.steamgriddb.com/profile/preferences/api> (SteamGridDB account needed).
+#### `GET /api/steamgriddb/<path>`
+
+SteamGridDB's API `https://www.steamgriddb.com/api/v2/<path>` (with query) asked with the stored key;
+SteamGridDB's status code and JSON body are passed through. That is how the picture search on the
+Deck and in the PC app reaches SteamGridDB without ever holding the key. Only paths starting with
+`search`, `grids`, `heroes` or `logos` are passed on (`400` otherwise), only `GET`.
+
+- `409` `{ "error": "No SteamGridDB key stored" }`: the search leaves SteamGridDB out.
+- `502` `{ "error": "SteamGridDB unreachable" }` when SteamGridDB doesn't answer.
+
+Requests are handled one after another, so a SteamGridDB lookup (well under a second normally,
+15 s at most) holds back other requests meanwhile.
 
 ### Errors
 

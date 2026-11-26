@@ -95,8 +95,11 @@ export interface Settings
   backdropKind: BackdropKind;
   /** Game name -> backdrop kind for that game, missing = the default above. */
   backdropKindPerGame: Record<string, BackdropKind>;
-  /** Optional API key for SteamGridDB (picture search in "Bild setzen"); empty = only the Steam shop. */
-  steamGridDbKey: string;
+  /**
+   * Only in settings.json from before the key moved to the PC companion (shared with its PC app):
+   * pushed there once, then dropped.
+   */
+  steamGridDbKey?: string;
   /** UI language; "" = follow the system language (German if it is German, else English). */
   language: UiLanguage | "";
   /** "<game name>|<device>" -> mode index remembered for that game. */

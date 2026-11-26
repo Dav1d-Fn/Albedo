@@ -195,7 +195,7 @@ export function ConnectionScreen(props: { app: LauncherApp })
             <input
               id="steamgriddb-key"
               className="hostinput"
-              placeholder={settings.steamGridDbKey === "" ? t.connection.keyOptional : t.connection.keyNew}
+              placeholder={state.steamGridDbKeyHint ? t.connection.keyNew : t.connection.keyOptional}
               value={state.steamGridDbKeyDraft}
               spellCheck={false}
               autoComplete="off"
@@ -203,19 +203,21 @@ export function ConnectionScreen(props: { app: LauncherApp })
               onFocus={() => app.setState({ connectionZone: "rows", connectionRow: LauncherApp.steamGridDbRowIndex })}
             />
           </div>
-          {settings.steamGridDbKey === "" || state.steamGridDbKeyCheck === "invalid" ? (
+          {state.steamGridDbKeyHint === null ? (
+            <div className="dnote keystatus invalid" style={{ paddingLeft: 20 }}>{t.connection.keyNeedsCompanion}</div>
+          ) : state.steamGridDbKeyHint === "" || state.steamGridDbKeyCheck === "invalid" ? (
             <div className="dnote keyhelp" style={{ paddingLeft: 20 }}>
               {/* Clicking a link on the Deck is tedious: the phone scans the code and the key is typed off its screen. */}
               <img className="keyqr" src={steamGridDbApiQr} alt={t.connection.keyPageQr} />
               <div>
-                <div>{settings.steamGridDbKey === "" ? t.connection.keyMissingHint : t.connection.keyCheckNames.invalid}</div>
+                <div>{state.steamGridDbKeyHint === "" ? t.connection.keyMissingHint : t.connection.keyCheckNames.invalid}</div>
                 <div>{t.connection.keyWhere}</div>
                 <code>{t.connection.keyPageUrl}</code>
               </div>
             </div>
           ) : (
             <div className={"dnote keystatus " + state.steamGridDbKeyCheck} style={{ paddingLeft: 20 }}>
-              {t.connection.keySavedHint(settings.steamGridDbKey.slice(-4))}
+              {t.connection.keySavedHint(state.steamGridDbKeyHint)}
               {state.steamGridDbKeyCheck !== "unchecked" && <span className="keycheck">{t.connection.keyCheckNames[state.steamGridDbKeyCheck]}</span>}
             </div>
           )}

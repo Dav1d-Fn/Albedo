@@ -24,7 +24,6 @@ export class DefaultSettings
       showStreamSummary: false,
       backdropKind: "hero",
       backdropKindPerGame: {},
-      steamGridDbKey: "",
       language: "",
       profiles:
       {

@@ -76,8 +76,8 @@ export function StatusScreen({ app, state }: { app: PcApp; state: PcAppState })
               <span className="flabel">{texts.language}</span>
               <div className="seg" role="group" aria-label={texts.language}>
                 {languageChoices.map((choice) => (
-                  <button key={choice.value} type="button" className={state.settings.language === choice.value ? "on" : ""}
-                    onClick={() => app.changeSettings({ language: choice.value })}>{choice.label}</button>
+                  <button key={choice.value} type="button" className={state.language === choice.value ? "on" : ""}
+                    onClick={() => app.changeLanguage(choice.value)}>{choice.label}</button>
                 ))}
               </div>
             </div>
@@ -86,8 +86,14 @@ export function StatusScreen({ app, state }: { app: PcApp; state: PcAppState })
                 <label className="flabel" htmlFor="gridkey">{texts.gridDbKey}</label>
                 <button type="button" className="link" onClick={() => app.openSteamGridDbKeyPage()}>{texts.gridDbGetKey} ↗</button>
               </div>
-              <input id="gridkey" type="password" placeholder={texts.gridDbPlaceholder} value={state.settings.steamGridDbKey}
-                onChange={(event) => app.changeSettings({ steamGridDbKey: event.target.value.trim() })} />
+              <div className="keyrow">
+                <input id="gridkey" type="password" autoComplete="off" disabled={state.steamGridDbKeyHint === null}
+                  placeholder={state.steamGridDbKeyHint ? texts.gridDbNewKey : texts.gridDbPlaceholder} value={state.steamGridDbKeyDraft}
+                  onChange={(event) => app.changeSteamGridDbKeyDraft(event.target.value.trim())} />
+                {state.steamGridDbKeyHint && <button type="button" className="btn" onClick={() => void app.removeSteamGridDbKey()}>{texts.gridDbRemove}</button>}
+              </div>
+              {state.steamGridDbKeyHint === null && <span className="keycheck bad">{texts.gridDbNeedsCompanion}</span>}
+              {state.steamGridDbKeyHint && <span className="keycheck">{texts.gridDbSaved(state.steamGridDbKeyHint)}</span>}
               {state.steamGridDbKeyCheck === "checking" && <span className="keycheck">{texts.gridDbChecking}</span>}
               {state.steamGridDbKeyCheck === "ok" && <span className="keycheck ok">{texts.gridDbWorks}</span>}
               {state.steamGridDbKeyCheck !== "" && state.steamGridDbKeyCheck !== "checking" && state.steamGridDbKeyCheck !== "ok" && (

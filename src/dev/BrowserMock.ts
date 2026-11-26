@@ -148,6 +148,8 @@ export class BrowserMock
     let offline = urlParameters.has("offline");
     // Like a fresh companion: no Sunshine login until the launcher hands one over.
     let sunshineLoginMissing = true;
+    // The SteamGridDB key the fake PC helper holds.
+    let steamGridDbKey = "";
     // Entry id -> picture kinds set by hand; "?customHero" starts with a title image set for Hades II.
     const customArt: Record<string, string[]> = urlParameters.has("customHero") ? { "steam:1145350": ["hero"] } : {};
     const setCustomArt = (entryId: string, kind: string, isSet: boolean) =>
@@ -231,7 +233,7 @@ export class BrowserMock
           setCustomArt(args.entryId as string, args.kind as string, false);
           return null;
         case "search_art":
-          return new Promise((resolve) => window.setTimeout(() => resolve(BrowserMock.fakeArtSearch(args.gameName as string, (args.system as string | null) ?? null, args.kind as string, args.steamGridDbKey as string)), 600));
+          return new Promise((resolve) => window.setTimeout(() => resolve(BrowserMock.fakeArtSearch(args.gameName as string, (args.system as string | null) ?? null, args.kind as string, steamGridDbKey)), 600));
         case "apply_art":
           return new Promise((resolve) => window.setTimeout(() =>
           {
@@ -270,7 +272,12 @@ export class BrowserMock
           return { entries: BrowserMock.sampleLibrary().map((entry) => BrowserMock.withCustomArt(entry, customArt[entry.id] ?? [])), sunshineProblem: sunshineLoginMissing ? pick("Sunshine-Login fehlt im PC-Helfer", "The PC companion has no Sunshine login") : null };
         case "companion_test_steam_grid_db_key":
           // In the mock a key containing "bad" is rejected.
-          return new Promise((resolve) => window.setTimeout(() => resolve((args.key as string).includes("bad") ? "invalid" : "valid"), 700));
+          return new Promise((resolve) => window.setTimeout(() => resolve(steamGridDbKey.includes("bad") ? "invalid" : "valid"), 700));
+        case "companion_steam_grid_db_key":
+          return steamGridDbKey.slice(-4);
+        case "companion_set_steam_grid_db_key":
+          steamGridDbKey = args.key as string;
+          return null;
         case "companion_set_sunshine_login":
           if (args.password !== "sunshine")
           {

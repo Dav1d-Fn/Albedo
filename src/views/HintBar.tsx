@@ -119,7 +119,7 @@ export function HintBar(props: { app: LauncherApp })
     {
       hints.push({ glyph: "X", label: t.connection.removeLast, button: "X" });
     }
-    if (onKeyRow && app.settings.steamGridDbKey !== "")
+    if (onKeyRow && state.steamGridDbKeyHint)
     {
       hints.push({ glyph: "X", label: t.connection.deleteKey, button: "X" });
     }

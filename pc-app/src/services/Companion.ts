@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { UiText } from "../i18n/UiText";
+import { UiLanguage, UiText } from "../i18n/UiText";
 import {
   ArtKind,
   ArtSearchResult,
@@ -24,6 +24,24 @@ export class Companion
     if ("__TAURI_INTERNALS__" in window)
     {
       await invoke("set_language", { language });
+    }
+  }
+
+  /** The stored language setting ("" = system); in a plain browser (npm run dev) always "". */
+  public static async loadLanguageSetting(): Promise<UiLanguage | "">
+  {
+    if ("__TAURI_INTERNALS__" in window)
+    {
+      return invoke<UiLanguage | "">("load_language_setting");
+    }
+    return "";
+  }
+
+  public static async saveLanguageSetting(language: UiLanguage | ""): Promise<void>
+  {
+    if ("__TAURI_INTERNALS__" in window)
+    {
+      await invoke("save_language_setting", { language });
     }
   }
 
@@ -88,10 +106,9 @@ export class Companion
     entryId: string,
     system: string | null,
     kind: ArtKind,
-    steamGridDbKey: string,
   ): Promise<ArtSearchResult>
   {
-    return invoke("search_art", { gameName, entryId, system, kind, steamGridDbKey });
+    return invoke("search_art", { gameName, entryId, system, kind });
   }
 
   public static applyArt(entryId: string, kind: ArtKind, imageUrl: string): Promise<void>
@@ -104,10 +121,23 @@ export class Companion
     return Companion.request("PUT", "api/sunshine-login", { user, password });
   }
 
-  /** Resolves when SteamGridDB accepts the key; the error says "invalid" or "unreachable". */
-  public static testSteamGridDbKey(key: string): Promise<void>
+  /** Last four characters of the SteamGridDB key the companion holds (shared with the Deck), "" = none. */
+  public static async steamGridDbKeyHint(): Promise<string>
   {
-    return Companion.request("POST", "api/steamgriddb-key/test", { key });
+    const keyState: { hint: string | null } = await Companion.request("GET", "api/steamgriddb-key");
+    return keyState.hint ?? "";
+  }
+
+  /** Stores the key in the companion; "" removes it. */
+  public static setSteamGridDbKey(key: string): Promise<void>
+  {
+    return key === "" ? Companion.request("DELETE", "api/steamgriddb-key") : Companion.request("PUT", "api/steamgriddb-key", { key });
+  }
+
+  /** Resolves when SteamGridDB accepts the stored key; the error says "invalid" or "unreachable". */
+  public static testSteamGridDbKey(): Promise<void>
+  {
+    return Companion.request("POST", "api/steamgriddb-key/test", {});
   }
 
   /** Where users get a SteamGridDB key, in the system browser. */

@@ -1,4 +1,5 @@
 mod companion_proxy;
+mod language_setting_file;
 mod main_window;
 mod tray_icon;
 
@@ -26,14 +27,29 @@ use art_search::ArtSearch;
 use art_search_result::ArtSearchResult;
 use companion_proxy::CompanionProxy;
 use host_environment::HostEnvironment;
+use language_setting_file::LanguageSettingFile;
 use main_window::MainWindow;
 use tray_icon::TrayIcon;
 use ui_language::UiLanguage;
 
+/// Language of the Rust side's messages ("de" or "en", the language in use).
 #[tauri::command]
 fn set_language(language: String)
 {
     UiLanguage::set(&language);
+}
+
+/// The stored UI language setting: "" = system, "de" or "en".
+#[tauri::command]
+fn load_language_setting() -> String
+{
+    LanguageSettingFile::load()
+}
+
+#[tauri::command]
+fn save_language_setting(language: String) -> Result<(), String>
+{
+    LanguageSettingFile::save(&language)
 }
 
 /// Any companion endpoint, e.g. ("GET", "api/library", None). The frontend knows the API.
@@ -82,7 +98,8 @@ async fn upload_art(request: Request<'_>) -> Result<(), String>
     result
 }
 
-/// Pictures of one kind from the Steam shop, libretro and, with a key, SteamGridDB. The key is never logged.
+/// Pictures of one kind from the Steam shop, libretro and SteamGridDB (through this app's
+/// companion, which holds the key).
 #[tauri::command]
 async fn search_art(
     app_handle: AppHandle,
@@ -90,17 +107,11 @@ async fn search_art(
     entry_id: String,
     system: Option<String>,
     kind: String,
-    steam_grid_db_key: String,
 ) -> Result<ArtSearchResult, String>
 {
+    let grid_db_proxy = CompanionProxy::new()?.steam_grid_db_proxy_url()?;
     let result = art_search(&app_handle)?
-        .search(
-            &game_name,
-            &entry_id,
-            system.as_deref(),
-            &kind,
-            &steam_grid_db_key,
-        )
+        .search(&game_name, &entry_id, system.as_deref(), &kind, &grid_db_proxy)
         .await;
     println!(
         "[art] search \"{}\" {} -> {} found, problem {:?}",
@@ -194,6 +205,8 @@ pub fn run()
         }))
         .invoke_handler(tauri::generate_handler![
             set_language,
+            load_language_setting,
+            save_language_setting,
             companion,
             upload_art,
             search_art,

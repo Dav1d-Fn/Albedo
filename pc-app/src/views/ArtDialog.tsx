@@ -98,7 +98,7 @@ export function ArtDialog({ app, state, dialog }: { app: PcApp; state: PcAppStat
         </div>
 
         {dialog.result?.problem && <div className="keyhint warn"><Icon name="warning" size={16} />{dialog.result.problem}</div>}
-        {state.settings.steamGridDbKey === "" && <div className="keyhint"><Icon name="info" size={16} />{texts.noKeyHint}</div>}
+        {state.steamGridDbKeyHint === "" && <div className="keyhint"><Icon name="info" size={16} />{texts.noKeyHint}</div>}
 
         <div className="foot">
           {entry?.customArt.includes(dialog.kind) && (

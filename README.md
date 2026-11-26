@@ -140,7 +140,11 @@ ends the game), **X** removes it again. No editing `apps.json` by hand.
 
 Covers, hero images, logos and Steam screenshots come straight from the PC. Don't like a picture?
 *Set image* shows a **QR code**: scan it with your phone, pick any image, and it replaces the
-cover, hero or logo of that game – on the Deck and in Sunshine.
+cover, hero or logo of that game – on the Deck and in Sunshine. The picture search also finds
+pictures in the Steam store, libretro's retro thumbnails and, with a free
+[SteamGridDB](https://www.steamgriddb.com/profile/preferences/api) API key, SteamGridDB. The key is
+entered once, on the Deck (*Connection*) or in Albedo Companion, and kept by the companion on the PC
+for both.
 
 <p align="center">
   <img src="docs/media/qr-upload.png" alt="The picture dialog with a QR code and pictures from the Steam store, next to the upload page on the phone" width="900">
@@ -362,12 +366,13 @@ Albedo is made for your **home network**. Nothing of it belongs on the open inte
 | **Albedo Companion** (47995) | Runs while the app runs (also in the tray). No login. It only answers the home network (private IPv4 ranges), Tailscale (`100.64.0.0/10`) and localhost, and drops everything else, even if the port were forwarded. It never runs commands sent by a client: it only creates Sunshine apps for games it found on the PC itself. |
 | **Picture upload links** | Random, valid for a few minutes and usable once. |
 | **Sunshine login in the companion** | Stored in the companion's config on the PC (readable only by your user), never sent back to any client. |
+| **SteamGridDB key** | Stored in the same config, never sent back to any client (they only see its last four characters). The picture search asks SteamGridDB through the companion, which adds the key. |
 | **Updates** | Signed; the app only installs releases signed with the project's key. |
 
 **What someone on your Wi-Fi could do:** because the companion has no login, any device in your
 home network could add or remove Sunshine apps, delete pictures you set, quit a running game or
-replace the Sunshine login stored in the companion. It cannot read your files, run programs or
-see the Sunshine password. If guests use your network, put them on a guest Wi-Fi.
+replace the Sunshine login or SteamGridDB key stored in the companion. It cannot read your files,
+run programs or see the Sunshine password or the SteamGridDB key. If guests use your network, put them on a guest Wi-Fi.
 
 ---
 
@@ -417,6 +422,7 @@ npm run tauri dev
 
 - `ALBEDO_DRY_RUN=1 npm run tauri dev` – logs the Moonlight command instead of
   streaming to the PC you are sitting at.
+- `ALBEDO_COMPANION_PORT=<port>` – talk to a test companion on another port than 47995.
 - `npm run dev` – only the UI in a browser at <http://localhost:1430>, with fake data
   (`src/dev/BrowserMock.ts`).
 - Keyboard = controller, see [Controls](#controls-).

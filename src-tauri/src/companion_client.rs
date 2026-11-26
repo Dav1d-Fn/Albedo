@@ -37,6 +37,12 @@ struct AddedAppResponse
 }
 
 #[derive(Deserialize)]
+struct KeyStateResponse
+{
+    hint: Option<String>,
+}
+
+#[derive(Deserialize)]
 struct ErrorResponse
 {
     error: String,
@@ -53,6 +59,12 @@ impl CompanionClient
 {
     const PORT: u16 = 47995;
 
+    /// 47995; `ALBEDO_COMPANION_PORT` points a dev build at a test companion on another port.
+    fn port() -> u16
+    {
+        std::env::var("ALBEDO_COMPANION_PORT").ok().and_then(|port| port.parse().ok()).unwrap_or(Self::PORT)
+    }
+
     pub fn for_host(host: &str) -> Result<Self, String>
     {
         let host = host.trim();
@@ -65,7 +77,7 @@ impl CompanionClient
         {
             host.to_string()
         };
-        let base_url = Url::parse(&format!("http://{}:{}/", host_part, Self::PORT)).map_err(|error| error.to_string())?;
+        let base_url = Url::parse(&format!("http://{}:{}/", host_part, Self::port())).map_err(|error| error.to_string())?;
         // The companion answers in this language (errors, group names); a client lives for one command,
         // so a language change applies to the next call.
         let mut default_headers = HeaderMap::new();
@@ -131,15 +143,15 @@ impl CompanionClient
         Ok(())
     }
 
-    /// Checks a SteamGridDB key on the PC (`POST /api/steamgriddb-key/test`), which stores nothing.
+    /// Checks the SteamGridDB key stored on the PC (`POST /api/steamgriddb-key/test`).
     /// Returns "valid", "invalid", "unreachable" (SteamGridDB or the companion did not answer)
-    /// or "unchecked" (an older companion without the endpoint). The key is never logged.
-    pub async fn test_steam_grid_db_key(&self, key: &str) -> String
+    /// or "unchecked" (an older companion without the endpoint).
+    pub async fn test_steam_grid_db_key(&self) -> String
     {
         let request = self
             .http_client
             .post(self.url(&["api", "steamgriddb-key", "test"]))
-            .json(&json!({ "key": key }));
+            .json(&json!({}));
         let result = match request.send().await
         {
             Ok(response) if response.status().is_success() => "valid",
@@ -148,6 +160,40 @@ impl CompanionClient
             _ => "unreachable",
         };
         result.to_string()
+    }
+
+    /// Last four characters of the SteamGridDB key the companion holds, "" when it has none.
+    /// The key itself never leaves the PC.
+    pub async fn steam_grid_db_key_hint(&self) -> Result<String, String>
+    {
+        let response = self.send(self.http_client.get(self.url(&["api", "steamgriddb-key"]))).await?;
+        let key_state: KeyStateResponse = response.json().await.map_err(|error| error.to_string())?;
+        Ok(key_state.hint.unwrap_or_default())
+    }
+
+    /// Stores the SteamGridDB key in the companion (shared with its PC app); "" removes it.
+    pub async fn set_steam_grid_db_key(&self, key: &str) -> Result<(), String>
+    {
+        let url = self.url(&["api", "steamgriddb-key"]);
+        let request = if key.is_empty()
+        {
+            self.http_client.delete(url)
+        }
+        else
+        {
+            self.http_client.put(url).json(&json!({ "key": key }))
+        };
+        self.send(request).await?;
+        Ok(())
+    }
+
+    /// The companion's SteamGridDB pass-through; it adds the stored key (see `ArtSearch`).
+    pub fn steam_grid_db_proxy_url(&self) -> Url
+    {
+        let mut url = self.url(&["api", "steamgriddb"]);
+        // Trailing slash: the search appends SteamGridDB's own path segments.
+        url.path_segments_mut().expect("http URL").push("");
+        url
     }
 
     /// The entry's cover as `data:image/png;base64,…`, or None when the PC has none.
@@ -282,8 +328,8 @@ impl CompanionClient
         if error.is_connect() || error.is_timeout()
         {
             UiLanguage::pick(
-                &format!("PC-Helfer nicht erreichbar (Port {}). Läuft der Companion auf dem PC?", Self::PORT),
-                &format!("PC companion unreachable (port {}). Is it running on the PC?", Self::PORT),
+                &format!("PC-Helfer nicht erreichbar (Port {}). Läuft der Companion auf dem PC?", Self::port()),
+                &format!("PC companion unreachable (port {}). Is it running on the PC?", Self::port()),
             )
         }
         else

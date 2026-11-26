@@ -1,6 +1,5 @@
 import { Component } from "react";
-import { UiText } from "./i18n/UiText";
-import { AppSettings, AppSettingsValues } from "./model/AppSettings";
+import { UiLanguage, UiText } from "./i18n/UiText";
 import {
   ArtKind,
   ArtSearchResult,
@@ -50,7 +49,12 @@ export interface LibrarySection
 export interface PcAppState
 {
   screen: Screen;
-  settings: AppSettingsValues;
+  /** "" = system language; stored in ~/.config/albedo-companion/ui-language. */
+  language: UiLanguage | "";
+  /** Last four characters of the companion's SteamGridDB key, "" = none, null = not known (companion down). */
+  steamGridDbKeyHint: string | null;
+  /** What is typed into the key field; stored in the companion once typing pauses. */
+  steamGridDbKeyDraft: string;
   health: Health | null;
   companionDown: boolean;
   library: Library | null;
@@ -78,8 +82,13 @@ export interface PcAppState
   steamGridDbKeyCheck: string;
 }
 
+interface PcAppProps
+{
+  language: UiLanguage | "";
+}
+
 /** Root of the PC app: owns all state and every action; the views only render and call these methods. */
-export default class PcApp extends Component<object, PcAppState>
+export default class PcApp extends Component<PcAppProps, PcAppState>
 {
   private static readonly PAIRING_POLL_MILLISECONDS = 2000;
   private static readonly TOAST_MILLISECONDS = 4000;
@@ -90,13 +99,15 @@ export default class PcApp extends Component<object, PcAppState>
   private keyCheckTimer: number | undefined;
   private toastTimer: number | undefined;
 
-  public constructor(props: object)
+  public constructor(props: PcAppProps)
   {
     super(props);
     this.state =
     {
       screen: "library",
-      settings: AppSettings.load(),
+      language: props.language,
+      steamGridDbKeyHint: null,
+      steamGridDbKeyDraft: "",
       health: null,
       companionDown: false,
       library: null,
@@ -120,7 +131,7 @@ export default class PcApp extends Component<object, PcAppState>
       toast: null,
       steamGridDbKeyCheck: "",
     };
-    UiText.use(this.state.settings.language);
+    UiText.use(this.state.language);
   }
 
   public componentDidMount(): void
@@ -137,7 +148,7 @@ export default class PcApp extends Component<object, PcAppState>
 
   public render()
   {
-    UiText.use(this.state.settings.language);
+    UiText.use(this.state.language);
     return (
       <div className="win" onClick={() => this.closeGroupMenu()}>
         <Sidebar app={this} state={this.state} />
@@ -164,7 +175,7 @@ export default class PcApp extends Component<object, PcAppState>
       this.setState({ health: null, companionDown: true });
       return;
     }
-    await Promise.all([this.reloadLibrary(), this.reloadDisplayModes()]);
+    await Promise.all([this.reloadLibrary(), this.reloadDisplayModes(), this.reloadSteamGridDbKey()]);
   }
 
   public async reloadLibrary(): Promise<void>
@@ -205,7 +216,7 @@ export default class PcApp extends Component<object, PcAppState>
     this.setState({ screen, confirmUnpairUuid: null });
     if (screen === "status")
     {
-      void this.checkSteamGridDbKey();
+      void this.reloadSteamGridDbKey().then((keyHint) => this.checkSteamGridDbKey(keyHint));
     }
     if (screen === "devices")
     {
@@ -470,7 +481,7 @@ export default class PcApp extends Component<object, PcAppState>
     let result: ArtSearchResult;
     try
     {
-      result = await Companion.searchArt(dialog.query, entryIdForSearch, entry.system, dialog.kind, this.state.settings.steamGridDbKey);
+      result = await Companion.searchArt(dialog.query, entryIdForSearch, entry.system, dialog.kind);
     }
     catch (error)
     {
@@ -663,33 +674,79 @@ export default class PcApp extends Component<object, PcAppState>
     });
   }
 
-  public changeSettings(change: Partial<AppSettingsValues>): void
+  public changeLanguage(language: UiLanguage | ""): void
   {
-    const settings = { ...this.state.settings, ...change };
-    AppSettings.save(settings);
-    UiText.use(settings.language);
-    this.setState({ settings });
-    if (change.steamGridDbKey !== undefined)
+    UiText.use(language);
+    // Names, groups and errors from the companion come in the new language, so a group filter
+    // ("Nicht-Steam" → "Non-Steam") would no longer match.
+    this.setState({ language, groupFilter: FILTER_ALL });
+    Companion.saveLanguageSetting(language).catch((error) => this.showToast(String(error), true));
+    void Companion.setLanguage(UiText.language).then(() => this.reloadAll());
+  }
+
+  /** Which key the companion holds (shared with the Deck); the key itself never comes back. */
+  public async reloadSteamGridDbKey(): Promise<string | null>
+  {
+    let keyHint: string | null = null;
+    try
     {
-      // Checked once typing pauses, not on every key press.
-      window.clearTimeout(this.keyCheckTimer);
-      this.setState({ steamGridDbKeyCheck: "" });
-      this.keyCheckTimer = window.setTimeout(() => void this.checkSteamGridDbKey(), PcApp.KEY_CHECK_DELAY_MILLISECONDS);
+      keyHint = await Companion.steamGridDbKeyHint();
     }
-    if (change.language !== undefined)
+    catch
     {
-      // Names, groups and errors from the companion come in the new language, so a group filter
-      // ("Nicht-Steam" → "Non-Steam") would no longer match.
-      this.setState({ groupFilter: FILTER_ALL });
-      void Companion.setLanguage(UiText.language).then(() => this.reloadAll());
+      // Stays null: the companion is not answering.
+    }
+    this.setState({ steamGridDbKeyHint: keyHint });
+    return keyHint;
+  }
+
+  public changeSteamGridDbKeyDraft(draft: string): void
+  {
+    this.setState({ steamGridDbKeyDraft: draft, steamGridDbKeyCheck: "" });
+    // Stored and checked once typing pauses, not on every key press; an empty field keeps the stored key.
+    window.clearTimeout(this.keyCheckTimer);
+    if (draft !== "")
+    {
+      this.keyCheckTimer = window.setTimeout(() => void this.saveSteamGridDbKey(draft), PcApp.KEY_CHECK_DELAY_MILLISECONDS);
     }
   }
 
-  /** One real request through the companion; the result shows under the key field. */
-  public async checkSteamGridDbKey(): Promise<void>
+  private async saveSteamGridDbKey(key: string): Promise<void>
   {
-    const key = this.state.settings.steamGridDbKey;
-    if (key === "")
+    try
+    {
+      await Companion.setSteamGridDbKey(key);
+    }
+    catch (error)
+    {
+      this.setState({ steamGridDbKeyCheck: String(error) });
+      return;
+    }
+    await this.checkSteamGridDbKey(await this.reloadSteamGridDbKey());
+  }
+
+  public async removeSteamGridDbKey(): Promise<void>
+  {
+    window.clearTimeout(this.keyCheckTimer);
+    try
+    {
+      await Companion.setSteamGridDbKey("");
+      this.setState({ steamGridDbKeyDraft: "", steamGridDbKeyCheck: "" });
+    }
+    catch (error)
+    {
+      this.showToast(String(error), true);
+    }
+    await this.reloadSteamGridDbKey();
+  }
+
+  /**
+   * One real request through the companion with its stored key; the result shows under the key field.
+   * `checkedHint` comes from `reloadSteamGridDbKey`, since right after it `this.state` may not have it yet.
+   */
+  public async checkSteamGridDbKey(checkedHint: string | null): Promise<void>
+  {
+    if (!checkedHint)
     {
       this.setState({ steamGridDbKeyCheck: "" });
       return;
@@ -698,15 +755,15 @@ export default class PcApp extends Component<object, PcAppState>
     let result: string;
     try
     {
-      await Companion.testSteamGridDbKey(key);
+      await Companion.testSteamGridDbKey();
       result = "ok";
     }
     catch (error)
     {
       result = String(error);
     }
-    // A newer key may have been typed meanwhile; only its own check counts.
-    if (this.state.settings.steamGridDbKey === key)
+    // A newer key may have been stored meanwhile; only its own check counts.
+    if (this.state.steamGridDbKeyHint === checkedHint)
     {
       this.setState({ steamGridDbKeyCheck: result });
     }

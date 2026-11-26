@@ -84,6 +84,12 @@ impl CompanionProxy
         }
     }
 
+    /// The companion's SteamGridDB pass-through; it adds the stored key (see `ArtSearch`).
+    pub fn steam_grid_db_proxy_url(&self) -> Result<Url, String>
+    {
+        self.base_url.join("api/steamgriddb/").map_err(|error| error.to_string())
+    }
+
     /// Sets a picture like the phone does: a fresh upload link, then the image as raw body.
     pub async fn upload_art(
         &self,

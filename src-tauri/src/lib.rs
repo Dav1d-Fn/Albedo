@@ -251,19 +251,21 @@ async fn companion_reset_art(host: String, entry_id: String, kind: String) -> Re
     result
 }
 
-/// Pictures of one kind from the Steam shop, libretro and, with a key, SteamGridDB. The key is never logged.
+/// Pictures of one kind from the Steam shop, libretro and SteamGridDB (through the companion on
+/// `host`, which holds the key).
 #[tauri::command]
 async fn search_art(
     app_handle: AppHandle,
+    host: String,
     game_name: String,
     entry_id: String,
     system: Option<String>,
     kind: String,
-    steam_grid_db_key: String,
 ) -> Result<ArtSearchResult, String>
 {
+    let grid_db_proxy = CompanionClient::for_host(&host)?.steam_grid_db_proxy_url();
     let result = art_search(&app_handle)?
-        .search(&game_name, &entry_id, system.as_deref(), &kind, &steam_grid_db_key)
+        .search(&game_name, &entry_id, system.as_deref(), &kind, &grid_db_proxy)
         .await;
     println!(
         "[art] search \"{}\" {} {:?} {} -> {} found, problem {:?}",
@@ -337,13 +339,29 @@ async fn companion_set_sunshine_login(host: String, user: String, password: Stri
     result
 }
 
+/// Tests the key stored in the companion.
 #[tauri::command]
-async fn companion_test_steam_grid_db_key(host: String, key: String) -> Result<String, String>
+async fn companion_test_steam_grid_db_key(host: String) -> Result<String, String>
 {
-    let result = CompanionClient::for_host(&host)?.test_steam_grid_db_key(&key).await;
-    // The key itself is never logged.
+    let result = CompanionClient::for_host(&host)?.test_steam_grid_db_key().await;
     println!("[companion] SteamGridDB key check -> {}", result);
     Ok(result)
+}
+
+/// The last four characters of the companion's SteamGridDB key, "" when none is stored.
+#[tauri::command]
+async fn companion_steam_grid_db_key(host: String) -> Result<String, String>
+{
+    CompanionClient::for_host(&host)?.steam_grid_db_key_hint().await
+}
+
+/// Stores the key in the companion; "" removes it. The key itself is never logged.
+#[tauri::command]
+async fn companion_set_steam_grid_db_key(host: String, key: String) -> Result<(), String>
+{
+    let result = CompanionClient::for_host(&host)?.set_steam_grid_db_key(&key).await;
+    println!("[companion] SteamGridDB key {} -> {:?}", if key.is_empty() { "removed" } else { "stored" }, result);
+    result
 }
 
 #[tauri::command]
@@ -425,6 +443,8 @@ pub fn run()
             companion_remove_app,
             companion_set_sunshine_login,
             companion_test_steam_grid_db_key,
+            companion_steam_grid_db_key,
+            companion_set_steam_grid_db_key,
             companion_display_modes,
             companion_add_display_mode,
             companion_display_mode_request,

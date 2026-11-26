@@ -19,7 +19,8 @@ mouse and keyboard, so you can do at the desk what the launcher on the Deck does
 - **Devices:** pair a Moonlight device with the PIN it shows; list and unpair paired devices.
 - **Status & login:** companion running, Sunshine reachable, modes of the virtual monitor;
   Sunshine login; language (system, German, English) and SteamGridDB key (with a link to the
-  key page; the companion checks a new key with a real SteamGridDB request).
+  key page; the companion stores it for this app and the Deck and checks it with a real
+  SteamGridDB request).
 
 ## Tray, autostart and command line
 
@@ -69,12 +70,15 @@ PATH=../node_modules/.bin:$PATH CARGO_BUILD_JOBS=4 nice -n 19 tauri build
 - `src/views/` – one file per screen or part, pure rendering
 - `src/services/Companion.ts` – every call to the companion and the Rust side
 - `src/i18n/` – `UiText`, `GermanTexts`, `EnglishTexts` (every visible text in both)
-- `src/model/` – API types, settings (localStorage), placeholder tint
+- `src/model/` – API types, placeholder tint
 - `src-tauri/src/companion_proxy.rs` – HTTP client for the companion
 - `src-tauri/src/main_window.rs` – the window, built on *Open*, dropped on close
 - `src-tauri/src/tray_icon.rs` – tray icon and its menu
+- `src-tauri/src/language_setting_file.rs` – the stored UI language
 - `src-tauri/src/lib.rs` – command line, starts the companion thread, Tauri commands: `companion` (any endpoint), `upload_art` (file bytes),
-  `search_art`, `apply_art`, `set_language`,
+  `search_art`, `apply_art`, `set_language`, `load_language_setting`, `save_language_setting`,
   `open_steam_grid_db_key_page`
 
-Settings (language, SteamGridDB key) live in the webview's localStorage on this PC.
+The UI language lives in `~/.config/albedo-companion/ui-language` (the webview's localStorage is
+not kept by release builds). The SteamGridDB key is the companion's (`config.json`, mode 600),
+shared with the Deck; the picture search reaches SteamGridDB through the companion, which adds the key.

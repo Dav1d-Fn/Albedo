@@ -52,8 +52,9 @@ struct GridDbAuthor
 /// Finds pictures for a game on the internet, for the "Bild setzen" dialog:
 /// the Steam shop (no key needed; covers, title images and logos of games sold on Steam),
 /// libretro's thumbnails (no key needed; retro and emulated games)
-/// and SteamGridDB when the user stored an API key (community art, also for non-Steam games).
-/// The SteamGridDB key is only sent as Authorization header and never logged.
+/// and SteamGridDB when an API key is stored in the companion (community art, also for non-Steam
+/// games). SteamGridDB is asked through the companion (`GET /api/steamgriddb/…`), which adds the
+/// key, so the key never leaves the PC.
 pub struct ArtSearch
 {
     http_client: Client,
@@ -63,7 +64,6 @@ pub struct ArtSearch
 impl ArtSearch
 {
     const GRID_DB_SOURCE: &'static str = "SteamGridDB";
-    const GRID_DB_API: &'static str = "https://www.steamgriddb.com/api/v2/";
     /// Shop games tried per search; each costs one request to check its picture exists.
     const MAXIMUM_SHOP_GAMES: usize = 5;
     const MAXIMUM_GRID_DB_PICTURES: usize = 24;
@@ -86,13 +86,14 @@ impl ArtSearch
     /// `entry_id` is the companion's id; for "steam:<appid>" the exact game is asked first instead of
     /// only searching by name (empty when the user typed another name). `system` is the emulated
     /// system ("Nintendo 64") of an EmuDeck game, its libretro pictures then come first.
+    /// `grid_db_proxy` is the companion's SteamGridDB pass-through, "http://<pc>:47995/api/steamgriddb/".
     pub async fn search(
         &self,
         game_name: &str,
         entry_id: &str,
         system: Option<&str>,
         kind: &str,
-        grid_db_key: &str,
+        grid_db_proxy: &Url,
     ) -> ArtSearchResult
     {
         let steam_app_id = entry_id
@@ -101,15 +102,12 @@ impl ArtSearch
         let mut candidates = Vec::new();
         let mut problems = Vec::new();
 
-        if !grid_db_key.trim().is_empty()
+        match self
+            .grid_db_pictures(game_name, steam_app_id, kind, grid_db_proxy)
+            .await
         {
-            match self
-                .grid_db_pictures(game_name, steam_app_id, kind, grid_db_key.trim())
-                .await
-            {
-                Ok(grid_db_candidates) => candidates.extend(grid_db_candidates),
-                Err(problem) => problems.push(problem),
-            }
+            Ok(grid_db_candidates) => candidates.extend(grid_db_candidates),
+            Err(problem) => problems.push(problem),
         }
         if system.is_some()
         {
@@ -272,7 +270,7 @@ impl ArtSearch
         game_name: &str,
         steam_app_id: Option<u64>,
         kind: &str,
-        key: &str,
+        grid_db_proxy: &Url,
     ) -> Result<Vec<ArtCandidate>, String>
     {
         let (collection, filters) = Self::grid_db_collection(kind);
@@ -282,8 +280,12 @@ impl ArtSearch
             Some(app_id) => vec!["steam".into(), app_id.to_string()],
             None =>
             {
-                let search_url = Self::grid_db_url(&["search", "autocomplete", game_name], &[]);
-                let games: Vec<GridDbGame> = self.grid_db_get(search_url, key).await?;
+                let search_url = Self::grid_db_url(grid_db_proxy, &["search", "autocomplete", game_name], &[]);
+                let Some(games) = self.grid_db_get::<Vec<GridDbGame>>(search_url).await?
+                else
+                {
+                    return Ok(Vec::new());
+                };
                 match games.first()
                 {
                     Some(game) => vec!["game".into(), game.id.to_string()],
@@ -293,9 +295,13 @@ impl ArtSearch
         };
         let mut path_segments = vec![collection];
         path_segments.extend(game_path.iter().map(String::as_str));
-        let images: Vec<GridDbImage> = self
-            .grid_db_get(Self::grid_db_url(&path_segments, &filters), key)
-            .await?;
+        let Some(images) = self
+            .grid_db_get::<Vec<GridDbImage>>(Self::grid_db_url(grid_db_proxy, &path_segments, &filters))
+            .await?
+        else
+        {
+            return Ok(Vec::new());
+        };
 
         Ok(images
             .into_iter()
@@ -328,9 +334,9 @@ impl ArtSearch
     }
 
     /// Path segments are percent-encoded, so a game name with "/" or "?" stays one segment.
-    pub fn grid_db_url(path_segments: &[&str], query: &[(&str, &str)]) -> Url
+    pub fn grid_db_url(grid_db_proxy: &Url, path_segments: &[&str], query: &[(&str, &str)]) -> Url
     {
-        let mut url = Url::parse(Self::GRID_DB_API).expect("fixed URL");
+        let mut url = grid_db_proxy.clone();
         if let Ok(mut segments) = url.path_segments_mut()
         {
             segments.pop_if_empty();
@@ -343,21 +349,19 @@ impl ArtSearch
         url
     }
 
-    async fn grid_db_get<T: for<'de> Deserialize<'de>>(
-        &self,
-        url: Url,
-        key: &str,
-    ) -> Result<T, String>
+    /// None when the companion has no key stored: SteamGridDB is then simply left out.
+    async fn grid_db_get<T: for<'de> Deserialize<'de>>(&self, url: Url) -> Result<Option<T>, String>
     {
         let response = self
             .http_client
             .get(url)
-            .bearer_auth(key)
+            .header("Accept-Language", UiLanguage::code())
             .send()
             .await
-            .map_err(|_| UiLanguage::pick("SteamGridDB nicht erreichbar", "SteamGridDB unreachable"))?;
+            .map_err(|_| UiLanguage::pick("PC-Helfer für SteamGridDB nicht erreichbar", "PC companion for SteamGridDB unreachable"))?;
         match response.status()
         {
+            StatusCode::CONFLICT => return Ok(None),
             StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN =>
             {
                 return Err(UiLanguage::pick("SteamGridDB-Schlüssel ungültig", "SteamGridDB key invalid"));
@@ -366,31 +370,42 @@ impl ArtSearch
             StatusCode::NOT_FOUND => return Err(UiLanguage::pick("SteamGridDB kennt das Spiel nicht", "SteamGridDB doesn't know this game")),
             status if !status.is_success() =>
             {
-                return Err(format!("{} {}", UiLanguage::pick("SteamGridDB antwortet mit", "SteamGridDB answered with"), status));
+                // The companion explains its own errors ("SteamGridDB unreachable") as {"error": …}.
+                let fallback = format!("{} {}", UiLanguage::pick("SteamGridDB antwortet mit", "SteamGridDB answered with"), status);
+                let answer: serde_json::Value = response.json().await.unwrap_or_default();
+                return Err(answer["error"].as_str().map(str::to_string).unwrap_or(fallback));
             }
             _ =>
             {}
         }
         let answer: GridDbResponse<T> = response.json().await.map_err(|error| error.to_string())?;
-        Ok(answer.data)
+        Ok(Some(answer.data))
     }
 }
 
 #[cfg(test)]
 mod tests
 {
+    use reqwest::Url;
+
     use super::ArtSearch;
+
+    fn proxy() -> Url
+    {
+        Url::parse("http://127.0.0.1:47995/api/steamgriddb/").unwrap()
+    }
 
     #[test]
     fn grid_db_url_keeps_game_name_in_one_segment()
     {
         let url = ArtSearch::grid_db_url(
+            &proxy(),
             &["search", "autocomplete", "Ratchet & Clank: Rift/Apart?"],
             &[],
         );
         assert_eq!(
             url.as_str(),
-            "https://www.steamgriddb.com/api/v2/search/autocomplete/Ratchet%20&%20Clank:%20Rift%2FApart%3F"
+            "http://127.0.0.1:47995/api/steamgriddb/search/autocomplete/Ratchet%20&%20Clank:%20Rift%2FApart%3F"
         );
     }
 
@@ -398,10 +413,10 @@ mod tests
     fn grid_db_url_for_covers_asks_only_upright_still_pictures()
     {
         let (collection, filters) = ArtSearch::grid_db_collection("cover");
-        let url = ArtSearch::grid_db_url(&[collection, "steam", "1245620"], &filters);
+        let url = ArtSearch::grid_db_url(&proxy(), &[collection, "steam", "1245620"], &filters);
         assert_eq!(
             url.as_str(),
-            "https://www.steamgriddb.com/api/v2/grids/steam/1245620?dimensions=600x900%2C342x482%2C660x930&types=static"
+            "http://127.0.0.1:47995/api/steamgriddb/grids/steam/1245620?dimensions=600x900%2C342x482%2C660x930&types=static"
         );
     }
 
@@ -413,7 +428,7 @@ mod tests
         let result = tauri::async_runtime::block_on(async {
             ArtSearch::new(std::env::temp_dir().join("albedo-art-test"))
                 .unwrap()
-                .search("Dead Island 2", "heroic:Crow", None, "cover", "")
+                .search("Dead Island 2", "heroic:Crow", None, "cover", &proxy())
                 .await
         });
         println!("{:?}", result);
@@ -423,7 +438,7 @@ mod tests
                 .iter()
                 .any(|candidate| candidate.image_url.contains("/934700/"))
         );
-        assert!(result.problem.is_none());
+        // Without a companion on this PC the SteamGridDB part reports a problem; the shop still answers.
     }
 
     /// Needs internet: `cargo test -- --ignored finds_libretro_pictures`.
@@ -434,7 +449,7 @@ mod tests
         let result = tauri::async_runtime::block_on(async {
             ArtSearch::new(std::env::temp_dir().join("albedo-art-test"))
                 .unwrap()
-                .search("Zelda Ocarina of Time", "", Some("Nintendo 64"), "cover", "")
+                .search("Zelda Ocarina of Time", "", Some("Nintendo 64"), "cover", &proxy())
                 .await
         });
         println!("{:?}", result);

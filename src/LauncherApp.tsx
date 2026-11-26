@@ -93,6 +93,8 @@ export interface LauncherState
   /** SteamGridDB key being typed on the connection screen; saved on A. */
   steamGridDbKeyDraft: string;
   steamGridDbKeyCheck: SteamGridDbKeyCheck;
+  /** Last four characters of the PC helper's SteamGridDB key, "" = none, null = helper not reached. */
+  steamGridDbKeyHint: string | null;
   pairState: "idle" | "pairing" | "paired" | "error";
   pairPin: string;
   pairMessage: string;
@@ -226,6 +228,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       extraAddressDraft: "",
       steamGridDbKeyDraft: "",
       steamGridDbKeyCheck: "unchecked",
+      steamGridDbKeyHint: null,
       pairState: "idle",
       pairPin: "",
       pairMessage: "",
@@ -515,6 +518,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     try
     {
       const host = await this.resolveHost(settings);
+      // Also when the game list fails (e.g. no Sunshine login yet): the companion may still answer.
+      this.refreshSteamGridDbKey(host);
       const games = await this.backend.fetchGames(settings, host);
       this.setState((state) => ({
         games,
@@ -1232,7 +1237,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     const stillWanted = () => this.state.imageDialog?.kind === kind && this.state.imageDialog.query === searchName;
     try
     {
-      const result = await this.backend.searchArt(searchName, searchesOwnName ? entryId : "", this.companionArt.system(gameName), kind, this.settings.steamGridDbKey);
+      const result = await this.backend.searchArt(this.connectedHost(), searchName, searchesOwnName ? entryId : "", this.companionArt.system(gameName), kind);
       if (stillWanted())
       {
         this.changeImageDialog({ candidates: result.candidates, searching: false, searchProblem: result.problem ?? "" });
@@ -2864,6 +2869,10 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   {
     this.setState({ screen: "connection", connectionZone: "hosts", connectionHostIndex: 0, pairState: "idle", pairMessage: "" });
     this.searchHosts();
+    if (this.settings.host !== "")
+    {
+      this.refreshSteamGridDbKey();
+    }
   }
 
   public async searchHosts(): Promise<void>
@@ -2945,44 +2954,99 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     document.getElementById("steamgriddb-key")?.focus();
   }
 
-  /** Stores the typed SteamGridDB key; an empty field keeps the stored one (X removes it). */
-  public saveSteamGridDbKey(typedKey: string): void
+  /**
+   * Which SteamGridDB key the PC helper holds. The key lives there, shared with the PC app; a key
+   * still in this Deck's settings.json (from before) is handed over once when the helper has none,
+   * then dropped here. Without the helper it stays until the next try, so it is never lost.
+   */
+  private async refreshSteamGridDbKey(host: string = this.connectedHost()): Promise<string | null>
+  {
+    let keyHint: string;
+    try
+    {
+      keyHint = await this.backend.companionSteamGridDbKey(host);
+      const oldKey = this.settings.steamGridDbKey ?? "";
+      if (oldKey !== "")
+      {
+        if (keyHint === "")
+        {
+          await this.backend.companionSetSteamGridDbKey(host, oldKey);
+          keyHint = await this.backend.companionSteamGridDbKey(host);
+        }
+        this.updateSettings(({ steamGridDbKey: _movedToCompanion, ...settings }) => settings);
+      }
+    }
+    catch (keyError)
+    {
+      console.warn("SteamGridDB key on the PC", keyError);
+      this.setState({ steamGridDbKeyHint: null });
+      return null;
+    }
+    this.setState({ steamGridDbKeyHint: keyHint });
+    return keyHint;
+  }
+
+  /** Stores the typed SteamGridDB key in the PC helper; an empty field keeps the stored one (X removes it). */
+  public async saveSteamGridDbKey(typedKey: string): Promise<void>
   {
     const steamGridDbKey = typedKey.trim();
-    this.setState({ steamGridDbKeyDraft: "" });
     if (steamGridDbKey === "")
     {
       return;
     }
-    this.updateSettings((settings) => ({ ...settings, steamGridDbKey }));
-    this.checkSteamGridDbKey(steamGridDbKey);
+    const host = this.connectedHost();
+    try
+    {
+      await this.backend.companionSetSteamGridDbKey(host, steamGridDbKey);
+    }
+    catch (saveError)
+    {
+      // The typed key stays in the field, so it can be stored once the helper answers.
+      this.showError(UiText.current.connection.keyNeedsCompanion, String(saveError));
+      return;
+    }
+    this.setState({ steamGridDbKeyDraft: "" });
+    this.checkSteamGridDbKey(await this.refreshSteamGridDbKey(host));
     this.showToast({ kind: "ok", eyebrow: "SteamGridDB", name: UiText.current.toasts.keySaved, spec: "", sub: UiText.current.toasts.keySavedText });
   }
 
-  /** The PC helper tries the key with one real SteamGridDB request; the key row shows the result. */
-  private async checkSteamGridDbKey(steamGridDbKey: string): Promise<void>
+  /**
+   * The PC helper tries its key with one real SteamGridDB request; the key row shows the result.
+   * `checkedHint` comes from `refreshSteamGridDbKey`, since right after it `this.state` may not have it yet.
+   */
+  private async checkSteamGridDbKey(checkedHint: string | null): Promise<void>
   {
     this.setState({ steamGridDbKeyCheck: "checking" });
     let keyCheck: SteamGridDbKeyCheck = "unreachable";
     try
     {
-      keyCheck = await this.backend.companionTestSteamGridDbKey(this.connectedHost(), steamGridDbKey);
+      keyCheck = await this.backend.companionTestSteamGridDbKey(this.connectedHost());
     }
     catch (checkError)
     {
       console.warn("SteamGridDB key check", checkError);
     }
     // Only the answer for the key still stored counts.
-    if (this.settings.steamGridDbKey === steamGridDbKey)
+    if (this.state.steamGridDbKeyHint === checkedHint)
     {
       this.setState({ steamGridDbKeyCheck: keyCheck });
     }
   }
 
-  public removeSteamGridDbKey(): void
+  public async removeSteamGridDbKey(): Promise<void>
   {
-    this.updateSettings((settings) => ({ ...settings, steamGridDbKey: "" }));
+    const host = this.connectedHost();
+    try
+    {
+      await this.backend.companionSetSteamGridDbKey(host, "");
+    }
+    catch (removeError)
+    {
+      this.showError(UiText.current.connection.keyNeedsCompanion, String(removeError));
+      return;
+    }
     this.setState({ steamGridDbKeyCheck: "unchecked" });
+    await this.refreshSteamGridDbKey(host);
   }
 
   public focusExtraAddress(): void
