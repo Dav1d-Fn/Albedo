@@ -160,8 +160,9 @@ impl StreamSession
         Some(vec!["sleep".into(), seconds.into()])
     }
 
-    /// Moonlight logs its stream statistics to stderr when the video decoder closes:
-    /// "Global video stats", a dashed line, then one "Label: value" line each, until the next log line.
+    /// Moonlight logs its stream statistics to stderr when the video decoder closes, in three log calls:
+    /// "Global video stats", a dashed line, then the "Label: value" lines as one multi-line message,
+    /// so only the first stat line carries the "00:05:00 - SDL Info (0): " prefix.
     /// Returns the stat lines of the last such block.
     fn video_stats_summary(log_text: &str) -> Vec<String>
     {
@@ -171,21 +172,41 @@ impl StreamSession
             return Vec::new();
         };
 
-        let mut stat_lines = Vec::new();
-        for line in log_text[title_position..].lines().skip(1)
+        let mut stat_lines: Vec<String> = Vec::new();
+        for raw_line in log_text[title_position..].lines().skip(1)
         {
-            let line = line.trim();
+            let raw_line = raw_line.trim();
+            let is_log_line = Self::is_log_line_start(raw_line);
+            // A new log call after the stats have begun is the next message, not part of the block.
+            if is_log_line && !stat_lines.is_empty()
+            {
+                break;
+            }
+            let line = if is_log_line
+            {
+                Self::log_message(raw_line)
+            }
+            else
+            {
+                raw_line
+            };
             if line.starts_with("---")
             {
                 continue;
             }
-            if line.is_empty() || Self::is_log_line_start(line)
+            if line.is_empty()
             {
                 break;
             }
             stat_lines.push(line.to_string());
         }
         stat_lines
+    }
+
+    /// The message part of a log line: everything after "SDL Info (0): ".
+    fn log_message(line: &str) -> &str
+    {
+        line.split_once("): ").map(|(_, message)| message.trim()).unwrap_or(line)
     }
 
     /// Moonlight's log lines start with a timestamp, e.g. "00:01:23 - SDL Info (0): …".
@@ -214,11 +235,11 @@ mod tests
     #[test]
     fn reads_the_last_video_stats_block_from_the_log()
     {
+        // As Moonlight 6.2 writes it: title, dashes and first stat line each with a log prefix.
         let log_text = "00:00:01 - SDL Info (0): Connecting\n\
-                        00:05:00 - SDL Info (0): \n\
-                        Global video stats\n\
-                        ------------------\n\
-                        Video stream: 1280x800 90.00 FPS (Codec: HEVC Main)\n\
+                        00:05:00 - SDL Info (0): Global video stats\n\
+                        00:05:00 - SDL Info (0): ------------------\n\
+                        00:05:00 - SDL Info (0): Video stream: 1280x800 90.00 FPS (Codec: HEVC Main)\n\
                         Frames dropped by your network connection: 0.12%\n\
                         Average decoding time: 2.10 ms\n\
                         \n\
