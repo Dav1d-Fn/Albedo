@@ -83,7 +83,7 @@ impl SteamSource
             id: format!("steam:{}", app_id),
             name,
             group: "Steam".into(),
-            cover: self.find_library_image(&app_id, "library_600x900.jpg"),
+            cover: self.find_cover(&app_id),
             hero: self.find_library_image(&app_id, "library_hero.jpg"),
             logo: self.find_library_image(&app_id, "logo.png"),
             screenshots: self.find_screenshots(&app_id),
@@ -94,6 +94,17 @@ impl SteamSource
             follows_client_resolution: true,
             system: None,
         })
+    }
+
+    /// The portrait cover. Newer Steam clients keep only `library_capsule.jpg` for some games
+    /// (300×450, the same shape, smaller) instead of `library_600x900.jpg`.
+    fn find_cover(&self, app_id: &str) -> CoverSource
+    {
+        match self.find_library_image(app_id, "library_600x900.jpg")
+        {
+            CoverSource::None => self.find_library_image(app_id, "library_capsule.jpg"),
+            cover => cover,
+        }
     }
 
     /// Steam's library images sit either directly in the app's cache folder or one hash folder deeper.
@@ -166,5 +177,47 @@ impl SteamSource
         {
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests
+{
+    use super::*;
+
+    fn steam_root_with(app_id: &str, files: &[&str]) -> PathBuf
+    {
+        let steam_root = std::env::temp_dir().join(format!("albedo-steam-test-{}-{}", std::process::id(), app_id));
+        let _ = fs::remove_dir_all(&steam_root);
+        for file in files
+        {
+            let path = steam_root.join("appcache/librarycache").join(app_id).join(file);
+            fs::create_dir_all(path.parent().expect("parent")).expect("folder");
+            fs::write(&path, b"jpg").expect("file");
+        }
+        steam_root
+    }
+
+    /// Like Assassin's Creed Black Flag Resynced (3751950): only a capsule in a hash folder.
+    #[test]
+    fn takes_the_capsule_when_there_is_no_600x900()
+    {
+        let steam_root = steam_root_with("3751950", &["36a1644b/library_capsule.jpg", "9b046115/library_header.jpg"]);
+        let source = SteamSource { steam_root: steam_root.clone() };
+
+        let CoverSource::File(cover) = source.find_cover("3751950") else { panic!("no cover") };
+        assert!(cover.ends_with("36a1644b/library_capsule.jpg"));
+        let _ = fs::remove_dir_all(steam_root);
+    }
+
+    #[test]
+    fn prefers_the_600x900_cover()
+    {
+        let steam_root = steam_root_with("582160", &["a/library_capsule.jpg", "b/library_600x900.jpg"]);
+        let source = SteamSource { steam_root: steam_root.clone() };
+
+        let CoverSource::File(cover) = source.find_cover("582160") else { panic!("no cover") };
+        assert!(cover.ends_with("b/library_600x900.jpg"));
+        let _ = fs::remove_dir_all(steam_root);
     }
 }
