@@ -60,7 +60,8 @@ on the PC (Linux) – open a terminal and run:
 curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/Albedo/main/pc-setup/install.sh | bash
 ```
 
-It starts with your desktop and waits in the tray; running the command again updates it,
+It starts with your desktop and waits in the tray and updates itself (see
+[Self-Update](#-self-update)); running the command again also updates it,
 `| bash -s -- --uninstall` removes it. Sunshine login, the optional virtual monitor and
 troubleshooting are in [PC setup](#pc-setup-) below.
 
@@ -203,7 +204,19 @@ road.
 
 ### 🔄 Self-Update
 
-Releases are signed. The AppImage checks GitHub on start and updates itself after you confirm.
+Releases are signed, and both apps only install releases signed with the project's key.
+
+- **Albedo on the Deck** checks GitHub on start (`latest.json`) and updates itself after you
+  confirm with **A**.
+- **Albedo Companion on the PC** checks at start and every 6 hours (its own
+  `latest-companion.json`). An update shows in the tray menu (*Update verfügbar*) and in the
+  window's sidebar; on the Deck a hint appears on the home screen, and **Connection → PC
+  companion** shows its version with **Aktualisieren / Update**. Installing replaces the AppImage
+  at its path (`~/Applications/Albedo-Companion-x86_64.AppImage`, which the Sunshine undo steps
+  call) and restarts it in the tray. While Sunshine runs a game, the install waits until it is
+  closed. Nothing installs on its own: you click it in one of those places.
+- Deck and companion compare an API version; when they don't fit, the Deck says which one to
+  update.
 
 ---
 
@@ -399,7 +412,7 @@ Albedo is made for your **home network**. Nothing of it belongs on the open inte
 | **Picture upload links** | Random, valid for a few minutes and usable once. |
 | **Sunshine login in the companion** | Stored in the companion's config on the PC (readable only by your user), never sent back to any client. |
 | **SteamGridDB key** | Stored in the same config, never sent back to any client (they only see its last four characters). The picture search asks SteamGridDB through the companion, which adds the key. |
-| **Updates** | Signed; the app only installs releases signed with the project's key. |
+| **Updates** | Signed; both apps only install releases signed with the project's key. The Deck can ask the companion to update (`POST /api/update`), but only to the signed release from GitHub, never to anything the request names. |
 
 **What someone on your Wi-Fi could do:** because the companion has no login, any device in your
 home network could add or remove Sunshine apps, delete pictures you set, quit a running game or
@@ -467,14 +480,17 @@ Code style and project layout are described in [`CLAUDE.md`](CLAUDE.md). Formatt
 
 ### Releases
 
-Bump the version in `src-tauri/tauri.conf.json`, then push a tag:
+Bump the version in `src-tauri/tauri.conf.json` (and in `pc-app/src-tauri/tauri.conf.json` +
+`pc-app/src-tauri/Cargo.toml` when the companion changed: its updater only offers a higher
+version), then push a tag:
 
 ```bash
 git tag v0.2.0 && git push origin v0.2.0
 ```
 
 GitHub Actions builds the AppImage on Ubuntu 22.04 (its glibc matches SteamOS), signs it and
-publishes the release with `latest.json` for the updater. The signing key is only in the repository
+publishes the release with `latest.json` for the Deck's updater, and the companion AppImage
+with its `.sig` and `latest-companion.json` for the companion's updater. The signing key is only in the repository
 secrets `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` – without it, installed
 copies no longer accept updates.
 

@@ -78,17 +78,44 @@ jobs:
 
       - name: Build AppImage
         working-directory: pc-app
+        env:
+          # Same key as the Deck app; createUpdaterArtifacts writes the .sig next to the AppImage.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         # PATH also for tsc and vite in the beforeBuildCommand
         run: |
-          PATH="$PWD/../node_modules/.bin:$PATH" tauri build --bundles appimage
+          PATH="$PWD/../node_modules/.bin:$PATH" tauri build --bundles appimage --config '{"bundle":{"createUpdaterArtifacts":true}}'
           cp src-tauri/target/release/bundle/appimage/*.AppImage ../Albedo-Companion-x86_64.AppImage
+          cp src-tauri/target/release/bundle/appimage/*.AppImage.sig ../Albedo-Companion-x86_64.AppImage.sig
+
+      # The companion's own updater file (pc-app/src-tauri/tauri.conf.json "updater" endpoint), apart
+      # from the Deck's latest.json. Its version is the companion's, so a release that leaves the
+      # companion's version as it was offers it no update.
+      - name: latest-companion.json
+        run: |
+          tag="v$(jq -r .version src-tauri/tauri.conf.json)"
+          url="https://github.com/${{ github.repository }}/releases/download/$tag/Albedo-Companion-x86_64.AppImage"
+          jq -n \
+            --arg version "$(jq -r .version pc-app/src-tauri/tauri.conf.json)" \
+            --arg notes "Albedo $tag" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg signature "$(cat Albedo-Companion-x86_64.AppImage.sig)" \
+            --arg url "$url" \
+            '{version: $version, notes: $notes, pub_date: $date, platforms: {
+               "linux-x86_64": {signature: $signature, url: $url},
+               "linux-x86_64-appimage": {signature: $signature, url: $url}}}' \
+            > latest-companion.json
+          cat latest-companion.json
 
       - uses: actions/upload-artifact@v4
         with:
           name: pc-app
-          path: Albedo-Companion-x86_64.AppImage
+          path: |
+            Albedo-Companion-x86_64.AppImage
+            Albedo-Companion-x86_64.AppImage.sig
+            latest-companion.json
 
-  # Adds the PC AppImage and SHA256SUMS to the release the appimage job created. Runs after it,
+  # Adds the PC AppImage (+ .sig and latest-companion.json for its updater) and SHA256SUMS to the release the appimage job created. Runs after it,
   # so the Deck AppImage and latest.json stay exactly as tauri-action made them.
   pc-assets:
     needs: [appimage, pc-app]
@@ -111,4 +138,4 @@ jobs:
           cd assets
           sha256sum -- *.AppImage > SHA256SUMS
           cat SHA256SUMS
-          gh release upload "$tag" --clobber Albedo-Companion-x86_64.AppImage SHA256SUMS
+          gh release upload "$tag" --clobber Albedo-Companion-x86_64.AppImage Albedo-Companion-x86_64.AppImage.sig latest-companion.json SHA256SUMS

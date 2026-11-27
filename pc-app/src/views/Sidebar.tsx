@@ -1,7 +1,26 @@
 import { UiText } from "../i18n/UiText";
 import PcApp, { PcAppState, Screen } from "../PcApp";
 import { Icon } from "./Icon";
+import { UpdateStatus } from "../model/CompanionTypes";
 import appIcon from "../../src-tauri/icons/128x128.png";
+
+function updateText(update: UpdateStatus): string
+{
+  const texts = UiText.current;
+  if (update.state === "downloading" && update.progress !== null && update.progress.total)
+  {
+    return texts.update.downloading(Math.round((update.progress.downloaded / update.progress.total) * 100));
+  }
+  if (update.state === "failed")
+  {
+    return texts.update.failed(update.message);
+  }
+  if (update.state === "available" || update.state === "downloading")
+  {
+    return texts.update.available(update.available?.version ?? "");
+  }
+  return texts.update.states[update.state];
+}
 
 /** Left column: name, the three screens, and the short status of companion, Sunshine and monitor. */
 export function Sidebar({ app, state }: { app: PcApp; state: PcAppState })
@@ -45,6 +64,18 @@ export function Sidebar({ app, state }: { app: PcApp; state: PcAppState })
               ? `${state.displayModes.output} · ${state.displayModes.modes.length} ${texts.sidebar.modes}`
               : texts.sidebar.noModes}
           </div>
+        )}
+        {state.update !== null && state.update.state !== "idle" && state.update.state !== "unsupported" && (
+          <div className="srow">
+            <span className={"dot " + (state.update.state === "failed" ? "bad" : "pulse")} />
+            <span className="supdate">{updateText(state.update)}</span>
+            {state.update.available !== null && (state.update.state === "available" || state.update.state === "failed") && (
+              <button type="button" className="btn moon sbtn" onClick={() => void app.installUpdate()}>{texts.update.install}</button>
+            )}
+          </div>
+        )}
+        {state.update !== null && (
+          <div className="srow sversion">{texts.update.version(state.update.version)}</div>
         )}
       </div>
     </nav>

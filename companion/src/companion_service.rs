@@ -1,6 +1,9 @@
+use std::sync::Arc;
+
 use crate::api_server::ApiServer;
 use crate::companion_config::{home_directory, CompanionConfig};
 use crate::legacy_directory_mover::LegacyDirectoryMover;
+use crate::self_update::SelfUpdate;
 use crate::sunshine_client::SunshineClient;
 
 /// The whole companion for its host program (Albedo Companion): takes over old folders, loads the
@@ -8,6 +11,7 @@ use crate::sunshine_client::SunshineClient;
 pub struct CompanionService
 {
     config: CompanionConfig,
+    self_update: Option<Arc<dyn SelfUpdate>>,
 }
 
 impl CompanionService
@@ -16,7 +20,14 @@ impl CompanionService
     {
         Self::move_legacy_directories();
         let config = CompanionConfig::load_or_create()?;
-        Ok(CompanionService { config })
+        Ok(CompanionService { config, self_update: None })
+    }
+
+    /// The host program's updater, offered as `GET/POST /api/update`.
+    pub fn with_self_update(mut self, self_update: Arc<dyn SelfUpdate>) -> CompanionService
+    {
+        self.self_update = Some(self_update);
+        self
     }
 
     /// Port of the API from config.json (47995 unless changed there).
@@ -35,7 +46,7 @@ impl CompanionService
             let sunshine = SunshineClient::new(self.config.clone());
             std::thread::spawn(move || ApiServer::migrate_apps(&sunshine));
         }
-        ApiServer::new(self.config).run()
+        ApiServer::new(self.config, self.self_update).run()
     }
 
     /// Config (Sunshine login, picture overrides, groups) and cache of the companion from before

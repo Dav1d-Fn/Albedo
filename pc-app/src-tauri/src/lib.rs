@@ -1,4 +1,5 @@
 mod companion_proxy;
+mod companion_updater;
 mod language_setting_file;
 mod main_window;
 mod tray_icon;
@@ -17,6 +18,8 @@ mod libretro_thumbnails;
 #[path = "../../../src-tauri/src/ui_language.rs"]
 mod ui_language;
 
+use std::sync::Arc;
+
 use percent_encoding::percent_decode_str;
 use serde_json::Value;
 use tauri::ipc::{InvokeBody, Request};
@@ -26,6 +29,7 @@ use albedo_companion_core::{CompanionService, ProcessQuitter, StreamDisplaySwitc
 use art_search::ArtSearch;
 use art_search_result::ArtSearchResult;
 use companion_proxy::CompanionProxy;
+use companion_updater::CompanionUpdater;
 use host_environment::HostEnvironment;
 use language_setting_file::LanguageSettingFile;
 use main_window::MainWindow;
@@ -169,6 +173,7 @@ fn art_search(app_handle: &AppHandle) -> Result<ArtSearch, String>
 ///   albedo-companion --hidden           the same, starting in the tray (login autostart)
 ///   albedo-companion --headless         only the companion API, no window or tray (PCs without a desktop)
 ///   albedo-companion --exit             ends the running instance (the installer uses it to update)
+///                                       (the app also updates itself: companion_updater.rs)
 ///   albedo-companion quit "<pattern>"   undo step of a Sunshine app: ends the game's processes
 ///   albedo-companion display [--restore] [--dry-run]
 ///                                       prep/undo step of a Sunshine app (via sunshine-match-client):
@@ -210,6 +215,7 @@ pub fn run()
                 MainWindow::show(app_handle);
             }
         }))
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             set_language,
             load_language_setting,
@@ -227,8 +233,10 @@ pub fn run()
                 app.handle().exit(0);
                 return Ok(());
             }
-            start_companion();
             TrayIcon::create(app.handle())?;
+            let updater = CompanionUpdater::start(app.handle().clone());
+            app.manage(updater.clone());
+            start_companion(updater);
             if !start_hidden
             {
                 MainWindow::show(app.handle());
@@ -249,11 +257,11 @@ pub fn run()
 
 /// The companion API on its own thread, for the Deck and this app's UI. A failure (port taken,
 /// config not writable) is logged; the UI then reports the companion as not answering.
-fn start_companion()
+fn start_companion(updater: Arc<CompanionUpdater>)
 {
     let service = match CompanionService::load()
     {
-        Ok(service) => service,
+        Ok(service) => service.with_self_update(updater),
         Err(message) =>
         {
             eprintln!("[companion] {}", message);

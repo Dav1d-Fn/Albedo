@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { DefaultSettings } from "../model/DefaultSettings";
 import { ModeText } from "../model/ModeText";
-import { UiLanguage, ArtKind, ArtSearchResult, CompanionLibrary, UploadToken, DeviceProfile, DiscoveredHost, PadButton, DisplayTarget, PcDisplays, PcModeRequest, RunningHostApp, Settings, StreamMode, SteamGridDbKeyCheck } from "../model/Types";
+import { UiLanguage, ArtKind, ArtSearchResult, CompanionLibrary, UploadToken, DeviceProfile, DiscoveredHost, PadButton, DisplayTarget, PcDisplays, PcModeRequest, CompanionUpdateStatus, RunningHostApp, Settings, StreamMode, SteamGridDbKeyCheck } from "../model/Types";
 
 export interface StreamEnded
 {
@@ -202,6 +202,18 @@ export class Backend
   public applyArt(host: string, entryId: string, kind: ArtKind, imageUrl: string): Promise<void>
   {
     return invoke<void>("apply_art", { host, entryId, kind, imageUrl });
+  }
+
+  /** Version and self-update state of the companion; rejects when it doesn't answer. */
+  public companionUpdateStatus(host: string): Promise<CompanionUpdateStatus>
+  {
+    return invoke<CompanionUpdateStatus>("companion_update_status", { host });
+  }
+
+  /** The companion installs its signed release and restarts; poll `companionUpdateStatus`. */
+  public companionInstallUpdate(host: string): Promise<CompanionUpdateStatus>
+  {
+    return invoke<CompanionUpdateStatus>("companion_install_update", { host });
   }
 
   /** Goes up whenever a picture was set or reset on the PC. */

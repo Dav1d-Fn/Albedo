@@ -32,6 +32,14 @@ mouse and keyboard, so you can do at the desk what the launcher on the Deck does
 | `… --exit` | Ends the running instance (the installer uses it before an update) |
 | `… quit "<pattern>"` | Undo step of a Sunshine app: ends the game's processes ([API.md](../companion/API.md)) |
 
+Self-update: at start and every 6 hours the app looks for `latest-companion.json` on the latest
+GitHub release (`plugins.updater` in `tauri.conf.json`, same signing key as the Deck app). An
+update adds *Update verfügbar (x.y.z) – installieren* to the tray menu and a line to the
+sidebar; the Deck can start it too (`POST /api/update`). It waits while Sunshine runs a game,
+replaces the AppImage at `$APPIMAGE` and starts it again with `--hidden`
+(`src-tauri/src/companion_updater.rs`). Only in the installed AppImage; `tauri dev` and
+`--headless` report `unsupported`.
+
 Single instance: a second start only shows the window of the running one. Closing the window
 drops it with its webview, the app stays in the tray with the companion running; *Open* in the
 tray menu builds the window again, *Quit* ends everything.

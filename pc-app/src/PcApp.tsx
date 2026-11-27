@@ -5,6 +5,7 @@ import {
   ArtSearchResult,
   DisplayModes,
   Health,
+  UpdateStatus,
   Library,
   LibraryEntry,
   PairedClient,
@@ -56,6 +57,8 @@ export interface PcAppState
   /** What is typed into the key field; stored in the companion once typing pauses. */
   steamGridDbKeyDraft: string;
   health: Health | null;
+  /** Self-update state; null until the companion answered. */
+  update: UpdateStatus | null;
   companionDown: boolean;
   library: Library | null;
   displayModes: DisplayModes | null;
@@ -98,6 +101,7 @@ export default class PcApp extends Component<PcAppProps, PcAppState>
   private pairingPollTimer: number | undefined;
   private keyCheckTimer: number | undefined;
   private toastTimer: number | undefined;
+  private updatePollTimer: number | undefined;
 
   public constructor(props: PcAppProps)
   {
@@ -109,6 +113,7 @@ export default class PcApp extends Component<PcAppProps, PcAppState>
       steamGridDbKeyHint: null,
       steamGridDbKeyDraft: "",
       health: null,
+      update: null,
       companionDown: false,
       library: null,
       displayModes: null,
@@ -144,6 +149,7 @@ export default class PcApp extends Component<PcAppProps, PcAppState>
     window.clearInterval(this.pairingPollTimer);
     window.clearTimeout(this.toastTimer);
     window.clearTimeout(this.keyCheckTimer);
+    window.clearTimeout(this.updatePollTimer);
   }
 
   public render()
@@ -175,7 +181,41 @@ export default class PcApp extends Component<PcAppProps, PcAppState>
       this.setState({ health: null, companionDown: true });
       return;
     }
-    await Promise.all([this.reloadLibrary(), this.reloadDisplayModes(), this.reloadSteamGridDbKey()]);
+    await Promise.all([this.reloadLibrary(), this.reloadDisplayModes(), this.reloadSteamGridDbKey(), this.reloadUpdate()]);
+  }
+
+  // ------------------------------------------------------------ self-update
+
+  /** Reads the update state; while an install runs it asks again every second (the window closes with the restart). */
+  public async reloadUpdate(): Promise<void>
+  {
+    window.clearTimeout(this.updatePollTimer);
+    try
+    {
+      const update = await Companion.updateStatus();
+      this.setState({ update });
+      if (update.state === "downloading" || update.state === "installing" || update.state === "postponed")
+      {
+        this.updatePollTimer = window.setTimeout(() => void this.reloadUpdate(), 1000);
+      }
+    }
+    catch
+    {
+      this.setState({ update: null });
+    }
+  }
+
+  public async installUpdate(): Promise<void>
+  {
+    try
+    {
+      this.setState({ update: await Companion.installUpdate() });
+      this.updatePollTimer = window.setTimeout(() => void this.reloadUpdate(), 1000);
+    }
+    catch (error)
+    {
+      this.showError(error);
+    }
   }
 
   public async reloadLibrary(): Promise<void>

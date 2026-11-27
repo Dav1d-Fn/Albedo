@@ -22,6 +22,21 @@ export const englishTexts: TextTable =
     noModes: "Monitor unknown",
   },
 
+  update:
+  {
+    available: (version: string) => "Update " + version + " available",
+    install: "Install",
+    downloading: (percent: number) => "Downloading update … " + percent + " %",
+    failed: (message: string) => "Update failed: " + message,
+    version: (version: string) => "Albedo Companion " + version,
+    states:
+    {
+      postponed: "Update waits until no game runs",
+      installing: "Installing update …",
+      restarting: "Restarting …",
+    },
+  },
+
   common:
   {
     cancel: "Cancel",

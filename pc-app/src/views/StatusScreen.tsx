@@ -22,7 +22,7 @@ export function StatusScreen({ app, state }: { app: PcApp; state: PcAppState })
         <div className={"tile" + (state.companionDown ? " bad" : "")}>
           <div className="tk"><span className={"dot " + (state.companionDown ? "bad" : "ok")} />{texts.companion}</div>
           <div className="tv">{state.companionDown ? texts.notRunning : texts.running}</div>
-          <div className="ts">{state.health ? `v${state.health.version} · ${state.health.host} · Port 47995` : texts.notRunningHint}</div>
+          <div className="ts">{state.health ? `v${state.update?.version ?? state.health.version} · ${state.health.host} · Port 47995` : texts.notRunningHint}</div>
         </div>
         <div className={"tile" + (sunshineProblem ? " warn" : "")}>
           <div className="tk"><span className={"dot " + (sunshineProblem ? "warn" : "ok")} />{texts.sunshine}</div>

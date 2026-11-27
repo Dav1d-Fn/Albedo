@@ -20,6 +20,17 @@ export interface Library
   sunshineProblem: string | null;
 }
 
+/** Version and self-update state (`GET /api/update`). */
+export interface UpdateStatus
+{
+  version: string;
+  apiVersion: number;
+  state: "idle" | "available" | "postponed" | "downloading" | "installing" | "restarting" | "failed" | "unsupported";
+  available: { version: string; notes: string } | null;
+  progress: { downloaded: number; total: number | null } | null;
+  message: string;
+}
+
 export interface Health
 {
   name: string;

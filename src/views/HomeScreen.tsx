@@ -24,6 +24,17 @@ export function HomeScreen(props: { app: LauncherApp })
     error: state.hostReachable ? t.home.listFailed : (app.canWakeHost() ? t.home.unreachableWake : t.home.unreachable),
   }[state.hostState];
   const panelKind = app.statusPanelKind();
+  const compatibility = app.companionCompatibility();
+  const availableCompanion = state.companionUpdate?.available ?? null;
+  let companionHint = "";
+  if (compatibility !== "ok")
+  {
+    companionHint = compatibility === "companionOld" ? t.companionUpdate.companionOld : t.companionUpdate.deckOld;
+  }
+  else if (availableCompanion !== null)
+  {
+    companionHint = t.companionUpdate.homeAvailable(availableCompanion.version);
+  }
   const dotClass = !hasHost ? "err" : { loading: "wake", waking: "wake", online: "on", error: "err" }[state.hostState];
   const deviceOrder = app.settings.deviceOrder;
   const activeIndex = Math.max(0, deviceOrder.indexOf(state.device));
@@ -100,6 +111,9 @@ export function HomeScreen(props: { app: LauncherApp })
       {panelKind !== null && <StatusPanel app={app} />}
       {panelKind === null && state.hostState === "online" && state.companionOnline === false && (
         <div className="companionbanner"><span className="dot err" />{t.statusPanel.companionOffline}</div>
+      )}
+      {panelKind === null && state.companionOnline === true && companionHint !== "" && (
+        <div className="companionbanner info"><span className="dot wake" />{companionHint}</div>
       )}
 
       {/* The status panel replaces hero and rail; they stay mounted (hidden) so their transitions keep working. */}

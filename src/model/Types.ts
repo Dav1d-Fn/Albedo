@@ -227,6 +227,18 @@ export interface DiscoveredHost
   address: string;
 }
 
+/** Version and self-update state of the PC companion (companion `GET /api/update`). */
+export interface CompanionUpdateStatus
+{
+  version: string;
+  /** Goes up only for breaking API changes; compared with LauncherApp.companionApiVersion. */
+  apiVersion: number;
+  state: "idle" | "available" | "postponed" | "downloading" | "installing" | "restarting" | "failed" | "unsupported";
+  available: { version: string; notes: string } | null;
+  progress: { downloaded: number; total: number | null } | null;
+  message: string;
+}
+
 /** Outcome of "add this mode to the PC" (companion `GET /api/display-modes/request`). */
 export interface PcModeRequest
 {

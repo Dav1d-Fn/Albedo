@@ -436,6 +436,28 @@ export const germanTexts =
     retry: "Nochmal",
     later: "Später",
   },
+  companionUpdate:
+  {
+    section: "PC-Companion",
+    row: "Albedo Companion",
+    version: (version: string) => "Version " + version,
+    offline: "antwortet nicht",
+    upToDate: "Aktuell",
+    available: (version: string) => "Update " + version + " verfügbar",
+    install: "Aktualisieren",
+    postponed: "Wird installiert, sobald auf dem PC kein Spiel mehr läuft",
+    downloading: (percent: number | null) => "Lädt" + (percent === null ? " …" : " " + percent + " %"),
+    installing: "Wird installiert …",
+    restarting: "Startet neu …",
+    failed: "Update fehlgeschlagen",
+    companionOld: "Der Companion auf dem PC ist zu alt für diese Albedo-Version – bitte aktualisieren",
+    deckOld: "Albedo auf dem Deck ist älter als der Companion auf dem PC – bitte Albedo aktualisieren",
+    homeAvailable: (version: string) => "Companion-Update " + version + " verfügbar – unter Verbindung (PC-Chip oben links) installieren",
+    failedTitle: "Companion-Update fehlgeschlagen",
+    doneTitle: "Companion aktualisiert",
+    doneText: (version: string) => "Läuft jetzt mit Version " + version,
+    timeout: "Der Companion hat sich nach dem Update nicht wieder gemeldet",
+  },
 };
 
 /** The shape every language table has. */

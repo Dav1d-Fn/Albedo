@@ -2,7 +2,7 @@ import { mockIPC } from "@tauri-apps/api/mocks";
 import { emit } from "@tauri-apps/api/event";
 import { UiText } from "../i18n/UiText";
 import { RecordingData } from "./RecordingData";
-import { LibraryEntry } from "../model/Types";
+import { CompanionUpdateStatus, LibraryEntry } from "../model/Types";
 
 /**
  * Fake backend for `npm run dev` in a plain browser (no Tauri), so the UI can be
@@ -154,6 +154,16 @@ export class BrowserMock
         offline = false;
       }, Number(urlParameters.get("comesUp")) * 1000);
     }
+    // "?companionUpdate" offers a companion update, "?companionApi=2" an incompatible companion.
+    let companionUpdate: CompanionUpdateStatus = {
+      version: "0.1.0",
+      apiVersion: Number(urlParameters.get("companionApi") ?? 1),
+      state: urlParameters.has("companionUpdate") ? "available" : "idle",
+      available: urlParameters.has("companionUpdate") ? { version: "0.2.0", notes: "" } : null,
+      progress: null,
+      message: "",
+    };
+    let companionRestartingUntil = 0;
     // Like a fresh companion: no Sunshine login until the launcher hands one over.
     let sunshineLoginMissing = true;
     // The SteamGridDB key the fake PC helper holds.
@@ -245,6 +255,25 @@ export class BrowserMock
           return pcModeRequest;
         case "companion_display_mode_request":
           return pcModeRequest;
+        case "companion_update_status":
+          if (urlParameters.has("companionOffline") || companionRestartingUntil > Date.now())
+          {
+            return Promise.reject(pick("PC-Helfer nicht erreichbar (Port 47995).", "PC companion unreachable (port 47995)."));
+          }
+          return companionUpdate;
+        case "companion_install_update":
+          // "?companionUpdate": downloads for 4 s, restarts for 4 s, then answers as 0.2.0.
+          companionUpdate = { ...companionUpdate, state: "downloading", progress: { downloaded: 0, total: 80_000_000 } };
+          for (const step of [1, 2, 3])
+          {
+            window.setTimeout(() => { companionUpdate = { ...companionUpdate, progress: { downloaded: step * 25_000_000, total: 80_000_000 } }; }, step * 1000);
+          }
+          window.setTimeout(() =>
+          {
+            companionRestartingUntil = Date.now() + 4000;
+            companionUpdate = { ...companionUpdate, version: "0.2.0", state: "idle", available: null, progress: null };
+          }, 4000);
+          return companionUpdate;
         case "companion_art_version":
           if (urlParameters.has("companionOffline"))
           {

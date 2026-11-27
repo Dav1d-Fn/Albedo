@@ -20,6 +20,21 @@ export const germanTexts =
     noModes: "Monitor unbekannt",
   },
 
+  update:
+  {
+    available: (version: string) => "Update " + version + " verfügbar",
+    install: "Installieren",
+    downloading: (percent: number) => "Update lädt … " + percent + " %",
+    failed: (message: string) => "Update fehlgeschlagen: " + message,
+    version: (version: string) => "Albedo Companion " + version,
+    states:
+    {
+      postponed: "Update wartet, bis kein Spiel mehr läuft",
+      installing: "Update wird installiert …",
+      restarting: "Startet neu …",
+    } as Record<string, string>,
+  },
+
   common:
   {
     cancel: "Abbrechen",

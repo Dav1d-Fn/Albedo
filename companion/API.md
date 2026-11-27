@@ -20,8 +20,47 @@ without anybody editing `apps.json` by hand.
 ### `GET /api/health`
 
 ```json
-{ "name": "albedo-companion", "version": "0.1.0", "host": "fedora" }
+{ "name": "albedo-companion", "version": "0.1.0", "apiVersion": 1, "host": "fedora" }
 ```
+
+`apiVersion` goes up only when a change breaks existing clients (a field or endpoint removed or
+changed), not for additions. The Deck has the same number (`LauncherApp.companionApiVersion`) and
+warns when they differ, saying which side to update. Companions from before the field count as 1.
+
+### `GET /api/update`
+
+Version of the running program and its self-update (Albedo Companion checks its signed GitHub
+release at start and every 6 hours, see the README's self-update section):
+
+```json
+{
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "state": "available",
+  "available": { "version": "0.2.0", "notes": "Albedo v0.2.0" },
+  "progress": null,
+  "message": ""
+}
+```
+
+`state`: `idle` (up to date), `available`, `postponed` (install requested while Sunshine runs a
+game; starts by itself once `currentgame` is 0), `downloading` (`progress`: `{ "downloaded", "total" }`
+bytes, `total` may be null), `installing`, `restarting`, `failed` (`message` says why; the old
+AppImage stays) or `unsupported` (`--headless`, `tauri dev`; `message` says to rerun the
+installer). Companions from before this endpoint answer 404.
+
+### `POST /api/update`
+
+No body. Installs the update `GET /api/update` reported: only ever the release the updater's own
+endpoint (`latest-companion.json` on the latest GitHub release) names, verified with the
+project's signing key; nothing from the request decides what is installed. The AppImage is
+replaced at its path (`~/Applications/Albedo-Companion-x86_64.AppImage`) and the app starts again
+in the tray, so the API is gone for a few seconds. Same access rule as every endpoint (home
+network, Tailscale, loopback).
+
+`202` with the status above; poll `GET /api/update` until it fails to answer, then until a new
+`version` answers. `409` when there is nothing to install, `501` without self-update
+(`--headless`).
 
 ### `GET /api/library`
 

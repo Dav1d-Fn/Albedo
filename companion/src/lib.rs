@@ -31,6 +31,7 @@ mod lutris_source;
 mod preset_source;
 mod process_quitter;
 mod request_language;
+mod self_update;
 mod shortcut_name_cleaner;
 mod prism_source;
 mod steam_grid_db_client;
@@ -49,5 +50,6 @@ mod companion_service;
 
 pub use companion_service::CompanionService;
 pub use process_quitter::ProcessQuitter;
+pub use self_update::SelfUpdate;
 pub use stream_display_switcher::StreamDisplaySwitcher;
 

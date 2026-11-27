@@ -237,6 +237,20 @@ async fn companion_upload_token(host: String, entry_id: String, kind: String) ->
 }
 
 #[tauri::command]
+async fn companion_update_status(host: String) -> Result<serde_json::Value, String>
+{
+    CompanionClient::for_host(&host)?.update_status().await
+}
+
+#[tauri::command]
+async fn companion_install_update(host: String) -> Result<serde_json::Value, String>
+{
+    let result = CompanionClient::for_host(&host)?.install_update().await;
+    println!("[companion] install update -> {:?}", result.as_ref().map(|status| &status["state"]));
+    result
+}
+
+#[tauri::command]
 async fn companion_art_version(host: String) -> Result<u64, String>
 {
     CompanionClient::for_host(&host)?.art_version().await
@@ -456,6 +470,8 @@ pub fn run()
             companion_set_stream_display,
             companion_add_display_mode,
             companion_display_mode_request,
+            companion_update_status,
+            companion_install_update,
             check_for_update,
             install_update
         ])

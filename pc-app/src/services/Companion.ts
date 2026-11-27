@@ -5,6 +5,7 @@ import {
   ArtSearchResult,
   DisplayModes,
   Health,
+  UpdateStatus,
   Library,
   PairedClient,
   PendingPairing,
@@ -48,6 +49,17 @@ export class Companion
   public static health(): Promise<Health>
   {
     return Companion.request("GET", "api/health");
+  }
+
+  public static updateStatus(): Promise<UpdateStatus>
+  {
+    return Companion.request("GET", "api/update");
+  }
+
+  /** Installs the signed release the updater found; the app restarts in the tray afterwards. */
+  public static installUpdate(): Promise<UpdateStatus>
+  {
+    return Companion.request("POST", "api/update");
   }
 
   public static library(): Promise<Library>

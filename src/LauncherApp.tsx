@@ -6,7 +6,7 @@ import { PcModeMatcher } from "./model/PcModeMatcher";
 import { DefaultSettings } from "./model/DefaultSettings";
 import { DevicePalette } from "./model/DevicePalette";
 import { GameArt } from "./model/GameArt";
-import { AfterStreamAction, ArtKind, BackdropKind, DeviceId, UiLanguage, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, PcDisplays, PcModeRequest, Settings, StreamMode, SunshineLoginDraft, SteamGridDbKeyCheck, ImageDialogState, ImageDialogRow, RunningHostApp } from "./model/Types";
+import { AfterStreamAction, ArtKind, BackdropKind, DeviceId, UiLanguage, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, PcDisplays, PcModeRequest, CompanionUpdateStatus, Settings, StreamMode, SunshineLoginDraft, SteamGridDbKeyCheck, ImageDialogState, ImageDialogRow, RunningHostApp } from "./model/Types";
 import { AvailableUpdate, Backend } from "./services/Backend";
 import { CompanionArt } from "./services/CompanionArt";
 import { AfterStreamDialog } from "./views/AfterStreamDialog";
@@ -69,6 +69,10 @@ export interface LauncherState
   wakeTimedOut: boolean;
   /** Albedo Companion answered during the last reload; null = not checked yet. */
   companionOnline: boolean | null;
+  /** Version and self-update state of the companion from the last check; null = not answered. */
+  companionUpdate: CompanionUpdateStatus | null;
+  /** The Deck asked the companion to update and waits for the new version to answer. */
+  companionUpdating: boolean;
   toast: ToastContent | null;
   connectSteps: string[];
   connectStep: number;
@@ -228,6 +232,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       hostReachable: false,
       wakeTimedOut: false,
       companionOnline: null,
+      companionUpdate: null,
+      companionUpdating: false,
       toast: null,
       connectSteps: [],
       connectStep: 0,
@@ -580,20 +586,26 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }
   }
 
-  /** Asks the companion for its cheapest answer; without it the home screen shows a small banner. */
+  /**
+   * Asks the companion for its version and update state; without an answer the home screen shows
+   * a small banner, with an update or an incompatible version another one.
+   */
   private async checkCompanion(host: string): Promise<void>
   {
-    let companionOnline = true;
+    if (this.state.companionUpdating)
+    {
+      return;
+    }
     try
     {
-      await this.backend.companionArtVersion(host);
+      const companionUpdate = await this.backend.companionUpdateStatus(host);
+      this.setState({ companionOnline: true, companionUpdate });
     }
     catch (companionError)
     {
       console.info("companion not reachable", companionError);
-      companionOnline = false;
+      this.setState({ companionOnline: false, companionUpdate: null });
     }
-    this.setState({ companionOnline });
   }
 
   /** Timer: while the panel says the PC is unreachable, a PC that starts by itself loads the list on its own. */
@@ -3028,10 +3040,14 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   // ---------------------------------------------------------------- connection and pairing
 
   /** Rows on the right side of the connection screen. */
-  public static readonly connectionRows = ["pair", "addresses", "moonlight", "afterStream", "streamSummary", "backdrop", "steamGridDb", "language"] as const;
+  public static readonly connectionRows = ["pair", "addresses", "moonlight", "afterStream", "streamSummary", "backdrop", "steamGridDb", "companion", "language"] as const;
 
   public openConnection(): void
   {
+    if (this.state.settings !== null && this.settings.host !== "")
+    {
+      this.checkCompanion(this.connectedHost());
+    }
     this.setState({ screen: "connection", connectionZone: "hosts", connectionHostIndex: 0, pairState: "idle", pairMessage: "" });
     this.searchHosts();
     // On the first start this runs before the loaded settings reached the state (and there is no PC yet).
@@ -3409,6 +3425,94 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       this.cycleLanguage();
     }
+    else if (row === "companion")
+    {
+      this.installCompanionUpdate();
+    }
+  }
+
+  // ---------------------------------------------------------------- companion self-update
+
+  /** API version of the companion this launcher was built for (companion `ApiServer::API_VERSION`). */
+  public static readonly companionApiVersion = 1;
+
+  public static readonly companionRowIndex = LauncherApp.connectionRows.indexOf("companion");
+
+  /** How long the Deck waits for the updated companion to answer again. */
+  private static readonly companionUpdateTimeoutSeconds = 180;
+
+  /** "ok", or which side is too old when the companion speaks another API version. */
+  public companionCompatibility(): "ok" | "companionOld" | "deckOld"
+  {
+    const companionUpdate = this.state.companionUpdate;
+    if (companionUpdate === null || companionUpdate.apiVersion === LauncherApp.companionApiVersion)
+    {
+      return "ok";
+    }
+    return companionUpdate.apiVersion < LauncherApp.companionApiVersion ? "companionOld" : "deckOld";
+  }
+
+  /**
+   * Asks the companion to install its update, then follows it: progress while it downloads, no
+   * answer while it restarts, done when a new version answers. Postponed (a game runs on the PC)
+   * ends the waiting here; the companion installs on its own once the game is closed.
+   */
+  public async installCompanionUpdate(): Promise<void>
+  {
+    const t = UiText.current;
+    const before = this.state.companionUpdate;
+    if (before === null || before.available === null || this.state.companionUpdating)
+    {
+      return;
+    }
+    const host = this.connectedHost();
+    this.setState({ companionUpdating: true });
+    try
+    {
+      const companionUpdate = await this.backend.companionInstallUpdate(host);
+      this.setState({ companionUpdate });
+    }
+    catch (installError)
+    {
+      this.setState({ companionUpdating: false });
+      this.showError(t.companionUpdate.failedTitle, String(installError));
+      return;
+    }
+
+    const deadline = Date.now() + LauncherApp.companionUpdateTimeoutSeconds * 1000;
+    while (Date.now() < deadline)
+    {
+      await new Promise((resolve) => window.setTimeout(resolve, 2000));
+      let companionUpdate: CompanionUpdateStatus;
+      try
+      {
+        companionUpdate = await this.backend.companionUpdateStatus(host);
+      }
+      catch
+      {
+        // Restarting: the old process is gone, the new one not up yet.
+        this.setState((state) => ({ companionUpdate: state.companionUpdate === null ? null : { ...state.companionUpdate, state: "restarting", progress: null } }));
+        continue;
+      }
+      this.setState({ companionUpdate, companionOnline: true });
+      if (companionUpdate.version !== before.version)
+      {
+        this.setState({ companionUpdating: false });
+        this.showToast({ kind: "ok", eyebrow: this.hostDisplayName(), name: t.companionUpdate.doneTitle, spec: "", sub: t.companionUpdate.doneText(companionUpdate.version) });
+        return;
+      }
+      if (companionUpdate.state === "failed" || companionUpdate.state === "postponed")
+      {
+        this.setState({ companionUpdating: false });
+        if (companionUpdate.state === "failed")
+        {
+          this.showError(t.companionUpdate.failedTitle, companionUpdate.message);
+        }
+        return;
+      }
+    }
+    this.setState({ companionUpdating: false });
+    this.showError(t.companionUpdate.failedTitle, t.companionUpdate.timeout);
   }
 
   // ---------------------------------------------------------------- self-update

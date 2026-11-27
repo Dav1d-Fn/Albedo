@@ -1,4 +1,5 @@
 use std::io::Read;
+use std::sync::Arc;
 
 use percent_encoding::percent_decode_str;
 use serde_json::{json, Value};
@@ -18,6 +19,7 @@ use crate::library_entry::LibraryEntry;
 use crate::library_scanner::LibraryScanner;
 use crate::process_quitter::ProcessQuitter;
 use crate::request_language::RequestLanguage;
+use crate::self_update::SelfUpdate;
 use crate::steam_grid_db_client::SteamGridDbClient;
 use crate::sunshine_app_builder::SunshineAppBuilder;
 use crate::sunshine_client::SunshineClient;
@@ -35,6 +37,8 @@ pub struct ApiServer
     /// Goes up with every override change, so the launcher knows when to reload pictures.
     art_version: u64,
     virtual_edid: VirtualEdidWriter,
+    /// None when the host program can't update itself (headless).
+    self_update: Option<Arc<dyn SelfUpdate>>,
 }
 
 /// Status code + body (JSON, PNG, JPEG or HTML) + content type of one answer.
@@ -42,9 +46,14 @@ type ApiAnswer = (u16, Vec<u8>, &'static str);
 
 impl ApiServer
 {
-    pub fn new(config: CompanionConfig) -> ApiServer
+    /// Goes up only when a change breaks existing clients (a field or endpoint removed or changed),
+    /// not for additions. The Deck has the same number and warns when they differ. Companions
+    /// from before the number count as 1.
+    pub const API_VERSION: u32 = 1;
+
+    pub fn new(config: CompanionConfig, self_update: Option<Arc<dyn SelfUpdate>>) -> ApiServer
     {
-        ApiServer { config, upload_tokens: UploadTokenStore::new(), art_version: 0, virtual_edid: VirtualEdidWriter::new() }
+        ApiServer { config, upload_tokens: UploadTokenStore::new(), art_version: 0, virtual_edid: VirtualEdidWriter::new(), self_update }
     }
 
     pub fn run(&mut self) -> Result<(), String>
@@ -88,6 +97,8 @@ impl ApiServer
         {
             (Method::Get, "/api/health") => Ok(self.health()),
             (Method::Get, "/api/library") => Ok(self.library()),
+            (Method::Get, "/api/update") => Ok(self.update_status(200)),
+            (Method::Post, "/api/update") => self.install_update(),
             (Method::Get, cover_path) if cover_path.starts_with("/api/cover/") =>
             {
                 let entry_id = percent_decode_str(&cover_path["/api/cover/".len()..]).decode_utf8_lossy().to_string();
@@ -172,8 +183,37 @@ impl ApiServer
         Self::json(200, json!({
             "name": "albedo-companion",
             "version": env!("CARGO_PKG_VERSION"),
+            "apiVersion": Self::API_VERSION,
             "host": host_name.trim()
         }))
+    }
+
+    /// Version of the running program, API version and the updater's state (`SelfUpdate::status`).
+    fn update_status(&self, status_code: u16) -> ApiAnswer
+    {
+        let mut status = match &self.self_update
+        {
+            Some(self_update) => self_update.status(),
+            None => json!({
+                "version": env!("CARGO_PKG_VERSION"),
+                "state": "unsupported",
+                "available": null,
+                "progress": null,
+                "message": RequestLanguage::pick("Ohne Fenster (--headless) kein Selbst-Update: Installer erneut ausführen", "No self-update without a window (--headless): run the installer again")
+            }),
+        };
+        status["apiVersion"] = json!(Self::API_VERSION);
+        Self::json(status_code, status)
+    }
+
+    /// Starts installing the release the updater found; answers 202 with the status to poll.
+    /// No body: what gets installed is only ever the updater's signed GitHub release.
+    fn install_update(&self) -> Result<ApiAnswer, (u16, String)>
+    {
+        let self_update = self.self_update.as_ref().ok_or_else(|| (501, RequestLanguage::pick("Ohne Fenster (--headless) kein Selbst-Update", "No self-update without a window (--headless)")))?;
+        self_update.request_install().map_err(|message| (409, message))?;
+        eprintln!("Companion-Update angefordert");
+        Ok(self.update_status(202))
     }
 
     fn library(&self) -> ApiAnswer

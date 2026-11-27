@@ -1,11 +1,40 @@
 import { UiText } from "../i18n/UiText";
 import LauncherApp from "../LauncherApp";
-import { AfterStreamAction, BackdropKind } from "../model/Types";
+import { AfterStreamAction, BackdropKind, CompanionUpdateStatus } from "../model/Types";
 import steamGridDbApiQr from "../assets/steamgriddb-api-qr.svg";
 
 const backdropOptions: BackdropKind[] = ["hero", "screenshots", "cover", "none"];
 
 const afterStreamOptions: AfterStreamAction[] = ["ask", "keep", "quit"];
+
+/** Short state of the companion's self-update for its row. */
+function companionStateLabel(companionOnline: boolean | null, companionUpdate: CompanionUpdateStatus | null): string
+{
+  const t = UiText.current;
+  if (companionUpdate === null)
+  {
+    return companionOnline === false ? t.companionUpdate.offline : "…";
+  }
+  if (companionUpdate.state === "downloading")
+  {
+    const progress = companionUpdate.progress;
+    const percent = progress !== null && progress.total ? Math.round((progress.downloaded / progress.total) * 100) : null;
+    return t.companionUpdate.downloading(percent);
+  }
+  if (companionUpdate.state === "installing" || companionUpdate.state === "restarting")
+  {
+    return t.companionUpdate[companionUpdate.state];
+  }
+  if (companionUpdate.state === "failed")
+  {
+    return t.companionUpdate.failed;
+  }
+  if (companionUpdate.available !== null)
+  {
+    return t.companionUpdate.available(companionUpdate.available.version);
+  }
+  return companionUpdate.state === "unsupported" ? "" : t.companionUpdate.upToDate;
+}
 
 /** Choose the gaming PC (found via mDNS or typed in), pair with a PIN, pick Flatpak or system Moonlight, plus the global settings. */
 export function ConnectionScreen(props: { app: LauncherApp })
@@ -22,6 +51,23 @@ export function ConnectionScreen(props: { app: LauncherApp })
   const rowFocus = (rowIndex: number) => (!hostsZone && state.connectionRow === rowIndex ? " f" : "");
   // The rows are taller than the screen: the focused one scrolls into view, like in the editor.
   const rowScroll = (rowIndex: number) => (!hostsZone && state.connectionRow === rowIndex ? (rowElement: HTMLDivElement | null) => rowElement?.scrollIntoView({ block: "nearest" }) : undefined);
+
+  const companionUpdate = state.companionUpdate;
+  const compatibility = app.companionCompatibility();
+  const companionStateText = companionStateLabel(state.companionOnline, companionUpdate);
+  let companionNote = "";
+  if (compatibility === "companionOld")
+  {
+    companionNote = t.companionUpdate.companionOld;
+  }
+  else if (compatibility === "deckOld")
+  {
+    companionNote = t.companionUpdate.deckOld;
+  }
+  else if (companionUpdate !== null && (companionUpdate.state === "failed" || companionUpdate.state === "unsupported" || companionUpdate.state === "postponed"))
+  {
+    companionNote = companionUpdate.state === "postponed" ? t.companionUpdate.postponed : companionUpdate.message;
+  }
 
   const pairTitle =
   {
@@ -221,6 +267,25 @@ export function ConnectionScreen(props: { app: LauncherApp })
               {state.steamGridDbKeyCheck !== "unchecked" && <span className="keycheck">{t.connection.keyCheckNames[state.steamGridDbKeyCheck]}</span>}
             </div>
           )}
+
+          <div className="rhead clabel">{t.companionUpdate.section}</div>
+          <div className={"row" + rowFocus(LauncherApp.companionRowIndex)} ref={rowScroll(LauncherApp.companionRowIndex)}>
+            <button className="rlabel" onClick={() => app.activateConnectionRow(LauncherApp.companionRowIndex)}>
+              {t.companionUpdate.row}
+              {companionUpdate !== null && <span className="rsub"> · {t.companionUpdate.version(companionUpdate.version)}</span>}
+            </button>
+            <div className="ctrl">
+              <span className="cstate">{companionStateText}</span>
+              {companionUpdate?.available && !state.companionUpdating && companionUpdate.state !== "postponed" && (
+                <button className="btn primary sm" onClick={() => app.installCompanionUpdate()}>
+                  <span className="glyph sm">A</span>
+                  {t.companionUpdate.install}
+                </button>
+              )}
+              {state.companionUpdating && <span className="spin" />}
+            </div>
+          </div>
+          {companionNote !== "" && <div className={"dnote" + (compatibility !== "ok" || companionUpdate?.state === "failed" ? " keystatus invalid" : "")} style={{ paddingLeft: 20 }}>{companionNote}</div>}
 
           <div className="rhead clabel">{t.connection.language}</div>
           <div className={"row" + rowFocus(LauncherApp.languageRowIndex)} ref={rowScroll(LauncherApp.languageRowIndex)}>

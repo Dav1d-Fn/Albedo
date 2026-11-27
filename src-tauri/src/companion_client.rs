@@ -250,6 +250,41 @@ impl CompanionClient
         Ok(())
     }
 
+    /// Version, API version and self-update state (`GET /api/update`, see companion/API.md).
+    /// A companion from before the self-update has no such path: its version comes from
+    /// `/api/health`, state "unsupported", API version 1. Short timeout: also the online check.
+    pub async fn update_status(&self) -> Result<Value, String>
+    {
+        let request = self.http_client.get(self.url(&["api", "update"])).timeout(Duration::from_secs(5));
+        let response = request.send().await.map_err(|error| Self::connection_error(&error))?;
+        if response.status() != StatusCode::NOT_FOUND
+        {
+            let response = Self::check_status(response).await?;
+            return response.json().await.map_err(|error| error.to_string());
+        }
+        let health_response = self.send(self.http_client.get(self.url(&["api", "health"]))).await?;
+        let health: Value = health_response.json().await.map_err(|error| error.to_string())?;
+        Ok(json!({
+            "version": health["version"],
+            "apiVersion": 1,
+            "state": "unsupported",
+            "available": null,
+            "progress": null,
+            "message": UiLanguage::pick(
+                "Dieser Companion kann sich noch nicht selbst aktualisieren: Installer auf dem PC erneut ausführen",
+                "This companion can't update itself yet: run the installer on the PC again"
+            )
+        }))
+    }
+
+    /// Asks the companion to install its signed GitHub release (`POST /api/update`); it restarts
+    /// afterwards, so the caller polls `update_status` until the new version answers.
+    pub async fn install_update(&self) -> Result<Value, String>
+    {
+        let response = self.send(self.http_client.post(self.url(&["api", "update"]))).await?;
+        response.json().await.map_err(|error| error.to_string())
+    }
+
     /// Goes up whenever a picture of any entry was set or reset.
     pub async fn art_version(&self) -> Result<u64, String>
     {
