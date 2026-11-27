@@ -20,8 +20,11 @@ import {
  */
 export class Companion
 {
-  /** Pictures load straight from the companion (img tags need no CORS). */
-  private static readonly BASE_URL = "http://127.0.0.1:47995";
+  /**
+   * Pictures load straight from the companion (img tags need no CORS); in a plain browser
+   * (npm run dev) through Vite's proxy, so ALBEDO_COMPANION_PORT applies to them too.
+   */
+  private static readonly BASE_URL = "__TAURI_INTERNALS__" in window ? "http://127.0.0.1:47995" : "/companion";
 
   public static async setLanguage(language: string): Promise<void>
   {
