@@ -1,10 +1,11 @@
 use crate::request_language::RequestLanguage;
 use std::io::Write;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 
 use serde_json::Value;
 
 use crate::companion_config::CompanionConfig;
+use crate::host_environment::HostEnvironment;
 
 /// Sunshine's web API (self-signed HTTPS, Basic Auth). Uses curl; the login goes in through
 /// stdin so it never shows up in the process list.
@@ -149,7 +150,7 @@ impl SunshineClient
             curl_config += &format!("data-binary = \"{}\"\n", Self::escape(json_body));
         }
 
-        let mut curl_process = Command::new("curl")
+        let mut curl_process = HostEnvironment::command("curl")
             .args(["-sk", "--max-time", "10", "-w", "\n%{http_code}", "-K", "-"])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

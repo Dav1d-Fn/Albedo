@@ -1,6 +1,6 @@
 use crate::ui_language::UiLanguage;
 use std::os::unix::process::CommandExt;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -60,8 +60,7 @@ impl StreamSession
 
         let (program, program_arguments) = arguments.split_first().ok_or_else(|| UiLanguage::pick("Moonlight-Befehl ist leer", "Moonlight command is empty"))?;
 
-        let mut command = Command::new(program);
-        HostEnvironment::apply_to(&mut command);
+        let mut command = HostEnvironment::command(program);
         // Own process group: `flatpak run` starts Moonlight as a grandchild, a group signal reaches both.
         command.process_group(0);
         let child = command
@@ -134,7 +133,7 @@ impl StreamSession
     fn signal_group(group_id: u32, signal_name: &str)
     {
         // A negative pid addresses the whole process group.
-        let result = Command::new("kill")
+        let result = HostEnvironment::command("kill")
             .arg(format!("-{}", signal_name))
             .arg("--")
             .arg(format!("-{}", group_id))
@@ -208,7 +207,7 @@ impl StreamSession
 mod tests
 {
     use std::os::unix::process::{CommandExt, ExitStatusExt};
-    use std::process::Command;
+    use crate::host_environment::HostEnvironment;
 
     use super::StreamSession;
 
@@ -240,7 +239,7 @@ mod tests
     #[test]
     fn group_signal_ends_a_hanging_process_and_its_child()
     {
-        let mut hanging = Command::new("sh")
+        let mut hanging = HostEnvironment::command("sh")
             .args(["-c", "sleep 600 & wait"])
             .process_group(0)
             .spawn()

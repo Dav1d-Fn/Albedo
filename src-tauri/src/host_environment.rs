@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::process::Command;
 
 /// Removes the AppImage's own environment from commands that start host programs.
@@ -5,12 +6,21 @@ use std::process::Command;
 /// The AppImage runtime points LD_LIBRARY_PATH, PATH, XDG_DATA_DIRS, GIO_MODULE_DIR and more
 /// into its mount (/tmp/.mount_…). Host programs like `flatpak` then load the bundled, older
 /// libraries and crash ("symbol lookup error"). Outside an AppImage nothing is changed.
+/// Every host program is started through `command()`; a test fails on a bare `Command::new`.
 pub struct HostEnvironment;
 
 impl HostEnvironment
 {
     /// Variables the AppImage runtime adds that mean nothing to other programs.
     const APPIMAGE_ONLY_VARIABLES: [&'static str; 4] = ["APPDIR", "APPIMAGE", "ARGV0", "OWD"];
+
+    /// `Command::new` with the AppImage's environment already removed.
+    pub fn command(program: impl AsRef<OsStr>) -> Command
+    {
+        let mut command = Command::new(program);
+        Self::apply_to(&mut command);
+        command
+    }
 
     pub fn apply_to(command: &mut Command)
     {
@@ -98,6 +108,24 @@ mod tests
         let library_path = "/tmp/.mount_StreamAbc/usr/lib/:/tmp/.mount_StreamAbc/lib64/:";
 
         assert_eq!(HostEnvironment::without_app_dir(library_path, APP_DIR), CleanedValue::Removed);
+    }
+
+    /// v0.2.0: curl started without this helper loaded the AppImage's libraries and crashed.
+    #[test]
+    fn every_host_program_is_started_through_the_helper()
+    {
+        let source_folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        let bare_call = ["Command", "::new("].concat();
+        for entry in std::fs::read_dir(&source_folder).expect("source folder")
+        {
+            let path = entry.expect("entry").path();
+            if path.file_name().is_some_and(|name| name == "host_environment.rs")
+            {
+                continue;
+            }
+            let source = std::fs::read_to_string(&path).unwrap_or_default();
+            assert!(!source.contains(&bare_call), "{} starts a program without HostEnvironment::command", path.display());
+        }
     }
 
     #[test]

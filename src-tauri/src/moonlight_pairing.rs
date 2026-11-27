@@ -1,5 +1,4 @@
 use crate::ui_language::UiLanguage;
-use std::process::Command;
 
 use crate::host_environment::HostEnvironment;
 
@@ -19,8 +18,7 @@ impl MoonlightPairing
         }
         let (program, base_arguments) = moonlight_command.split_first().ok_or_else(|| UiLanguage::pick("Moonlight-Befehl ist leer", "Moonlight command is empty"))?;
 
-        let mut command = Command::new(program);
-        HostEnvironment::apply_to(&mut command);
+        let mut command = HostEnvironment::command(program);
         let output = command
             .args(base_arguments)
             .args(["pair", host, "--pin", pin])

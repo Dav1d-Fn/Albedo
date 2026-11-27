@@ -1,4 +1,3 @@
-use std::process::Command;
 
 use serde_json::Value;
 
@@ -6,6 +5,7 @@ use crate::companion_config::home_directory;
 use crate::cover_source::CoverSource;
 use crate::library_entry::LibraryEntry;
 use crate::process_quitter::ProcessQuitter;
+use crate::host_environment::HostEnvironment;
 
 /// Games installed through Lutris (read from its pga.db with the sqlite3 tool).
 pub struct LutrisSource;
@@ -21,7 +21,7 @@ impl LutrisSource
             return Vec::new();
         }
 
-        let query_output = Command::new("sqlite3")
+        let query_output = HostEnvironment::command("sqlite3")
             .arg("-json")
             .arg("-readonly")
             .arg(&database_path)

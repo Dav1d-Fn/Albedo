@@ -1,7 +1,8 @@
 use std::io::Write;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 
 use crate::request_language::RequestLanguage;
+use crate::host_environment::HostEnvironment;
 
 /// SteamGridDB's API with the key stored in config.json. The Deck and this PC's UI never get the
 /// key: their picture search asks SteamGridDB through `GET /api/steamgriddb/<path>`, which lands
@@ -55,7 +56,7 @@ impl SteamGridDbClient
         curl_config += &format!("url = \"{}{}\"\n", Self::API_URL, path_and_query);
         curl_config += &format!("header = \"Authorization: Bearer {}\"\n", key);
         curl_config += "header = \"User-Agent: Albedo-Companion\"\n";
-        let mut curl_process = Command::new("curl")
+        let mut curl_process = HostEnvironment::command("curl")
             .args(["-s", "--max-time", "15", "--max-filesize", "4000000", "-w", "\n%{http_code}", "-K", "-"])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

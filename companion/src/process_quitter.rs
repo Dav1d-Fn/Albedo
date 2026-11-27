@@ -1,8 +1,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
+use crate::host_environment::HostEnvironment;
 
 /// Ends a game when its stream is quit: SIGTERM to every process whose command line contains
 /// the pattern (like `pkill -f`), SIGKILL to whatever still runs after a few seconds.
@@ -165,7 +165,7 @@ impl ProcessQuitter
         {
             return;
         }
-        let _ = Command::new("kill")
+        let _ = HostEnvironment::command("kill")
             .arg(format!("-{}", signal_name))
             .args(process_ids.iter().map(|process_id| process_id.to_string()))
             .status();

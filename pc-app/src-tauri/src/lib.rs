@@ -152,10 +152,8 @@ async fn apply_art(
 #[tauri::command]
 fn open_steam_grid_db_key_page() -> Result<(), String>
 {
-    let mut command = std::process::Command::new("xdg-open");
+    let mut command = HostEnvironment::command("xdg-open");
     command.arg("https://www.steamgriddb.com/profile/preferences/api");
-    // An AppImage's library paths would break the host's browser.
-    HostEnvironment::apply_to(&mut command);
     command.spawn().map(|_| ()).map_err(|error| error.to_string())
 }
 

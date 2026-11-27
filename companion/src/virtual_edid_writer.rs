@@ -1,6 +1,6 @@
 use std::io::Write;
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -98,7 +98,7 @@ impl VirtualEdidWriter
         std::fs::create_dir_all(&work_directory).map_err(|error| (500, error.to_string()))?;
         let new_edid_file = work_directory.join("virtual-display-edid.bin");
 
-        let mut command = Command::new("python3");
+        let mut command = HostEnvironment::command("python3");
         command
             .arg("-")
             .args(["--keep", Self::INSTALLED_EDID, "--mode", mode_text])
@@ -106,7 +106,6 @@ impl VirtualEdidWriter
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
-        HostEnvironment::apply_to(&mut command);
         let mut generator = command
             .spawn()
             .map_err(|error| (500, format!("{}: {}", RequestLanguage::pick("python3 nicht startbar", "Cannot start python3"), error)))?;
@@ -130,14 +129,13 @@ impl VirtualEdidWriter
     /// Asks for root on the PC and installs the EDID. `Ok(false)` in a dry run (nothing installed).
     fn install(new_edid_file: &PathBuf) -> Result<bool, Value>
     {
-        let mut command = Command::new("pkexec");
+        let mut command = HostEnvironment::command("pkexec");
         command.args(["sh", "-c", Self::ROOT_SCRIPT, "sh"]).arg(new_edid_file);
         if std::env::var("ALBEDO_DRY_RUN").is_ok()
         {
             eprintln!("[dry-run] {:?}", command);
             return Ok(false);
         }
-        HostEnvironment::apply_to(&mut command);
         let result = command.output().map_err(|error| json!({ "state": "failed", "message": error.to_string() }))?;
         match result.status.code()
         {

@@ -2,10 +2,11 @@ use crate::request_language::RequestLanguage;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 
 use crate::companion_config::home_directory;
 use crate::cover_source::CoverSource;
+use crate::host_environment::HostEnvironment;
 
 /// Turns any picture (jpg, png, web URL) into what the launcher shows, with ImageMagick:
 /// covers as 600x900 PNG, backgrounds (hero, screenshots) as JPEG of at most 1920 px width,
@@ -118,7 +119,7 @@ impl CoverConverter
     /// Runs `magick - <output arguments>` with the source on stdin and returns stdout.
     fn run_magick(source_bytes: Vec<u8>, output_arguments: &[&str]) -> Result<Vec<u8>, String>
     {
-        let mut magick_process = Command::new("magick")
+        let mut magick_process = HostEnvironment::command("magick")
             .arg("-")
             .args(output_arguments)
             .stdin(Stdio::piped())
@@ -170,7 +171,7 @@ impl CoverConverter
 
     fn download(cover_url: &str) -> Result<Vec<u8>, String>
     {
-        let curl_output = Command::new("curl")
+        let curl_output = HostEnvironment::command("curl")
             .args(["-sfL", "--max-time", "15", cover_url])
             .output()
             .map_err(|error| format!("{}: {}", RequestLanguage::pick("curl nicht startbar", "Cannot start curl"), error))?;

@@ -29,9 +29,8 @@ impl KdeDisplayBackend
     /// the companion's user service may lack, and without the AppImage's libraries.
     fn command(timeout_seconds: &str, arguments: &[String]) -> Command
     {
-        let mut command = Command::new("timeout");
+        let mut command = HostEnvironment::command("timeout");
         command.arg(timeout_seconds).args(arguments);
-        HostEnvironment::apply_to(&mut command);
         let runtime_directory = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| format!("/run/user/{}", Self::user_id()));
         command
             .env("XDG_RUNTIME_DIR", runtime_directory)
@@ -42,7 +41,7 @@ impl KdeDisplayBackend
 
     fn user_id() -> String
     {
-        Command::new("id")
+        HostEnvironment::command("id")
             .arg("-u")
             .output()
             .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
@@ -95,9 +94,8 @@ impl KdeDisplayBackend
 
     fn systemctl(arguments: &[&str]) -> bool
     {
-        let mut command = Command::new("systemctl");
+        let mut command = HostEnvironment::command("systemctl");
         command.arg("--user").args(arguments);
-        HostEnvironment::apply_to(&mut command);
         command.output().map(|output| output.status.success()).unwrap_or(false)
     }
 

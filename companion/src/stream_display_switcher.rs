@@ -276,9 +276,8 @@ impl StreamDisplaySwitcher
                 continue;
             }
             Self::log(&format!("run: {}", command.join(" ")));
-            let mut process = std::process::Command::new(&command[0]);
+            let mut process = HostEnvironment::command(&command[0]);
             process.args(&command[1..]);
-            HostEnvironment::apply_to(&mut process);
             if let Err(error) = process.status()
             {
                 Self::log(&format!("{} failed: {}", command.join(" "), error));
@@ -312,7 +311,7 @@ impl StreamDisplaySwitcher
     /// Local time from `date`, like the shell script's log; no time crate for one log line.
     fn timestamp() -> String
     {
-        std::process::Command::new("date")
+        HostEnvironment::command("date")
             .arg("+%F %T")
             .output()
             .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())

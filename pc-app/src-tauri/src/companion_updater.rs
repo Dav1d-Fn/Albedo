@@ -1,5 +1,4 @@
 use std::os::unix::process::CommandExt;
-use std::process::Command;
 use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -191,14 +190,12 @@ impl CompanionUpdater
     fn restart_in_tray(&self) -> Result<(), String>
     {
         let appimage_path = std::env::var("APPIMAGE").map_err(|error| error.to_string())?;
-        let mut command = Command::new("sh");
+        let mut command = HostEnvironment::command("sh");
         command
             .arg("-c")
             .arg("while kill -0 \"$1\" 2>/dev/null; do sleep 0.2; done; exec \"$0\" --hidden")
             .arg(&appimage_path)
             .arg(std::process::id().to_string());
-        // The new AppImage brings its own environment; ours would point into this mount.
-        HostEnvironment::apply_to(&mut command);
         // Own process group: not ended together with this process.
         command.process_group(0);
         command.spawn().map_err(|error| error.to_string())?;
