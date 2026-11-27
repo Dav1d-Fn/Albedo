@@ -291,6 +291,12 @@ and work on any setup.
 Tested on: Steam Deck with SteamOS 3, Fedora with KDE Plasma 6 (Wayland) and an AMD GPU.
 If you get it running on something else, please [tell us](https://github.com/Dav1d-Fn/Albedo/issues).
 
+**Other distros (Arch, Bazzite, …).** The installer uses no package manager and doesn't touch the
+bootloader, so the same command should work on any distro with systemd and KDE Plasma (Wayland).
+Install `jq`, `python3` and `sudo` first if they are missing (Arch: `sudo pacman -S jq`). With
+**Secure Boot** on, many kernels (Fedora, Ubuntu) lock down `/sys/kernel/debug`, which the
+virtual connector needs; the dummy plug and the main monitor are not affected.
+
 ---
 
 ## PC Setup 🛠️
