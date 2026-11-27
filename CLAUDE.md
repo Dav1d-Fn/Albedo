@@ -44,6 +44,7 @@ Design source: Claude design canvas https://claude.ai/artifact/UpFs3Nat5Q983TyyA
 - Stream display routes (per profile, `StreamMode.displayTarget`: auto/virtual/dummy/main/none): the Deck sends the profile's target with `POST /api/stream-display` right before Moonlight; `companion/src/stream_display_switcher.rs` (prep command) takes it, picks the mode (`display_mode_chooser.rs`, mirrored in `src/model/PcModeMatcher.ts`; main monitor only exact/same-aspect, else it keeps its mode) and switches in `DisplayStep`s (target on → wait until KWin reports it → others off; restore reversed; rollback on a failed step; xwaylandvideobridge paused) through `display_backend.rs` (trait; `kde_display_backend.rs` is the only one, GNOME/wlroots/X11 would be one file each)
 - `artwork/steam/` – Steam pictures the installer copies (cover, wide, hero, logo, icon)
 - `.github/workflows/release.yml` – tag `v*` → signed AppImage + `latest.json` on Ubuntu 22.04
+- Every GitHub release gets a title (`Albedo vX.Y.Z - …`) and notes in the style of v0.1.0: intro sentence, "What's Inside:" with one emoji line per change, 📦 install commands, 📝 tested-on note. The workflow only names it `vX.Y.Z`, so set both with `gh release edit` after the build.
 - `src/` – frontend
   - `LauncherApp.tsx` – root class component, owns all state and the button logic
   - `model/` – settings types, defaults, text formatting, placeholder cover art
