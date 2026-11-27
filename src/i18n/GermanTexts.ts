@@ -289,6 +289,9 @@ export const germanTexts =
 
   statusPanel:
   {
+    searchingEyebrow: "PC wird gesucht …",
+    searchingText: "Albedo verbindet sich mit dem PC und lädt die Spieleliste.",
+    searchingHint: "Nach dem Start oder Aufwachen braucht das WLAN manchmal ein paar Sekunden.",
     wakeEyebrow: "PC aus oder nicht erreichbar",
     wakeText: "Albedo kann den PC per Wake-on-LAN einschalten.",
     homeNetworkOnly: "Geht nur im Heimnetz – unterwegs (Tailscale) muss der PC schon laufen.",

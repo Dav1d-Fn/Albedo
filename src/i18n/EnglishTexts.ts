@@ -284,6 +284,9 @@ export const englishTexts: TextTable =
 
   statusPanel:
   {
+    searchingEyebrow: "Looking for the PC …",
+    searchingText: "Albedo is connecting to the PC and loading the game list.",
+    searchingHint: "Right after starting or waking up, Wi-Fi sometimes needs a few seconds.",
     wakeEyebrow: "PC off or unreachable",
     wakeText: "Albedo can switch the PC on with Wake-on-LAN.",
     homeNetworkOnly: "Only works on the home network – away (Tailscale) the PC must already be running.",

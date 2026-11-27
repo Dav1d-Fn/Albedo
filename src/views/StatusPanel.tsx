@@ -3,8 +3,8 @@ import LauncherApp from "../LauncherApp";
 import { PowerIcon } from "./Icons";
 
 /**
- * Centered panel on the home screen when there are no games to show: PC off, unreachable,
- * being woken, its list failing or not set up yet. Says what is wrong and offers the next step on A.
+ * Centered panel on the home screen when there are no games to show: PC being looked for, off,
+ * unreachable, being woken, its list failing or not set up yet. Says what is wrong and offers the next step on A.
  */
 export function StatusPanel(props: { app: LauncherApp })
 {
@@ -25,6 +25,10 @@ export function StatusPanel(props: { app: LauncherApp })
     case "setup":
       eyebrow = t.setupEyebrow;
       lines = [t.setupText];
+      break;
+    case "searching":
+      eyebrow = t.searchingEyebrow;
+      lines = [t.searchingText, t.searchingHint];
       break;
     case "wake":
       eyebrow = state.wakeTimedOut ? t.wakeFailedEyebrow : t.wakeEyebrow;
@@ -52,7 +56,7 @@ export function StatusPanel(props: { app: LauncherApp })
   return (
     <div className="statuspanel">
       <div className="dcard statuscard">
-        {kind === "waking" ? <span className="spin big" /> : <span className={"statusicon" + (kind === "setup" ? "" : " off")}><PowerIcon /></span>}
+        {kind === "waking" || kind === "searching" ? <span className="spin big" /> : <span className={"statusicon" + (kind === "setup" ? "" : " off")}><PowerIcon /></span>}
         <div className="teyebrow">{eyebrow}</div>
         <div className="tname">{app.settings.host === "" ? "Albedo" : app.hostDisplayName()}</div>
         {lines.map((line) => <div key={line} className="statusline">{line}</div>)}

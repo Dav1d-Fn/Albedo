@@ -36,7 +36,7 @@ export type HostState = "loading" | "waking" | "online" | "error";
  * "setup" = no PC chosen yet, "wake" = PC unreachable and Wake-on-LAN possible, "waking" = magic packet sent,
  * "noMac" = PC unreachable and its MAC still unknown, "noList" = Sunshine answers but the game list failed.
  */
-export type StatusPanelKind = "setup" | "wake" | "waking" | "noMac" | "noList";
+export type StatusPanelKind = "setup" | "searching" | "wake" | "waking" | "noMac" | "noList";
 
 export interface LauncherState
 {
@@ -204,6 +204,18 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   private hostRecheckRunning = false;
 
+  /**
+   * Until then a failed attempt is tried again instead of shown: right after the start or a wake-up
+   * the Deck's Wi-Fi is often not back yet, so the first call fails although the PC is on.
+   */
+  private searchUntil = 0;
+
+  private static readonly searchMilliseconds = 20000;
+
+  private static readonly searchRetryMilliseconds = 2000;
+
+  private searchRetryTimer = 0;
+
   private unlistenStreamEnded: (() => void) | null = null;
 
   private mounted = false;
@@ -323,7 +335,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }
     else
     {
-      this.reloadGames(settings);
+      this.searchForHost(settings);
     }
     this.displayPollTimer = window.setInterval(() => this.pollDisplay(), LauncherApp.displayPollMilliseconds);
     this.hostRecheckTimer = window.setInterval(() => this.recheckUnreachableHost(), LauncherApp.hostRecheckMilliseconds);
@@ -350,6 +362,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     window.removeEventListener("resize", this.handleResize);
     window.clearInterval(this.displayPollTimer);
     window.clearInterval(this.hostRecheckTimer);
+    window.clearTimeout(this.searchRetryTimer);
     this.unlistenStreamEnded?.();
     this.clearTimers();
     this.toastTimers.forEach((timer) => window.clearTimeout(timer));
@@ -545,6 +558,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       this.setState({ games: [], hostState: "error", hostError: UiText.current.home.noPcYet });
       return;
     }
+    window.clearTimeout(this.searchRetryTimer);
     this.setState({ hostState: "loading", hostError: "" });
     try
     {
@@ -566,10 +580,30 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }
     catch (fetchError)
     {
+      if (Date.now() < this.searchUntil)
+      {
+        console.info("PC not found yet, trying again", fetchError);
+        this.searchRetryTimer = window.setTimeout(() =>
+        {
+          // Only when nothing else (waking, a new reload) took over meanwhile.
+          if (this.mounted && this.state.hostState === "loading")
+          {
+            this.reloadGames();
+          }
+        }, LauncherApp.searchRetryMilliseconds);
+        return;
+      }
       // Unreachable PC or a reachable one whose list failed (e.g. Sunshine login): the status panel tells them apart.
       const hostReachable = await this.isHostReachable(settings);
       this.setState({ hostState: "error", hostError: String(fetchError), hostReachable });
     }
+  }
+
+  /** Start and wake-up: keeps looking for the PC for a while before the panel offers waking it. */
+  private searchForHost(settings: Settings = this.settings): void
+  {
+    this.searchUntil = Date.now() + LauncherApp.searchMilliseconds;
+    this.reloadGames(settings);
   }
 
   /** True when one of the PC's addresses accepts a connection on Sunshine's port (2 s timeout per address). */
@@ -648,6 +682,11 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     if (state.hostState === "waking")
     {
       return "waking";
+    }
+    if (state.hostState === "loading")
+    {
+      // Games from the last visit stay visible while the PC is looked for.
+      return state.games.length === 0 ? "searching" : null;
     }
     if (state.hostState !== "error")
     {
@@ -1668,7 +1707,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       return;
     }
-    this.reloadGames();
+    this.searchForHost();
   }
 
   /**
