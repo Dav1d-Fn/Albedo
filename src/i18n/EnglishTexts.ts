@@ -85,6 +85,7 @@ export const englishTexts: TextTable =
     loadingGames: "Loading games …",
     online: (gameCount: number) => "Online · " + gameCount + " games · Sunshine ready",
     unreachable: "Unreachable · Y to retry",
+    listFailed: "Reachable · no game list · Y to retry",
     unreachableWake: "Off or unreachable · Y wakes the PC",
     waking: (seconds: number) => "Waking PC … " + seconds + " s",
     notSetUp: "Not set up · press A",
@@ -257,6 +258,29 @@ export const englishTexts: TextTable =
     addDeviceTitle: "Add device",
     tooManyDevices: (maximum: number) => "The switch fits no more than " + maximum + " devices.",
     oneDeviceStaysText: "One device always stays.",
+  },
+
+  statusPanel:
+  {
+    wakeEyebrow: "PC off or unreachable",
+    wakeText: "Albedo can switch the PC on with Wake-on-LAN.",
+    homeNetworkOnly: "Only works on the home network – away (Tailscale) the PC must already be running.",
+    wakingEyebrow: "Waking the PC …",
+    wakingText: (seconds: number, timeoutSeconds: number) => "Waiting for Sunshine · " + seconds + " s of " + timeoutSeconds + " s",
+    wakingHint: "As soon as the PC answers, the game list loads by itself.",
+    wakeFailedEyebrow: "PC does not wake up",
+    noMacEyebrow: "PC unreachable",
+    noMacText: "Waking is not possible yet: MAC address unknown – connect once on the home network while the PC is running.",
+    networkHint: "Is the PC on and the Deck on the same network?",
+    networkHintTailscale: "Away from home? Then Tailscale must run on the Deck and the PC.",
+    noListEyebrow: "PC reachable, but no game list",
+    noListText: "Sunshine answers, but the game list did not arrive.",
+    setupEyebrow: "No PC set up yet",
+    setupText: "Find the gaming PC on the network and pair the Deck with Sunshine once.",
+    setupButton: "Set up connection",
+    retry: "Try again",
+    autoCheck: "Checks every few seconds by itself whether the PC answers.",
+    companionOffline: "Albedo Companion is not running – adding games and pictures don't work right now",
   },
 
   toasts:

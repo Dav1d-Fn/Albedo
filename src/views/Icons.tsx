@@ -167,3 +167,13 @@ export function ImageIcon()
     </svg>
   );
 }
+
+export function PowerIcon()
+{
+  return (
+    <svg {...strokeProps}>
+      <path d="M12 3v8.5" />
+      <path d="M6.6 6.4a8 8 0 1 0 10.8 0" />
+    </svg>
+  );
+}

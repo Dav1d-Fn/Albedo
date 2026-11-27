@@ -31,6 +31,13 @@ export type ScreenName = "home" | "detail" | "connect" | "stream" | "afterStream
 
 export type HostState = "loading" | "waking" | "online" | "error";
 
+/**
+ * Why the home screen shows the status panel instead of the games:
+ * "setup" = no PC chosen yet, "wake" = PC unreachable and Wake-on-LAN possible, "waking" = magic packet sent,
+ * "noMac" = PC unreachable and its MAC still unknown, "noList" = Sunshine answers but the game list failed.
+ */
+export type StatusPanelKind = "setup" | "wake" | "waking" | "noMac" | "noList";
+
 export interface LauncherState
 {
   settings: Settings | null;
@@ -56,6 +63,12 @@ export interface LauncherState
   wakeSeconds: number;
   /** The PC address that answered last (home network or Tailscale); "" = not checked yet. */
   activeHost: string;
+  /** Sunshine's port answered during the last reload, also when the game list then failed. */
+  hostReachable: boolean;
+  /** The last wake-up waited the whole timeout without an answer. */
+  wakeTimedOut: boolean;
+  /** Albedo Companion answered during the last reload; null = not checked yet. */
+  companionOnline: boolean | null;
   toast: ToastContent | null;
   connectSteps: string[];
   connectStep: number;
@@ -180,6 +193,13 @@ export default class LauncherApp extends React.Component<object, LauncherState>
 
   private displayPollTimer = 0;
 
+  /** Re-checks an unreachable PC while the status panel shows, so a PC that comes up on its own is picked up. */
+  private hostRecheckTimer = 0;
+
+  private static readonly hostRecheckMilliseconds = 5000;
+
+  private hostRecheckRunning = false;
+
   private unlistenStreamEnded: (() => void) | null = null;
 
   private mounted = false;
@@ -205,6 +225,9 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       hostError: "",
       wakeSeconds: 0,
       activeHost: "",
+      hostReachable: false,
+      wakeTimedOut: false,
+      companionOnline: null,
       toast: null,
       connectSteps: [],
       connectStep: 0,
@@ -297,6 +320,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       this.reloadGames(settings);
     }
     this.displayPollTimer = window.setInterval(() => this.pollDisplay(), LauncherApp.displayPollMilliseconds);
+    this.hostRecheckTimer = window.setInterval(() => this.recheckUnreachableHost(), LauncherApp.hostRecheckMilliseconds);
     this.checkForUpdate();
   }
 
@@ -319,6 +343,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.inputRouter.detach();
     window.removeEventListener("resize", this.handleResize);
     window.clearInterval(this.displayPollTimer);
+    window.clearInterval(this.hostRecheckTimer);
     this.unlistenStreamEnded?.();
     this.clearTimers();
     this.toastTimers.forEach((timer) => window.clearTimeout(timer));
@@ -524,22 +549,145 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       this.setState((state) => ({
         games,
         hostState: "online",
+        hostReachable: true,
+        wakeTimedOut: false,
         gameIndex: Math.min(state.gameIndex, Math.max(0, games.length - 1)),
       }));
+      this.checkCompanion(host);
       this.loadBoxArt(settings, host, games);
       this.refreshRunningApp(settings, host, true);
       this.rememberHostMac(settings);
     }
     catch (fetchError)
     {
-      this.setState({ hostState: "error", hostError: String(fetchError) });
+      // Unreachable PC or a reachable one whose list failed (e.g. Sunshine login): the status panel tells them apart.
+      const hostReachable = await this.isHostReachable(settings);
+      this.setState({ hostState: "error", hostError: String(fetchError), hostReachable });
+    }
+  }
+
+  /** True when one of the PC's addresses accepts a connection on Sunshine's port (2 s timeout per address). */
+  private async isHostReachable(settings: Settings = this.settings): Promise<boolean>
+  {
+    try
+    {
+      return (await this.backend.pickHostAddress(this.hostAddresses(settings))) !== null;
+    }
+    catch (pickError)
+    {
+      console.warn("address check failed", pickError);
+      return false;
+    }
+  }
+
+  /** Asks the companion for its cheapest answer; without it the home screen shows a small banner. */
+  private async checkCompanion(host: string): Promise<void>
+  {
+    let companionOnline = true;
+    try
+    {
+      await this.backend.companionArtVersion(host);
+    }
+    catch (companionError)
+    {
+      console.info("companion not reachable", companionError);
+      companionOnline = false;
+    }
+    this.setState({ companionOnline });
+  }
+
+  /** Timer: while the panel says the PC is unreachable, a PC that starts by itself loads the list on its own. */
+  private async recheckUnreachableHost(): Promise<void>
+  {
+    const panelKind = this.statusPanelKind();
+    if (this.hostRecheckRunning || this.state.screen !== "home" || (panelKind !== "wake" && panelKind !== "noMac"))
+    {
+      return;
+    }
+    this.hostRecheckRunning = true;
+    try
+    {
+      const reachable = await this.isHostReachable();
+      const stillUnreachable = this.statusPanelKind() === "wake" || this.statusPanelKind() === "noMac";
+      if (reachable && stillUnreachable)
+      {
+        console.info("PC answers again, reloading the list");
+        this.reloadGames();
+      }
+    }
+    finally
+    {
+      this.hostRecheckRunning = false;
+    }
+  }
+
+  /** What the home screen shows instead of the games, or null when the games (or the loading text) show. */
+  public statusPanelKind(): StatusPanelKind | null
+  {
+    const state = this.state;
+    if (state.settings === null)
+    {
+      return null;
+    }
+    if (this.settings.host === "")
+    {
+      return "setup";
+    }
+    if (state.hostState === "waking")
+    {
+      return "waking";
+    }
+    if (state.hostState !== "error")
+    {
+      return null;
+    }
+    if (state.hostReachable)
+    {
+      return "noList";
+    }
+    return this.canWakeHost() ? "wake" : "noMac";
+  }
+
+  /** Label of the panel's button (A); null = the panel has none (while waking). */
+  public statusPanelButtonLabel(): string | null
+  {
+    const t = UiText.current;
+    switch (this.statusPanelKind())
+    {
+      case "setup":
+        return t.statusPanel.setupButton;
+      case "wake":
+        return this.state.wakeTimedOut ? t.statusPanel.retry : t.common.wakePc;
+      case "noMac":
+      case "noList":
+        return t.statusPanel.retry;
+      default:
+        return null;
+    }
+  }
+
+  /** A on the status panel. */
+  public activateStatusPanel(): void
+  {
+    switch (this.statusPanelKind())
+    {
+      case "setup":
+        this.openConnection();
+        return;
+      case "wake":
+        this.wakeHost();
+        return;
+      case "noMac":
+      case "noList":
+        this.reloadGames();
+        return;
     }
   }
 
   // ---------------------------------------------------------------- wake-on-lan
 
   /** How long a PC gets to boot and start Sunshine after the magic packet. */
-  private static readonly wakeTimeoutSeconds = 120;
+  public static readonly wakeTimeoutSeconds = 120;
 
   private static readonly wakeCheckSeconds = 3;
 
@@ -593,7 +741,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       return;
     }
 
-    this.setState({ hostState: "waking", hostError: "", wakeSeconds: 0 });
+    this.setState({ hostState: "waking", hostError: "", wakeSeconds: 0, wakeTimedOut: false });
     const startTime = Date.now();
     // `this.state` is only updated after the next render, so the loop checks it after each wait, not before.
     while (true)
@@ -621,8 +769,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       }
       if (wakeSeconds >= LauncherApp.wakeTimeoutSeconds)
       {
-        this.setState({ hostState: "error", hostError: UiText.current.toasts.wakeFailedText });
-        this.showError(UiText.current.toasts.wakeFailed, UiText.current.toasts.wakeFailedText);
+        // The panel shows the failure text with "Erneut versuchen", so no extra toast.
+        this.setState({ hostState: "error", hostError: UiText.current.toasts.wakeFailedText, hostReachable: false, wakeTimedOut: true });
         return;
       }
       this.setState({ wakeSeconds });
@@ -921,13 +1069,27 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }
     if (button === "Y")
     {
-      if (state.hostState === "error" && this.canWakeHost())
+      if (this.statusPanelKind() === "wake")
       {
         this.wakeHost();
       }
       else if (state.hostState !== "waking")
       {
         this.reloadGames();
+      }
+      return;
+    }
+
+    if (state.zone === "games" && this.statusPanelKind() !== null)
+    {
+      // The status panel replaces the rail: A is its button, up still reaches the top bar.
+      if (button === "A")
+      {
+        this.activateStatusPanel();
+      }
+      else if (button === "UP")
+      {
+        this.setState({ zone: "top" });
       }
       return;
     }
@@ -2869,7 +3031,8 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   {
     this.setState({ screen: "connection", connectionZone: "hosts", connectionHostIndex: 0, pairState: "idle", pairMessage: "" });
     this.searchHosts();
-    if (this.settings.host !== "")
+    // On the first start this runs before the loaded settings reached the state (and there is no PC yet).
+    if (this.state.settings !== null && this.settings.host !== "")
     {
       this.refreshSteamGridDbKey();
     }

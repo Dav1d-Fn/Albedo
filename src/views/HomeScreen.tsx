@@ -4,6 +4,7 @@ import { ModeText } from "../model/ModeText";
 import { DeviceIcon, PlusIcon, SlidersIcon } from "./Icons";
 import { GameBackdrop } from "./GameBackdrop";
 import { ModeStrip } from "./ModeStrip";
+import { StatusPanel } from "./StatusPanel";
 
 /** Library: host chip, device switch with mode strip, hero text and the cover rail. */
 export function HomeScreen(props: { app: LauncherApp })
@@ -14,14 +15,16 @@ export function HomeScreen(props: { app: LauncherApp })
   const gamesZone = state.zone === "games";
   const topFocus = (topIndex: number) => (!gamesZone && state.topIndex === topIndex ? " f" : "");
 
-  const hostSubtitle =
+  const hasHost = app.settings.host !== "";
+  const hostSubtitle = !hasHost ? t.home.notSetUp :
   {
     loading: t.home.loadingGames,
     online: t.home.online(state.games.length),
     waking: t.home.waking(state.wakeSeconds),
-    error: app.settings.host ? (app.canWakeHost() ? t.home.unreachableWake : t.home.unreachable) : t.home.notSetUp,
+    error: state.hostReachable ? t.home.listFailed : (app.canWakeHost() ? t.home.unreachableWake : t.home.unreachable),
   }[state.hostState];
-  const dotClass = { loading: "wake", waking: "wake", online: "on", error: "err" }[state.hostState];
+  const panelKind = app.statusPanelKind();
+  const dotClass = !hasHost ? "err" : { loading: "wake", waking: "wake", online: "on", error: "err" }[state.hostState];
   const deviceOrder = app.settings.deviceOrder;
   const activeIndex = Math.max(0, deviceOrder.indexOf(state.device));
   // The switch is 520px wide with 4px padding; each device gets an equal share.
@@ -94,7 +97,13 @@ export function HomeScreen(props: { app: LauncherApp })
         </button>
       </div>
 
-      <div className="hero">
+      {panelKind !== null && <StatusPanel app={app} />}
+      {panelKind === null && state.hostState === "online" && state.companionOnline === false && (
+        <div className="companionbanner"><span className="dot err" />{t.statusPanel.companionOffline}</div>
+      )}
+
+      {/* The status panel replaces hero and rail; they stay mounted (hidden) so their transitions keep working. */}
+      <div className={"hero" + (panelKind !== null ? " hidden" : "")}>
         {resumeGame !== undefined && (
           <div className={"ht" + (resumeSelected ? " on" : "")}>
             <div className="eyebrow running"><span className="livedot" />{t.home.runningResume}</div>
@@ -138,7 +147,7 @@ export function HomeScreen(props: { app: LauncherApp })
         )}
       </div>
 
-      <div className="rail">
+      <div className={"rail" + (panelKind !== null ? " hidden" : "")}>
         <div className="track" style={{ transform: `translateX(-${railOffset}px)` }}>
           {resumeGame !== undefined && (
             <button

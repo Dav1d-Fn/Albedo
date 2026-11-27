@@ -44,7 +44,7 @@ body { cursor: default; user-select: none; }
 .chip.f, .tbtn.f { transform: scale(1.05); background: rgba(255,255,255,.15); }
 .chip-txt { display: flex; flex-direction: column; line-height: 1.2; }
 .chip-name { font-weight: 650; font-size: 15px; }
-.chip-sub { font-size: 12.5px; color: #A1A1AA; }
+.chip-sub { font-size: 12.5px; color: #A1A1AA; max-width: 230px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dot { width: 10px; height: 10px; border-radius: 50%; background: #71717A; flex: none; transition: background .4s; }
 .dot.on { background: #34D399; box-shadow: 0 0 0 4px rgba(52,211,153,.18); }
 .dot.wake { background: #FBBF24; animation: pulse 1s ease-in-out infinite; }
@@ -388,3 +388,17 @@ body { cursor: default; user-select: none; }
 .eyebrow.running { display: flex; align-items: center; gap: 8px; }
 .livedot { width: 8px; height: 8px; border-radius: 50%; background: #22C55E; box-shadow: 0 0 10px #22C55E; animation: livepulse 1.6s ease-in-out infinite; }
 @keyframes livepulse { 50% { opacity: .35; } }
+
+/* Home status panel: PC off, unreachable, waking, list failed or not set up (replaces hero and rail) */
+.hero.hidden, .rail.hidden { visibility: hidden; }
+.statuspanel { position: absolute; left: 0; right: 0; top: 150px; bottom: 0; z-index: 4; display: grid; place-items: center; padding: 0 48px; }
+.dcard.statuscard { gap: 10px; max-width: 760px; padding: 32px 56px 26px; }
+.statuscard .tname { font-size: 34px; }
+.statusicon { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 22px; background: color-mix(in oklab, var(--acc) 22%, #111); color: var(--acc); margin-bottom: 4px; }
+.statusicon.off { background: rgba(248,113,113,.14); color: #FCA5A5; }
+.statusicon .i { width: 32px; height: 32px; }
+.spin.big { width: 56px; height: 56px; border-width: 5px; margin-bottom: 8px; }
+.statusline { font-size: 17px; line-height: 1.45; color: #E4E4E7; max-width: 620px; }
+.statusdetail { font-size: 13px; color: #A1A1AA; max-width: 620px; font-family: ui-monospace, monospace; overflow-wrap: anywhere; }
+.statuscard .dialogactions { margin: 14px 0 6px; }
+.companionbanner { position: absolute; top: 172px; left: 48px; z-index: 5; display: flex; align-items: center; gap: 10px; padding: 9px 16px; border-radius: 999px; background: rgba(40,16,16,.72); backdrop-filter: blur(20px); border: 1px solid rgba(248,113,113,.35); font-size: 13.5px; color: #FECACA; }

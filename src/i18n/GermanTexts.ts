@@ -88,6 +88,7 @@ export const germanTexts =
     loadingGames: "Lade Spieleliste …",
     online: (gameCount: number) => "Online · " + gameCount + " Spiele · Sunshine bereit",
     unreachable: "Nicht erreichbar · Y lädt neu",
+    listFailed: "Erreichbar · keine Spieleliste · Y lädt neu",
     unreachableWake: "Aus oder nicht erreichbar · Y weckt den PC",
     waking: (seconds: number) => "Wecke PC … " + seconds + " s",
     notSetUp: "Nicht eingerichtet · A drücken",
@@ -262,6 +263,29 @@ export const germanTexts =
     addDeviceTitle: "Gerät hinzufügen",
     tooManyDevices: (maximum: number) => "Mehr als " + maximum + " Geräte passen nicht auf den Schalter.",
     oneDeviceStaysText: "Ein Gerät bleibt immer.",
+  },
+
+  statusPanel:
+  {
+    wakeEyebrow: "PC aus oder nicht erreichbar",
+    wakeText: "Albedo kann den PC per Wake-on-LAN einschalten.",
+    homeNetworkOnly: "Geht nur im Heimnetz – unterwegs (Tailscale) muss der PC schon laufen.",
+    wakingEyebrow: "PC wird geweckt …",
+    wakingText: (seconds: number, timeoutSeconds: number) => "Warte auf Sunshine · " + seconds + " s von " + timeoutSeconds + " s",
+    wakingHint: "Sobald der PC antwortet, lädt die Spieleliste von selbst.",
+    wakeFailedEyebrow: "PC wacht nicht auf",
+    noMacEyebrow: "PC nicht erreichbar",
+    noMacText: "Aufwecken geht noch nicht: MAC-Adresse noch unbekannt – einmal im Heimnetz mit dem laufenden PC verbinden.",
+    networkHint: "Ist der PC an und das Deck im selben Netz?",
+    networkHintTailscale: "Unterwegs? Dann muss Tailscale auf Deck und PC laufen.",
+    noListEyebrow: "PC erreichbar, aber keine Spieleliste",
+    noListText: "Sunshine antwortet, die Spieleliste kam aber nicht an.",
+    setupEyebrow: "Noch kein PC eingerichtet",
+    setupText: "Gaming-PC im Netz suchen und das Deck einmal mit Sunshine koppeln.",
+    setupButton: "Verbindung einrichten",
+    retry: "Erneut versuchen",
+    autoCheck: "Prüft alle paar Sekunden von selbst, ob der PC antwortet.",
+    companionOffline: "Albedo Companion läuft nicht – Spiele hinzufügen und Bilder gehen gerade nicht",
   },
 
   toasts:

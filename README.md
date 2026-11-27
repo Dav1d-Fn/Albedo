@@ -173,8 +173,11 @@ shows a password prompt first, so nothing changes without you.
 
 ### ⏰ Wake-on-LAN
 
-When the PC is asleep or off, **Y** on the home screen wakes it with a magic packet and waits for
-Sunshine to answer. It works on the home network once Albedo has connected to the PC there once;
+When the PC is asleep or off, the home screen says so in the middle of the screen and offers
+**PC aufwecken** (A, or Y anywhere on the home screen): Albedo sends a magic packet and shows the
+seconds until Sunshine answers, then the games load by themselves. A PC that starts on its own is
+noticed too, Albedo checks every few seconds. It works on the home network once Albedo has
+connected to the PC there once (until then the screen says why it can't wake the PC yet);
 the PC needs Wake-on-LAN enabled in its BIOS and network driver, see
 [docs/wake-on-lan.md](docs/wake-on-lan.md).
 

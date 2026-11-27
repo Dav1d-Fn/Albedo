@@ -146,6 +146,14 @@ export class BrowserMock
     const hang = urlParameters.has("hang");
     // "?offline": the PC does not answer until a Wake-on-LAN packet "wakes" it 8 seconds later.
     let offline = urlParameters.has("offline");
+    // "?offline&comesUp=20": the PC starts by itself after 20 s, for the home screen's automatic re-check.
+    if (urlParameters.has("comesUp"))
+    {
+      window.setTimeout(() =>
+      {
+        offline = false;
+      }, Number(urlParameters.get("comesUp")) * 1000);
+    }
     // Like a fresh companion: no Sunshine login until the launcher hands one over.
     let sunshineLoginMissing = true;
     // The SteamGridDB key the fake PC helper holds.
@@ -186,6 +194,11 @@ export class BrowserMock
           {
             throw "PC not reachable";
           }
+          // "?noList": Sunshine answers, but the list fails (like a missing Sunshine login).
+          if (urlParameters.has("noList"))
+          {
+            throw pick("Sunshine-Login abgelehnt (401)", "Sunshine login rejected (401)");
+          }
           return BrowserMock.sampleGames;
         case "discover_hosts":
           return [{ name: "fedora", address: "192.168.178.36" }];
@@ -195,6 +208,11 @@ export class BrowserMock
         case "host_mac_address":
           return offline ? null : "b4:2e:99:9f:d1:d9";
         case "wake_host":
+          // "?wakeFails": the PC never answers, for the timeout text.
+          if (urlParameters.has("wakeFails"))
+          {
+            return null;
+          }
           window.setTimeout(() =>
           {
             offline = false;
@@ -228,6 +246,10 @@ export class BrowserMock
         case "companion_display_mode_request":
           return pcModeRequest;
         case "companion_art_version":
+          if (urlParameters.has("companionOffline"))
+          {
+            return Promise.reject(pick("PC-Helfer nicht erreichbar (Port 47995).", "PC companion unreachable (port 47995)."));
+          }
           return artVersion;
         case "companion_reset_art":
           setCustomArt(args.entryId as string, args.kind as string, false);

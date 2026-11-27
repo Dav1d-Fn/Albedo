@@ -24,11 +24,24 @@ export function HintBar(props: { app: LauncherApp })
     const onAddTile = state.zone === "games" && app.isAddTileSelected();
     const onResumeTile = state.zone === "games" && state.gameIndex === -1;
     const gamesLabel = onAddTile ? t.common.add : (onResumeTile ? t.home.resume : t.home.details);
-    hints.push({ glyph: "A", label: state.zone === "games" ? gamesLabel : t.home.select, button: "A" });
+    // In the games zone the status panel's button replaces the rail; while waking it has none.
+    const panelLabel = app.statusPanelKind() !== null ? app.statusPanelButtonLabel() : gamesLabel;
+    if (state.zone !== "games")
+    {
+      hints.push({ glyph: "A", label: t.home.select, button: "A" });
+    }
+    else if (panelLabel !== null)
+    {
+      hints.push({ glyph: "A", label: panelLabel, button: "A" });
+    }
     hints.push({ glyph: "X", label: t.common.device, button: "X" });
     hints.push({ glyph: "L1 · R1", label: t.common.profile, button: "R1", pill: true });
-    const wakeOffered = state.hostState === "error" && app.canWakeHost();
-    hints.push({ glyph: "Y", label: wakeOffered ? t.common.wakePc : t.common.reload, button: "Y" });
+    const wakeOffered = app.statusPanelKind() === "wake";
+    // While waking, Y does nothing.
+    if (state.hostState !== "waking")
+    {
+      hints.push({ glyph: "Y", label: wakeOffered ? t.common.wakePc : t.common.reload, button: "Y" });
+    }
     hints.push({ glyph: "☰", label: t.common.devices, button: "MENU", pill: true });
   }
   else if (state.screen === "detail" && state.imageDialog !== null)
