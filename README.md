@@ -157,7 +157,8 @@ for both.
 Open [Albedo Companion](pc-app/) from the tray to do the same with mouse and keyboard on the PC: add and remove games,
 move a game into another group (or an own one, like *Couch co-op*) when the emulation detection
 gets it wrong, set pictures from the picture search or by dragging a file in, pair a device with
-its PIN, and enter the Sunshine login. Group changes show up on the Deck too.
+its PIN, and enter the Sunshine login. Group changes show up on the Deck too. Under *Display* it
+shows the PC's stream screens, lets you pick the dummy plug and main monitor and test each one.
 
 <p align="center">
   <img src="docs/media/pc-app-library.png" alt="Albedo Companion: the library by group with covers, a selected game and its group menu" width="900">
@@ -262,9 +263,12 @@ What exactly depends on what:
 - **Virtual connector (AMD).** A real but unused connector (`DP-3` on the test machine) is forced
   to *connected* with a custom EDID through `/sys/kernel/debug/dri/*/<connector>/edid_override`
   and `force`. This is a kernel DRM feature; it is tested with `amdgpu` only. Intel may work, the
-  proprietary NVIDIA driver most likely doesn't offer it. Missing modes can be added from the Deck.
-- **Connector names.** You pick them during setup; they are stored in
-  `~/.config/sunshine-match-client.conf` (`VIRTUAL_OUTPUT=`, `DUMMY_OUTPUT=`), which Albedo Companion reads.
+  proprietary NVIDIA driver most likely doesn't offer it. Missing modes can be added from the Deck
+  or under *Display* in Albedo Companion.
+- **Connector names.** They are stored in `~/.config/sunshine-match-client.conf`
+  (`VIRTUAL_OUTPUT=`, `DUMMY_OUTPUT=`, optional `MAIN_OUTPUT=`), which Albedo Companion reads. The
+  virtual connector is picked during its setup; the dummy plug and the main monitor are picked
+  under *Display* in Albedo Companion (or with the installer's `--dummy-plug`).
 
 The *Desktop (no display switch)* preset, profiles set to *Don't switch* and games you add to Sunshine yourself skip all of this
 and work on any setup.
@@ -283,24 +287,32 @@ Moonlight can connect. That is all Albedo needs to list and start games.
 
 ### 2. Albedo Companion
 
-Installed with the one command from [Gaming PC](#gaming-pc-) (no Rust or Node needed). The
-script downloads `Albedo-Companion-x86_64.AppImage` from the latest
-[release](https://github.com/Dav1d-Fn/Albedo/releases), checks it against `SHA256SUMS`, installs it
-to `~/Applications/` with a menu entry and an autostart entry, and starts it in the tray. An older
-setup with the separate `albedo-companion` (or `streaming-launcher-companion`) service or the
-*Albedo PC* app is replaced; its config stays.
+Albedo Companion is the one program on the PC: the Deck talks to it, and its window is where you
+manage games, pictures, devices and the stream screen. The command from
+[Gaming PC](#gaming-pc-) installs it, no Rust or Node needed:
 
-At login it starts straight into the tray (`--hidden`). Click the tray icon and pick *Open* for the
-window; closing the window puts it back into the tray (the window is dropped then, so it uses little
-memory in the background), *Quit* in the tray menu ends it, and the Deck can no longer add games
-until you start it again. Starting it a second time only brings up the window.
+- downloads `Albedo-Companion-x86_64.AppImage` from the latest
+  [release](https://github.com/Dav1d-Fn/Albedo/releases) and checks it against `SHA256SUMS`,
+- puts it into `~/Applications/` with a menu entry and an autostart entry,
+- starts it in the tray.
 
-On a PC without a desktop, run `Albedo-Companion-x86_64.AppImage --headless` (for example from your own
-systemd user service): only the companion, no window, no tray. Developers build from a checkout
-with `pc-setup/install.sh --build` (needs Rust and Node).
+An older setup (the separate `albedo-companion` or `streaming-launcher-companion` service, or the
+*Albedo PC* app) is replaced; its config stays.
 
-On first start it creates `~/.config/albedo-companion/config.json` (readable only by
-you):
+**Using it.** At login it starts in the tray. Click the tray icon and pick *Open* for the window.
+Closing the window puts it back into the tray (and frees its memory). *Quit* in the tray menu ends
+it completely, and the Deck can't add games until you start it again. Starting it a second time
+only brings up the window.
+
+**Without a desktop**, run `Albedo-Companion-x86_64.AppImage --headless` (for example from your
+own systemd user service): only the service for the Deck, no window, no tray. **Developers** build
+from a checkout with `pc-setup/install.sh --build` (needs Rust and Node).
+
+**Sunshine login.** The companion needs Sunshine's web UI login to add and remove games. You don't
+have to edit anything: the first time you press **A** in *Add games*, the Deck asks for it, or you
+enter it under *Status & login* in Albedo Companion. Without it the game list still shows. The
+login is stored in `~/.config/albedo-companion/config.json` (created on first start, readable only
+by you):
 
 ```json
 {
@@ -311,21 +323,20 @@ you):
 }
 ```
 
-Leave the login empty: the first time you press **A** in *Add games*, Albedo asks for the Sunshine
-login (or enter it under *Status & login* in Albedo Companion), and the companion stores it. Without it the
-list still shows, but adding and removing don't work. After editing the file by hand, quit and
-start Albedo Companion again.
+After editing that file by hand, quit and start Albedo Companion again.
 
-Open port **47995/tcp** in the firewall. The companion only answers the home network
-(private IPv4 ranges), Tailscale (`100.64.0.0/10`) and localhost, and it never runs commands
-sent by the client: it only creates Sunshine apps from games it found itself. The full API is in
-[`companion/API.md`](companion/API.md); the window is described in [`pc-app/`](pc-app/README.md).
+**Firewall.** Open port **47995/tcp**. The companion only answers the home network (private IPv4
+ranges), Tailscale (`100.64.0.0/10`) and the PC itself, and it never runs commands a client sends:
+it only creates Sunshine apps from games it found itself.
 
 Check that it runs:
 
 ```bash
 curl -s localhost:47995/api/health
 ```
+
+More details: the window in [`pc-app/`](pc-app/README.md), the API in
+[`companion/API.md`](companion/API.md).
 
 ### 3. Resolution switching (KDE)
 
@@ -425,15 +436,16 @@ Albedo is made for your **home network**. Nothing of it belongs on the open inte
 |---|---|
 | **Moonlight ↔ Sunshine** | Paired once with a PIN; after that both sides know each other's certificate and the stream is encrypted. Unpaired devices get nothing. |
 | **Sunshine web UI** (47990) | Sunshine's own username and password. |
-| **Albedo Companion** (47995) | Runs while the app runs (also in the tray). No login. It only answers the home network (private IPv4 ranges), Tailscale (`100.64.0.0/10`) and localhost, and drops everything else, even if the port were forwarded. It never runs commands sent by a client: it only creates Sunshine apps for games it found on the PC itself. |
+| **Albedo Companion** (47995) | Runs while the app runs (also in the tray). No login. It only answers the home network (private IPv4 ranges), Tailscale (`100.64.0.0/10`) and localhost, and drops everything else, even if the port were forwarded. It never runs commands sent by a client: it only creates Sunshine apps for games it found on the PC itself, and screen settings only accept connectors the desktop reports. Anything that needs root (a new mode for the virtual connector) asks for your password on the PC. |
 | **Picture upload links** | Random, valid for a few minutes and usable once. |
 | **Sunshine login in the companion** | Stored in the companion's config on the PC (readable only by your user), never sent back to any client. |
 | **SteamGridDB key** | Stored in the same config, never sent back to any client (they only see its last four characters). The picture search asks SteamGridDB through the companion, which adds the key. |
 | **Updates** | Signed; both apps only install releases signed with the project's key. The Deck can ask the companion to update (`POST /api/update`), but only to the signed release from GitHub, never to anything the request names. |
 
 **What someone on your Wi-Fi could do:** because the companion has no login, any device in your
-home network could add or remove Sunshine apps, delete pictures you set, quit a running game or
-replace the Sunshine login or SteamGridDB key stored in the companion. It cannot read your files,
+home network could add or remove Sunshine apps, delete pictures you set, quit a running game,
+replace the Sunshine login or SteamGridDB key stored in the companion, change which connector is
+the dummy plug or main monitor, or start a 10-second screen test on the PC. It cannot read your files,
 run programs or see the Sunshine password or the SteamGridDB key. If guests use your network, put them on a guest Wi-Fi.
 
 ---
