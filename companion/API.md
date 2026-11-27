@@ -78,7 +78,7 @@ Everything that can be added, sorted by group, then name.
     { "id": "heroic:Crow", "name": "Dead Island 2", "group": "Heroic", "hasCover": true, "inSunshine": false },
     { "id": "lutris:black-desert-online", "name": "Black Desert Online", "group": "Lutris", "hasCover": false, "inSunshine": false },
     { "id": "prism:26.3 Modpack Test", "name": "Minecraft 26.3 Modpack Test", "group": "Minecraft", "hasCover": true, "inSunshine": true },
-    { "id": "desktop:org.kde.dolphin", "name": "Dolphin", "group": "Programme", "hasCover": false, "inSunshine": false }
+    { "id": "desktop:org.kde.dolphin", "name": "Dolphin", "group": "Programme", "hasCover": true, "coverIsIcon": true, "inSunshine": false }
   ],
   "sunshineProblem": null
 }
@@ -95,6 +95,10 @@ Everything that can be added, sorted by group, then name.
   (`env -C <StartDir> VAR=value <exe> <options>`, so Sunshine waits on the game and ends it with the
   stream, no Steam needed); Windows `.exe` start detached via `steam steam://rungameid/<64-bit id>`
   because they need Steam's Proton setup.
+- `coverIsIcon`: there is no real cover, `/api/cover` (and the cover Sunshine gets) is a card made
+  from the program's icon with its name below. So far for `desktop` entries: `Icon=` of the .desktop
+  file, looked up in the KDE icon theme and the themes it inherits, then hicolor, then
+  `/usr/share/pixmaps` (flatpak exports included). A cover set by hand still wins.
 - `inSunshine`: a Sunshine app created from this entry exists (the companion recognises its own apps,
   e.g. by a marker in the app entry, and matches the old hand-made ones by name where it can).
 - `sunshineProblem`: `null` when the companion can reach Sunshine with its login, otherwise the

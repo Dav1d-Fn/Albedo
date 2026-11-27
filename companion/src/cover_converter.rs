@@ -21,6 +21,10 @@ impl CoverConverter
 
     pub fn to_png(&self, cover: &CoverSource) -> Result<Vec<u8>, String>
     {
+        if let CoverSource::Icon { icon, name } = cover
+        {
+            return Self::icon_card(icon, name);
+        }
         let source_bytes = Self::read_source(cover)?;
         Self::run_magick(source_bytes, &Self::COVER_ARGUMENTS)
     }
@@ -113,15 +117,52 @@ impl CoverConverter
             CoverSource::File(picture_path) => fs::read(picture_path)
                 .map_err(|error| format!("{} {}: {}", RequestLanguage::pick("Bild nicht lesbar:", "Cannot read image:"), picture_path.display(), error)),
             CoverSource::Url(picture_url) => Self::download(picture_url),
+            CoverSource::Icon { icon, .. } => fs::read(icon).map_err(|error| format!("{} {}: {}", RequestLanguage::pick("Bild nicht lesbar:", "Cannot read image:"), icon.display(), error)),
         }
+    }
+
+    /// A 600x900 cover for a program without one: its icon big in the middle of a calm
+    /// gradient, the name below. ImageMagick reads SVG icons too, so Sunshine gets a PNG as well.
+    fn icon_card(icon_path: &Path, name: &str) -> Result<Vec<u8>, String>
+    {
+        let extension = icon_path.extension().and_then(|extension| extension.to_str()).unwrap_or("png").to_lowercase();
+        let icon_input = format!("{}:-", extension);
+        // caption: reads "@file" and expands "%" and "\\"; the name is only text.
+        let caption = format!("caption:{}", name.trim_start_matches('@').replace('\\', "\\\\").replace('%', "%%"));
+        let mut arguments: Vec<&str> = vec!["-size", "600x900", "gradient:#262c3a-#101319",
+            "(", "-background", "none", "-density", "384", &icon_input, "-resize", "300x300", ")",
+            "-gravity", "center", "-geometry", "+0-90", "-composite",
+            "(", "-density", "72", "-background", "none", "-fill", "#e6e9f0", "-size", "500x150", "-pointsize", "44", "-gravity", "center", &caption, ")",
+            "-gravity", "center", "-geometry", "+0+200", "-composite"];
+        arguments.push("png:-");
+        // Cached like logos: a whole program list would otherwise mean one magick run per card.
+        let cache_path = Self::cache_path(&format!("icon-card-{}-{}", name, icon_path.display()), "png");
+        if Self::cache_is_fresh(&cache_path, &CoverSource::File(icon_path.to_path_buf()))
+        {
+            if let Ok(cached_bytes) = fs::read(&cache_path)
+            {
+                return Ok(cached_bytes);
+            }
+        }
+        let icon_bytes = fs::read(icon_path).map_err(|error| format!("{} {}: {}", RequestLanguage::pick("Bild nicht lesbar:", "Cannot read image:"), icon_path.display(), error))?;
+        let card_bytes = Self::run_magick_with(icon_bytes, &arguments)?;
+        let _ = fs::create_dir_all(Self::cache_directory()).and_then(|_| fs::write(&cache_path, &card_bytes));
+        Ok(card_bytes)
     }
 
     /// Runs `magick - <output arguments>` with the source on stdin and returns stdout.
     fn run_magick(source_bytes: Vec<u8>, output_arguments: &[&str]) -> Result<Vec<u8>, String>
     {
+        let mut arguments = vec!["-"];
+        arguments.extend_from_slice(output_arguments);
+        Self::run_magick_with(source_bytes, &arguments)
+    }
+
+    /// Runs `magick <arguments>` with the source on stdin (read where the arguments say `-`).
+    fn run_magick_with(source_bytes: Vec<u8>, arguments: &[&str]) -> Result<Vec<u8>, String>
+    {
         let mut magick_process = HostEnvironment::command("magick")
-            .arg("-")
-            .args(output_arguments)
+            .args(arguments)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())

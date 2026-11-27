@@ -7,4 +7,6 @@ pub enum CoverSource
     None,
     File(PathBuf),
     Url(String),
+    /// No real cover: a card made from the program's icon file with its name below.
+    Icon { icon: PathBuf, name: String },
 }

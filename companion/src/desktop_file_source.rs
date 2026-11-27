@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use crate::companion_config::home_directory;
 use crate::cover_source::CoverSource;
+use crate::icon_lookup::IconLookup;
 use crate::library_entry::LibraryEntry;
 use crate::process_quitter::ProcessQuitter;
 
@@ -15,6 +16,7 @@ impl DesktopFileSource
     pub fn scan(&self) -> Vec<LibraryEntry>
     {
         let home = home_directory();
+        let icon_lookup = IconLookup::new();
         // Later folders override earlier ones with the same desktop id, like the menu does.
         let application_directories: Vec<PathBuf> = vec![
             PathBuf::from("/usr/share/applications"),
@@ -40,13 +42,13 @@ impl DesktopFileSource
                 }
                 let desktop_id = desktop_path.file_stem().unwrap_or_default().to_string_lossy().to_string();
                 // A hidden user entry also hides the system entry, so keep the None.
-                entries_by_desktop_id.insert(desktop_id.clone(), Self::entry_from_file(&desktop_id, &desktop_path));
+                entries_by_desktop_id.insert(desktop_id.clone(), Self::entry_from_file(&desktop_id, &desktop_path, &icon_lookup));
             }
         }
         entries_by_desktop_id.into_values().flatten().collect()
     }
 
-    fn entry_from_file(desktop_id: &str, desktop_path: &Path) -> Option<LibraryEntry>
+    fn entry_from_file(desktop_id: &str, desktop_path: &Path, icon_lookup: &IconLookup) -> Option<LibraryEntry>
     {
         let file_content = fs::read_to_string(desktop_path).ok()?;
         let mut values: HashMap<String, String> = HashMap::new();
@@ -94,9 +96,12 @@ impl DesktopFileSource
         Some(LibraryEntry
         {
             id: format!("desktop:{}", desktop_id),
-            name,
+            name: name.clone(),
             group: "Programme".into(),
-            cover: CoverSource::None,
+            // Programs have no cover; their icon on a card shows roughly what they are.
+            cover: values.get("Icon").and_then(|icon_value| icon_lookup.find(icon_value))
+                .map(|icon| CoverSource::Icon { icon, name: name.clone() })
+                .unwrap_or(CoverSource::None),
             hero: CoverSource::None,
             logo: CoverSource::None,
             screenshots: Vec::new(),

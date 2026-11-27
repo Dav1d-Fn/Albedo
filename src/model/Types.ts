@@ -125,6 +125,8 @@ export interface LibraryEntry
   /** Display group, e.g. "Steam", "Voreinstellungen". */
   group: string;
   hasCover: boolean;
+  /** The cover is only a card made from the program's icon. */
+  coverIsIcon?: boolean;
   inSunshine: boolean;
   /** A wide title image for the backdrop exists (Steam hero, Epic key art). */
   hasHero: boolean;

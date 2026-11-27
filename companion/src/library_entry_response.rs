@@ -12,6 +12,8 @@ pub struct LibraryEntryResponse
     pub detected_group: String,
     pub custom_group: bool,
     pub has_cover: bool,
+    /// The cover is only a card made from the program's icon (no real cover found).
+    pub cover_is_icon: bool,
     pub has_hero: bool,
     pub has_logo: bool,
     pub screenshot_count: usize,

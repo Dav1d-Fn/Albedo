@@ -18,6 +18,7 @@ mod display_target;
 mod display_test_runner;
 mod group_override_store;
 mod heroic_source;
+mod icon_lookup;
 // Shared with the Deck launcher: strips the AppImage's environment from host programs.
 #[path = "../../src-tauri/src/host_environment.rs"]
 mod host_environment;

@@ -75,6 +75,7 @@ impl LibraryEntry
             detected_group: Self::group_label(&self.group),
             custom_group: group_override.is_some(),
             has_cover: self.has_cover(),
+            cover_is_icon: matches!(self.cover, CoverSource::Icon { .. }),
             has_hero: !matches!(self.hero, CoverSource::None),
             has_logo: !matches!(self.logo, CoverSource::None),
             screenshot_count: self.screenshots.len(),

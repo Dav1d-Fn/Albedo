@@ -7,6 +7,8 @@ export interface LibraryEntry
   detectedGroup: string;
   customGroup: boolean;
   hasCover: boolean;
+  /** The cover is only a card made from the program's icon. */
+  coverIsIcon?: boolean;
   hasHero: boolean;
   hasLogo: boolean;
   inSunshine: boolean;
