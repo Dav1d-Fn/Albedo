@@ -379,8 +379,13 @@ modes. No sudo.
 **Virtual connector (AMD, no plug).** The PC gets a virtual monitor on a free connector:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/Albedo/main/pc-setup/install.sh | bash -s -- --virtual-monitor --dry-run   # shows what it would do
 curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/Albedo/main/pc-setup/install.sh | bash -s -- --virtual-monitor
+```
+
+To see first what it would do, without changing anything:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/Albedo/main/pc-setup/install.sh | bash -s -- --virtual-monitor --dry-run
 ```
 
 This is the same installer as in step 2 (in a checkout: `pc-setup/install.sh --virtual-monitor`).
