@@ -252,7 +252,7 @@ What exactly depends on what:
 - **Connector names.** You pick them during setup; they are stored in
   `~/.config/sunshine-match-client.conf` (`VIRTUAL_OUTPUT=`, `DUMMY_OUTPUT=`), which Albedo Companion reads.
 
-The *Desktop (ohne Profilwechsel)* preset and games you add to Sunshine yourself skip all of this
+The *Desktop (no display switch)* preset, profiles set to *Don't switch* and games you add to Sunshine yourself skip all of this
 and work on any setup.
 
 Tested on: Steam Deck with SteamOS 3, Fedora with KDE Plasma 6 (Wayland) and an AMD GPU.

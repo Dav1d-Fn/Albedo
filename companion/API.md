@@ -32,7 +32,7 @@ Everything that can be added, sorted by group, then name.
   "entries":
   [
     { "id": "preset:desktop-auto", "name": "Desktop", "group": "Voreinstellungen", "hasCover": true, "inSunshine": true },
-    { "id": "preset:desktop-plain", "name": "Desktop (ohne Profilwechsel)", "group": "Voreinstellungen", "hasCover": true, "inSunshine": true },
+    { "id": "preset:desktop-plain", "name": "Desktop (no display switch)", "group": "Voreinstellungen", "hasCover": true, "inSunshine": true },
     { "id": "preset:big-picture", "name": "Steam Big Picture", "group": "Voreinstellungen", "hasCover": true, "inSunshine": false },
     { "id": "steam:1245620", "name": "ELDEN RING", "group": "Steam", "hasCover": true, "hasHero": true, "screenshotCount": 3, "inSunshine": false },
     { "id": "shortcut:2777831780", "name": "The Legend of Zelda: Tears of the Kingdom", "group": "Emulation", "hasCover": true, "hasHero": true, "screenshotCount": 0, "inSunshine": false },
@@ -83,7 +83,7 @@ from here: `moonlight list` on the Deck only prints Moonlight's cache, which ref
 Moonlight UI, so newly added games would be missing.
 
 ```json
-{ "apps": ["Desktop", "Desktop (ohne Profilwechsel)", "ELDEN RING"] }
+{ "apps": ["Desktop", "Desktop (no display switch)", "ELDEN RING"] }
 ```
 
 `502` with the reason in the request language (e.g. "The PC companion has no Sunshine login") when Sunshine cannot be asked;

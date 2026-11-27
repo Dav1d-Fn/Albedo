@@ -100,10 +100,27 @@ export class DefaultSettings
       profiles,
       deviceOrder,
       extraHostAddresses: stored.extraHostAddresses ?? [],
-      rememberedModes: stored.rememberedModes ?? {},
-      afterStreamPerGame: stored.afterStreamPerGame ?? {},
-      backdropKindPerGame: stored.backdropKindPerGame ?? {},
+      rememberedModes: DefaultSettings.renamedGameKeys(stored.rememberedModes ?? {}),
+      afterStreamPerGame: DefaultSettings.renamedGameKeys(stored.afterStreamPerGame ?? {}),
+      backdropKindPerGame: DefaultSettings.renamedGameKeys(stored.backdropKindPerGame ?? {}),
     };
+  }
+
+  /**
+   * The companion renamed the Sunshine preset "Desktop (ohne Profilwechsel)" to "Desktop (no display switch)"
+   * (companion/src/preset_source.rs). Per-game keys ("<game>" or "<game>|<device>") move along.
+   */
+  private static renamedGameKeys<Value>(perGame: Record<string, Value>): Record<string, Value>
+  {
+    const oldName = "Desktop (ohne Profilwechsel)";
+    const newName = "Desktop (no display switch)";
+    const renamed: Record<string, Value> = {};
+    for (const [key, value] of Object.entries(perGame))
+    {
+      const isOldKey = key === oldName || key.startsWith(oldName + "|");
+      renamed[isOldKey ? newName + key.slice(oldName.length) : key] = value;
+    }
+    return renamed;
   }
 
   /** Fills fields an older settings file did not have, from the default device of the same id or generic values. */

@@ -4,6 +4,7 @@ use serde_json::{json, Value};
 
 use crate::companion_config::home_directory;
 use crate::library_entry::LibraryEntry;
+use crate::preset_source::PresetSource;
 
 /// Builds the app object Sunshine's POST /api/apps expects for a library entry.
 pub struct SunshineAppBuilder;
@@ -79,6 +80,19 @@ impl SunshineAppBuilder
         }
     }
 
+    /// The preset "Desktop (ohne Profilwechsel)" is called "Desktop (no display switch)" now.
+    /// Returns the app with the new name, or None if it is another app.
+    pub fn migrate_preset_name(&self, app: &Value) -> Option<Value>
+    {
+        if app["name"] != PresetSource::OLD_DESKTOP_WITHOUT_SWITCH
+        {
+            return None;
+        }
+        let mut migrated_app = app.clone();
+        migrated_app["name"] = json!(PresetSource::DESKTOP_WITHOUT_SWITCH);
+        Some(migrated_app)
+    }
+
     /// Apps added before the rename to Albedo end their game with
     /// `…/streaming-launcher-companion quit "<pattern>"`, apps added by the separate companion
     /// service with `…/albedo-companion quit "<pattern>"`. Returns the app with that program
@@ -147,6 +161,17 @@ mod tests
         assert!(SunshineAppBuilder.migrate_restore_command(&own_profile_app).is_none());
         assert!(SunshineAppBuilder.migrate_restore_command(&migrated_app).is_none());
         assert!(SunshineAppBuilder.migrate_restore_command(&json!({ "name": "No prep" })).is_none());
+    }
+
+    #[test]
+    fn renames_only_the_old_desktop_preset()
+    {
+        let old_app = json!({ "name": "Desktop (ohne Profilwechsel)", "cmd": "" });
+        let migrated_app = SunshineAppBuilder.migrate_preset_name(&old_app).unwrap();
+        assert_eq!(migrated_app["name"], "Desktop (no display switch)");
+        assert_eq!(migrated_app["cmd"], "");
+        assert!(SunshineAppBuilder.migrate_preset_name(&migrated_app).is_none());
+        assert!(SunshineAppBuilder.migrate_preset_name(&json!({ "name": "Desktop" })).is_none());
     }
 
     #[test]

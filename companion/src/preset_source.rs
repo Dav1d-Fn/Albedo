@@ -10,6 +10,12 @@ pub struct PresetSource;
 
 impl PresetSource
 {
+    /// The desktop as it is, no monitor switch, whatever the Deck profile says. Sunshine apps keep
+    /// this name for good (the Deck keys its per-game settings by it), so it is not translated.
+    pub const DESKTOP_WITHOUT_SWITCH: &'static str = "Desktop (no display switch)";
+    /// The name before 0.2, renamed by `SunshineAppBuilder::migrate_preset_name`.
+    pub const OLD_DESKTOP_WITHOUT_SWITCH: &'static str = "Desktop (ohne Profilwechsel)";
+
     pub fn scan(&self) -> Vec<LibraryEntry>
     {
         let covers_directory = home_directory().join(".config/sunshine/covers");
@@ -32,7 +38,7 @@ impl PresetSource
             LibraryEntry
             {
                 id: "preset:desktop-plain".into(),
-                name: "Desktop (ohne Profilwechsel)".into(),
+                name: Self::DESKTOP_WITHOUT_SWITCH.into(),
                 group: "Voreinstellungen".into(),
                 cover: Self::cover_if_present(covers_directory.join("desktop-rdp.png")),
                 hero: CoverSource::None,

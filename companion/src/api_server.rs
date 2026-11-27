@@ -408,8 +408,9 @@ impl ApiServer
         Ok(Self::json(200, json!({ "name": entry.name })))
     }
 
-    /// Moves apps created before pc-setup/ from screenprofiler to `sunshine-match-client --restore`
-    /// and old `streaming-launcher-companion quit` undo steps to this companion.
+    /// Moves apps created before pc-setup/ from screenprofiler to `sunshine-match-client --restore`,
+    /// old `streaming-launcher-companion quit` undo steps to this companion and renames the old
+    /// German desktop preset.
     /// Runs at start and before every add. A failure is only logged: the old undo steps still work
     /// (screenprofiler where installed, pc-setup/install.sh links the old companion name).
     pub fn migrate_apps(sunshine: &SunshineClient)
@@ -429,7 +430,9 @@ impl ApiServer
             let restore_migrated = SunshineAppBuilder.migrate_restore_command(app);
             let base_app = restore_migrated.as_ref().unwrap_or(app);
             let quit_migrated = SunshineAppBuilder.migrate_quit_command(base_app, &companion_program);
-            if let Some(migrated_app) = quit_migrated.or(restore_migrated)
+            let base_app = quit_migrated.as_ref().unwrap_or(base_app);
+            let name_migrated = SunshineAppBuilder.migrate_preset_name(base_app);
+            if let Some(migrated_app) = name_migrated.or(quit_migrated).or(restore_migrated)
             {
                 let app_name = app["name"].as_str().unwrap_or("?");
                 match sunshine.update_app(app_index, &migrated_app)
