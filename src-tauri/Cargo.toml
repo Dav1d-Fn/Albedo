@@ -1,6 +1,6 @@
 [package]
 name = "albedo"
-version = "0.2.1"
+version = "0.2.2"
 description = "Controller-friendly launcher for Moonlight"
 authors = ["David F"]
 license = "GPL-3.0-or-later"
@@ -19,6 +19,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+libc = "0.2"
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

@@ -1,11 +1,12 @@
 [package]
 name = "albedo-companion-core"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 license = "GPL-3.0-or-later"
 description = "PC companion of Albedo: lists installed games and adds them to Sunshine"
 
 [dependencies]
+libc = "0.2"
 tiny_http = "0.12"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
