@@ -19,7 +19,7 @@ dependencies = [
 
 [[package]]
 name = "albedo-companion"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "albedo-companion-core",
  "percent-encoding",
@@ -34,7 +34,7 @@ dependencies = [
 
 [[package]]
 name = "albedo-companion-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "percent-encoding",
  "qrcode",
