@@ -22,7 +22,7 @@ use serde_json::Value;
 use tauri::ipc::{InvokeBody, Request};
 use tauri::{AppHandle, Manager};
 
-use albedo_companion_core::{CompanionService, ProcessQuitter};
+use albedo_companion_core::{CompanionService, ProcessQuitter, StreamDisplaySwitcher};
 use art_search::ArtSearch;
 use art_search_result::ArtSearchResult;
 use companion_proxy::CompanionProxy;
@@ -170,6 +170,9 @@ fn art_search(app_handle: &AppHandle) -> Result<ArtSearch, String>
 ///   albedo-companion --headless         only the companion API, no window or tray (PCs without a desktop)
 ///   albedo-companion --exit             ends the running instance (the installer uses it to update)
 ///   albedo-companion quit "<pattern>"   undo step of a Sunshine app: ends the game's processes
+///   albedo-companion display [--restore] [--dry-run]
+///                                       prep/undo step of a Sunshine app (via sunshine-match-client):
+///                                       switches the stream's monitor and puts it back
 pub fn run()
 {
     let arguments: Vec<String> = std::env::args().collect();
@@ -177,6 +180,10 @@ pub fn run()
     {
         ProcessQuitter::new(&arguments[2]).quit();
         return;
+    }
+    if arguments.len() >= 2 && arguments[1] == "display"
+    {
+        std::process::exit(StreamDisplaySwitcher::run_command_line(&arguments[2..]));
     }
     if arguments.iter().any(|argument| argument == "--headless")
     {

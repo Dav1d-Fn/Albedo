@@ -46,7 +46,6 @@ use moonlight_app_quit::MoonlightAppQuit;
 use moonlight_box_art::MoonlightBoxArt;
 use moonlight_command::MoonlightCommand;
 use moonlight_pairing::MoonlightPairing;
-use pc_display_mode::PcDisplayMode;
 use running_host_app::RunningHostApp;
 use settings_store::SettingsStore;
 use stream_session::StreamSession;
@@ -312,9 +311,17 @@ async fn companion_remove_app(host: String, app_name: String) -> Result<(), Stri
 }
 
 #[tauri::command]
-async fn companion_display_modes(host: String) -> Result<Vec<PcDisplayMode>, String>
+async fn companion_display_modes(host: String) -> Result<serde_json::Value, String>
 {
     CompanionClient::for_host(&host)?.display_modes().await
+}
+
+#[tauri::command]
+async fn companion_set_stream_display(host: String, target: String) -> Result<(), String>
+{
+    let result = CompanionClient::for_host(&host)?.set_stream_display(&target).await;
+    println!("[companion] stream display {} -> {:?}", target, result);
+    result
 }
 
 #[tauri::command]
@@ -446,6 +453,7 @@ pub fn run()
             companion_steam_grid_db_key,
             companion_set_steam_grid_db_key,
             companion_display_modes,
+            companion_set_stream_display,
             companion_add_display_mode,
             companion_display_mode_request,
             check_for_update,

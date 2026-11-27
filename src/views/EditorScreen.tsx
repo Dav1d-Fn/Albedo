@@ -3,7 +3,7 @@ import LauncherApp from "../LauncherApp";
 import { DevicePalette } from "../model/DevicePalette";
 import { ModeText } from "../model/ModeText";
 import { PcModeMatcher } from "../model/PcModeMatcher";
-import { AutoRule, DeviceColor, DeviceIconKind, StreamMode } from "../model/Types";
+import { AutoRule, DeviceColor, DeviceIconKind, DisplayTarget, StreamMode } from "../model/Types";
 import { EditorRows } from "./EditorRows";
 import { ChevronLeftIcon, ChevronRightIcon, DeviceIcon, MinusIcon, PlusIcon } from "./Icons";
 
@@ -31,7 +31,8 @@ export function EditorScreen(props: { app: LauncherApp })
   const visibleRows = EditorRows.indices(onDeviceEntry ? "device" : "mode");
   const deviceEntryConfirming = onDeviceEntry && state.editConfirmDelete === "device" && state.editZone === "modes";
   const isDefault = state.editModeIndex === profile.defaultModeIndex;
-  const pcModeHint = PcModeMatcher.hint(state.pcDisplayModes, editMode);
+  const pcModeHint = PcModeMatcher.hint(state.pcDisplays, editMode);
+  const pcModeInexact = PcModeMatcher.isInexact(state.pcDisplays, editMode);
   const pcModeRequestStatus = PcModeMatcher.requestStatus(state.pcModeRequest, editMode);
   const deviceOrder = app.settings.deviceOrder;
   const editDeviceIndex = Math.max(0, deviceOrder.indexOf(editDevice));
@@ -174,6 +175,14 @@ export function EditorScreen(props: { app: LauncherApp })
             {
               displayValue = t.iconNames[value as DeviceIconKind];
             }
+            else if (row.key === "displayTarget")
+            {
+              displayValue = t.displayTargetNames[value as DisplayTarget];
+              if (value === "auto" && state.pcDisplays !== null)
+              {
+                displayValue = t.editor.autoDisplayTarget(t.displayTargetNames[PcModeMatcher.resolvedTarget(state.pcDisplays, "auto")]);
+              }
+            }
             else if (row.key === "autoRule")
             {
               displayValue = t.autoRuleNames[value as AutoRule];
@@ -199,7 +208,7 @@ export function EditorScreen(props: { app: LauncherApp })
                             <input
                               key={String(value) + bumpCount}
                               id={"mode-" + row.key}
-                              className={"val valinput" + bumpClass + (pcModeHint ? " off" : "")}
+                              className={"val valinput" + bumpClass + (pcModeInexact ? " off" : "")}
                               defaultValue={displayValue}
                               spellCheck={false}
                               aria-label={rowLabel}
@@ -263,7 +272,7 @@ export function EditorScreen(props: { app: LauncherApp })
                     )}
                   </div>
                 </div>
-                {row.key === "codec" && (pcModeHint || pcModeRequestStatus) && (
+                {row.key === "displayTarget" && (pcModeHint || pcModeRequestStatus) && (
                   <div className="pchint">
                     {pcModeHint}
                     {pcModeRequestStatus && <div className="pcrequest">{pcModeRequestStatus}</div>}

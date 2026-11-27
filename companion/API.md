@@ -91,22 +91,46 @@ the launcher then falls back to `moonlight list`.
 
 ### `GET /api/display-modes`
 
-Modes of the virtual streaming monitor (from `kscreen-doctor -j`, 5 s time limit because KWin
-sometimes hangs). When a client connects, `sunshine-match-client` switches it to the closest mode,
-so the launcher warns about a stream mode the PC does not have.
+The routes this PC can show a stream on, with the modes of their outputs (from the display backend,
+KDE: `kscreen-doctor -j`, 20 s time limit because KWin sometimes hangs). When a client connects,
+`sunshine-match-client` switches the profile's route to the closest mode
+(`companion/src/display_mode_chooser.rs`: exact size, else same aspect ratio, else the largest
+that fits; then the closest refresh rate), so the launcher shows what the PC will really use.
 
 ```json
-{ "output": "DP-3", "modes": [{ "width": 1280, "height": 800, "refreshRate": 90 }] }
+{
+  "backend": "kde",
+  "defaultTarget": "virtual",
+  "routes": [
+    { "target": "virtual", "output": "DP-3", "connected": true, "canAddModes": true,
+      "modes": [{ "width": 1280, "height": 800, "refreshRate": 90 }] },
+    { "target": "dummy", "output": "HDMI-A-1", "connected": true, "canAddModes": false, "modes": [] },
+    { "target": "main", "output": "DP-2", "connected": true, "canAddModes": false, "modes": [] }
+  ],
+  "output": "DP-3",
+  "modes": [{ "width": 1280, "height": 800, "refreshRate": 90 }]
+}
 ```
 
-The output name comes from `~/.config/sunshine-match-client.conf` (`VIRTUAL_OUTPUT=…`, written by
-`pc-setup/install.sh`). Refresh rates are rounded. `502` when that file is missing, kscreen-doctor
-fails or the output is missing.
+`virtual` and `dummy` are there when `~/.config/sunshine-match-client.conf` has `VIRTUAL_OUTPUT=…`
+/ `DUMMY_OUTPUT=…` (written by `pc-setup/install.sh`), `main` is the primary monitor (or
+`MAIN_OUTPUT=…`). `defaultTarget` is what `auto` means: virtual, else dummy, else `none`. `output`
+and `modes` repeat the default route for launchers from before the routes (empty without one).
+Refresh rates are rounded. `502` when there is no display backend for this desktop or it fails.
+
+### `POST /api/stream-display`
+
+Body `{ "target": "auto" | "virtual" | "dummy" | "main" | "none" }`: the route of the stream that
+starts next (the Deck profile's *Screen on the PC*), sent right before Moonlight starts. Saved in
+`~/.local/state/albedo-stream-display.json`; Sunshine's prep command (`sunshine-match-client` →
+`albedo-companion display`) takes it within 2 minutes, once. Without one, or for a route the PC
+isn't set up for, `defaultTarget` applies, so Sunshine apps and other clients work as before.
+`400` for an unknown target.
 
 ### `POST /api/display-modes`
 
 Body `{ "width": 2560, "height": 1600, "refreshRate": 90 }`: adds the mode to the virtual
-monitor's EDID. The companion builds a new EDID with `pc-setup/make-virtual-edid.py` (built in),
+monitor's EDID (only that route has `canAddModes`; a dummy plug's EDID is the plug's own). The companion builds a new EDID with `pc-setup/make-virtual-edid.py` (built in),
 keeping every mode of `/etc/virtual-display-edid.bin`, and installs it with `pkexec` (the KDE
 password prompt opens **on the PC**; the password never reaches the companion), then restarts
 `virtual-display-edid.service`. Answers `202` with the status right away (see below).

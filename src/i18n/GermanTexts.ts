@@ -1,4 +1,4 @@
-import { AfterStreamAction, ArtKind, AutoRule, BackdropKind, DeviceColor, DeviceIconKind } from "../model/Types";
+import { AfterStreamAction, ArtKind, AutoRule, BackdropKind, DeviceColor, DeviceIconKind, DisplayTarget, PcDisplayRoute } from "../model/Types";
 
 /**
  * Every German text of the UI. Its shape is the `TextTable` type, so `EnglishTexts` must have
@@ -61,6 +61,15 @@ export const germanTexts =
     "Dieser Bildschirm": "Dieser Bildschirm",
     "Nur manuell": "Nur manuell",
   } satisfies Record<AutoRule, string>,
+
+  displayTargetNames:
+  {
+    auto: "Automatisch",
+    virtual: "Virtueller Anschluss",
+    dummy: "Dummy-Stecker",
+    main: "Hauptmonitor",
+    none: "Nicht umschalten",
+  } satisfies Record<DisplayTarget, string>,
 
   colorNames:
   {
@@ -239,6 +248,8 @@ export const germanTexts =
     rowBitrate: "Bitrate",
     rowHdr: "HDR",
     rowCodec: "Codec",
+    rowDisplayTarget: "Bildschirm am PC",
+    autoDisplayTarget: (targetName: string) => "Automatisch: " + targetName,
     rowName: "Name",
     rowColor: "Farbe",
     rowIcon: "Symbol",
@@ -246,7 +257,17 @@ export const germanTexts =
     rowPerformanceOverlay: "Leistungsanzeige",
     rowAutoRule: "Automatisch aktiv bei",
     rowScreen: "Bildschirm",
-    pcModeInexact: (modeText: string) => "Der virtuelle Monitor des PCs kann das nicht genau und nimmt " + modeText + ".",
+    pcRouteNames:
+    {
+      virtual: (output: string) => "Der virtuelle Monitor des PCs (" + output + ")",
+      dummy: (output: string) => "Der Dummy-Stecker des PCs (" + output + ")",
+      main: (output: string) => "Der Hauptmonitor des PCs (" + output + ")",
+    } satisfies Record<PcDisplayRoute["target"], (output: string) => string>,
+    pcModeInexact: (outputText: string, modeText: string) => outputText + " kann das nicht genau und nimmt " + modeText + ".",
+    pcModeExact: (outputText: string, modeText: string) => outputText + " schaltet für den Stream auf " + modeText + " und danach zurück.",
+    pcModesFromPlug: " Die Modi kommen aus dem Stecker, hinzufügen geht dort nicht.",
+    pcNoSwitch: "Am PC wird nichts umgeschaltet, der Stream zeigt den Desktop, wie er ist.",
+    pcOutputWithoutModes: (outputText: string) => outputText + " meldet keine Modi. Ist er angeschlossen?",
     pcModeMatching: (rates: string) => " Passend wären " + rates + " FPS.",
     addModeToPc: "Am PC hinzufügen",
     pcModeWaiting: "Am PC bestätigen: Dort ist jetzt ein Passwortfenster offen.",

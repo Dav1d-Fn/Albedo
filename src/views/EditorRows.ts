@@ -1,7 +1,8 @@
 import { UiText } from "../i18n/UiText";
 import { DevicePalette } from "../model/DevicePalette";
 import { ModeText } from "../model/ModeText";
-import { DeviceProfile, PcDisplayMode, StreamMode } from "../model/Types";
+import { PcModeMatcher } from "../model/PcModeMatcher";
+import { DeviceProfile, DisplayTarget, PcDisplayMode, PcDisplays, StreamMode } from "../model/Types";
 
 /** "text" = typed (device name), "screen" = A takes the connected screen's name, "delete" = A deletes the device. */
 export type RowType = "list" | "range" | "bool" | "seg" | "text" | "screen" | "delete";
@@ -9,7 +10,7 @@ export type RowType = "list" | "range" | "bool" | "seg" | "text" | "screen" | "d
 type DeviceRowKey = "name" | "color" | "icon" | "audio" | "performanceOverlay" | "autoRule" | "displayName" | "deleteDevice";
 
 /** Key of a row label in the "editor" part of the text tables. */
-type RowLabelKey = "rowResolution" | "rowFrameRate" | "rowBitrate" | "rowHdr" | "rowCodec" | "rowName" | "rowColor" | "rowIcon" | "rowAudio" | "rowPerformanceOverlay" | "rowAutoRule" | "rowScreen" | "deleteDevice";
+type RowLabelKey = "rowResolution" | "rowFrameRate" | "rowBitrate" | "rowHdr" | "rowCodec" | "rowDisplayTarget" | "rowName" | "rowColor" | "rowIcon" | "rowAudio" | "rowPerformanceOverlay" | "rowAutoRule" | "rowScreen" | "deleteDevice";
 
 export interface EditorRow
 {
@@ -32,6 +33,7 @@ export class EditorRows
   /** Used when the PC's monitor modes are unknown (no companion) or the resolution has none there. */
   public static readonly resolutions = ["1280x720", "1280x800", "1920x1080", "2560x1440", "3840x2160"] as const;
   public static readonly frameRates = [30, 40, 60, 90, 120] as const;
+  public static readonly displayTargets: readonly DisplayTarget[] = ["auto", "virtual", "dummy", "main", "none"];
 
   public static readonly rows: readonly EditorRow[] =
   [
@@ -40,6 +42,7 @@ export class EditorRows
     { key: "bitrateMbps", labelKey: "rowBitrate", type: "range", scope: "mode", minimum: 5, maximum: 150, stepSize: 5 },
     { key: "hdr", labelKey: "rowHdr", type: "bool", scope: "mode" },
     { key: "codec", labelKey: "rowCodec", type: "seg", scope: "mode", options: ["H.264", "HEVC", "AV1"] },
+    { key: "displayTarget", labelKey: "rowDisplayTarget", type: "list", scope: "mode", options: EditorRows.displayTargets },
     { key: "name", labelKey: "rowName", type: "text", scope: "device", heading: true },
     { key: "color", labelKey: "rowColor", type: "list", scope: "device", options: DevicePalette.colorOrder },
     { key: "icon", labelKey: "rowIcon", type: "list", scope: "device", options: DevicePalette.iconOrder },
@@ -85,14 +88,24 @@ export class EditorRows
   }
 
   /**
-   * The values a list row steps through. Resolution and FPS come from the PC's virtual monitor when its modes
-   * are known (FPS of the profile's resolution), else from the fixed lists; a typed value outside the list is
-   * kept in it, so stepping goes on from there.
+   * The values a list row steps through. Resolution and FPS come from the PC output the profile streams to when
+   * its modes are known (FPS of the profile's resolution), else from the fixed lists; a typed value outside the
+   * list is kept in it, so stepping goes on from there. The display target offers what the PC is set up for.
    */
-  public static options(rowIndex: number, mode: StreamMode, pcModes: PcDisplayMode[] | null): readonly (string | number)[]
+  public static options(rowIndex: number, mode: StreamMode, displays: PcDisplays | null): readonly (string | number)[]
   {
     const row = EditorRows.rows[rowIndex];
-    const knownModes = pcModes ?? [];
+    const knownModes = PcModeMatcher.modes(displays, mode) ?? [];
+    if (row.key === "displayTarget")
+    {
+      if (displays === null)
+      {
+        return EditorRows.displayTargets;
+      }
+      // The current value stays even when the PC lacks it (the companion then uses its default).
+      return EditorRows.displayTargets.filter((target) =>
+        target === "auto" || target === "none" || target === mode.displayTarget || displays.routes.some((route) => route.target === target));
+    }
     if (row.key === "resolution")
     {
       const pcResolutions = knownModes.map((pcMode) => pcMode.width + "x" + pcMode.height);
@@ -121,10 +134,10 @@ export class EditorRows
   }
 
   /** After a resolution change: an FPS the PC has at the new resolution, the closest one (higher on a tie). */
-  public static fittingFps(mode: StreamMode, pcModes: PcDisplayMode[] | null): number
+  public static fittingFps(mode: StreamMode, displays: PcDisplays | null): number
   {
     const wanted = ModeText.size(mode.resolution);
-    const pcRates = EditorRows.pcRates(pcModes ?? [], wanted.width, wanted.height);
+    const pcRates = EditorRows.pcRates(PcModeMatcher.modes(displays, mode) ?? [], wanted.width, wanted.height);
     if (pcRates.length === 0 || pcRates.includes(mode.fps))
     {
       return mode.fps;
@@ -174,7 +187,7 @@ export class EditorRows
   }
 
   /** Next value after pressing left/right (direction -1/+1); `wrap` cycles lists (used by A). */
-  public static step(rowIndex: number, profile: DeviceProfile, modeIndex: number, direction: number, wrap: boolean, pcModes: PcDisplayMode[] | null): unknown
+  public static step(rowIndex: number, profile: DeviceProfile, modeIndex: number, direction: number, wrap: boolean, displays: PcDisplays | null): unknown
   {
     const row = EditorRows.rows[rowIndex];
     const current = EditorRows.value(rowIndex, profile, modeIndex);
@@ -194,7 +207,7 @@ export class EditorRows
       return Math.max(row.minimum!, Math.min(row.maximum!, next));
     }
 
-    const options = EditorRows.options(rowIndex, profile.modes[modeIndex], pcModes);
+    const options = EditorRows.options(rowIndex, profile.modes[modeIndex], displays);
     const currentIndex = Math.max(0, options.indexOf(current as string | number));
     const nextIndex = wrap
       ? (currentIndex + direction + options.length) % options.length

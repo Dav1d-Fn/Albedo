@@ -1,24 +1,26 @@
 import { UiText } from "../i18n/UiText";
 import { ModeText } from "./ModeText";
-import { PcDisplayMode, PcModeRequest, StreamMode } from "./Types";
+import { DisplayTarget, PcDisplayMode, PcDisplayRoute, PcDisplays, PcModeRequest, StreamMode } from "./Types";
 
 /**
- * Picks the PC monitor mode a stream mode ends up with, the same way `sunshine-match-client` does on the PC:
- * smallest pixel-count difference first, then the closest refresh rate, ties prefer the higher refresh rate.
+ * Picks the PC monitor mode a stream mode ends up with, the same way the companion does on the PC
+ * (companion/src/display_mode_chooser.rs, keep both alike): the exact size, else one with the same aspect ratio
+ * (the largest that fits, else the smallest bigger one), else the largest that fits, else the smallest; then
+ * the closest refresh rate at that size, a tie goes to the higher one.
  */
 export class PcModeMatcher
 {
   public static closest(pcModes: PcDisplayMode[], mode: StreamMode): PcDisplayMode | null
   {
     const wanted = ModeText.size(mode.resolution);
-    const wantedPixels = wanted.width * wanted.height;
-    const sortedModes = pcModes.slice().sort((first, second) =>
+    const size = PcModeMatcher.closestSize(pcModes, wanted.width, wanted.height);
+    if (size === null)
     {
-      const pixelDifference = Math.abs(first.width * first.height - wantedPixels) - Math.abs(second.width * second.height - wantedPixels);
-      if (pixelDifference !== 0)
-      {
-        return pixelDifference;
-      }
+      return null;
+    }
+    const sameSizeModes = pcModes.filter((pcMode) => pcMode.width === size.width && pcMode.height === size.height);
+    sameSizeModes.sort((first, second) =>
+    {
       const rateDifference = Math.abs(first.refreshRate - mode.fps) - Math.abs(second.refreshRate - mode.fps);
       if (rateDifference !== 0)
       {
@@ -26,30 +28,131 @@ export class PcModeMatcher
       }
       return second.refreshRate - first.refreshRate;
     });
-    return sortedModes[0] ?? null;
+    return sameSizeModes[0];
   }
 
-  /** Hint (in the UI language) when the PC has no exact mode for the stream mode, null when it has one (or nothing is known). */
-  public static hint(pcModes: PcDisplayMode[] | null, mode: StreamMode): string | null
+  private static closestSize(pcModes: PcDisplayMode[], width: number, height: number): { width: number; height: number } | null
   {
-    if (pcModes === null || pcModes.length === 0)
+    const sizes: { width: number; height: number }[] = [];
+    for (const pcMode of pcModes)
+    {
+      if (!sizes.some((size) => size.width === pcMode.width && size.height === pcMode.height))
+      {
+        sizes.push({ width: pcMode.width, height: pcMode.height });
+      }
+    }
+    sizes.sort((first, second) => first.width * first.height - second.width * second.height);
+
+    const exactSize = sizes.find((size) => size.width === width && size.height === height);
+    if (exactSize !== undefined)
+    {
+      return exactSize;
+    }
+    const fits = (size: { width: number; height: number }) => size.width <= width && size.height <= height;
+    const wantedRatio = width / height;
+    // Within 1 %, so 1366x768 counts as 16:9.
+    const sameAspect = sizes.filter((size) => Math.abs(size.width / size.height - wantedRatio) <= wantedRatio * 0.01);
+    const fittingSameAspect = sameAspect.filter(fits);
+    if (fittingSameAspect.length > 0)
+    {
+      return fittingSameAspect[fittingSameAspect.length - 1];
+    }
+    if (sameAspect.length > 0)
+    {
+      return sameAspect[0];
+    }
+    const fittingSizes = sizes.filter(fits);
+    if (fittingSizes.length > 0)
+    {
+      return fittingSizes[fittingSizes.length - 1];
+    }
+    return sizes[0] ?? null;
+  }
+
+  /** The target that really applies, like the companion: "auto" and a route the PC isn't set up for become its default. */
+  public static resolvedTarget(displays: PcDisplays, target: DisplayTarget): DisplayTarget
+  {
+    if (target === "none" || displays.routes.some((route) => route.target === target))
+    {
+      return target;
+    }
+    return displays.defaultTarget;
+  }
+
+  /** The PC output a stream mode uses; null when nothing switches or the PC is unknown. */
+  public static route(displays: PcDisplays | null, mode: StreamMode): PcDisplayRoute | null
+  {
+    if (displays === null)
     {
       return null;
+    }
+    const target = PcModeMatcher.resolvedTarget(displays, mode.displayTarget);
+    return displays.routes.find((route) => route.target === target) ?? null;
+  }
+
+  /** Modes of the output the stream mode uses; null when unknown (the editor then steps through fixed lists). */
+  public static modes(displays: PcDisplays | null, mode: StreamMode): PcDisplayMode[] | null
+  {
+    const route = PcModeMatcher.route(displays, mode);
+    return route === null || route.modes.length === 0 ? null : route.modes;
+  }
+
+  /** The PC can't show the stream mode exactly on the output it uses. */
+  public static isInexact(displays: PcDisplays | null, mode: StreamMode): boolean
+  {
+    const pcModes = PcModeMatcher.modes(displays, mode);
+    if (pcModes === null)
+    {
+      return false;
     }
     const closestMode = PcModeMatcher.closest(pcModes, mode)!;
     const wanted = ModeText.size(mode.resolution);
-    if (closestMode.width === wanted.width && closestMode.height === wanted.height && closestMode.refreshRate === mode.fps)
+    return closestMode.width !== wanted.width || closestMode.height !== wanted.height || closestMode.refreshRate !== mode.fps;
+  }
+
+  /**
+   * What the PC does with the stream mode (in the UI language): which mode an output that can't do it exactly
+   * takes, the main monitor's mode always, that nothing switches; null when the stream mode fits or nothing is known.
+   */
+  public static hint(displays: PcDisplays | null, mode: StreamMode): string | null
+  {
+    const texts = UiText.current.editor;
+    if (displays === null)
     {
       return null;
     }
-    let hintText = UiText.current.editor.pcModeInexact(PcModeMatcher.text(closestMode));
-    const sameResolutionRates = pcModes
+    if (PcModeMatcher.resolvedTarget(displays, mode.displayTarget) === "none")
+    {
+      return texts.pcNoSwitch;
+    }
+    const route = PcModeMatcher.route(displays, mode);
+    if (route === null)
+    {
+      return null;
+    }
+    const outputText = texts.pcRouteNames[route.target](route.output);
+    if (route.modes.length === 0)
+    {
+      return texts.pcOutputWithoutModes(outputText);
+    }
+    const closestMode = PcModeMatcher.closest(route.modes, mode)!;
+    if (!PcModeMatcher.isInexact(displays, mode))
+    {
+      return route.target === "main" ? texts.pcModeExact(outputText, PcModeMatcher.text(closestMode)) : null;
+    }
+    let hintText = texts.pcModeInexact(outputText, PcModeMatcher.text(closestMode));
+    const wanted = ModeText.size(mode.resolution);
+    const sameResolutionRates = route.modes
       .filter((pcMode) => pcMode.width === wanted.width && pcMode.height === wanted.height)
       .map((pcMode) => pcMode.refreshRate)
       .sort((first, second) => first - second);
     if (sameResolutionRates.length > 0)
     {
-      hintText += UiText.current.editor.pcModeMatching(sameResolutionRates.join(" / "));
+      hintText += texts.pcModeMatching(sameResolutionRates.join(" / "));
+    }
+    if (route.target === "dummy")
+    {
+      hintText += texts.pcModesFromPlug;
     }
     return hintText;
   }

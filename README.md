@@ -6,9 +6,10 @@
 
 > [!CAUTION]
 > **Not every feature works on every PC yet.** The PC side is built for and tested on
-> **KDE Plasma (Wayland) with an AMD GPU** only. Albedo on the Deck and plain Sunshine streaming
+> **KDE Plasma (Wayland)**, mostly with an AMD GPU. Albedo on the Deck and plain Sunshine streaming
 > work with any PC that runs Sunshine, but switching the PC's screen to the Deck's resolution
-> relies on KDE tools and a kernel feature only known to work with AMD's driver.
+> relies on KDE tools. The plug-free virtual monitor needs a kernel feature only known to work with
+> AMD's driver; NVIDIA users take a cheap HDMI/DP dummy plug or the main monitor instead.
 > See [Requirements](#requirements-) for what needs what.
 
 <p align="center">
@@ -163,11 +164,14 @@ its PIN, and enter the Sunshine login. Group changes show up on the Deck too.
 
 ### 🖥️ The PC Screen Follows the Deck
 
-Each game added through the companion switches the PC's (virtual) streaming monitor to the
-resolution and refresh rate the Deck asked for, and back when the stream ends. If the PC's screen
+Each game added through the companion switches the PC's streaming monitor to the resolution and
+refresh rate the Deck asked for, and back when the stream ends. Which monitor that is, you pick
+per profile (*Screen on the PC*): a **virtual connector** (no plug needed, AMD), a **dummy plug**
+(any GPU), the **main monitor** (it only changes its resolution for the stream), or *don't switch*.
+*Automatic* takes the virtual connector, else the dummy plug, else nothing. If the PC's screen
 can't do a profile exactly, Albedo tells you what you will actually get.
 
-With the virtual monitor set up, a missing mode can be added right from the profile editor on the
+With the virtual connector set up, a missing mode can be added right from the profile editor on the
 Deck: **Y** (*Add on PC*) asks Albedo Companion to put it into the virtual monitor's EDID. The PC
 shows a password prompt first, so nothing changes without you.
 
@@ -220,24 +224,33 @@ Releases are signed. The AppImage checks GitHub on start and updates itself afte
 |---|---|---|
 | List and start games | [Sunshine](https://github.com/LizardByte/Sunshine) | Any OS Sunshine runs on |
 | Albedo Companion: add games, artwork, QR upload | Linux, `curl`, `magick` (ImageMagick), `gio`, `sqlite3` (Lutris only); a tray (StatusNotifier) to open the window | Any Linux desktop; the program list reads `.desktop` files. Without a desktop: `--headless` |
-| Screen follows the Deck's resolution | `kscreen-doctor`, `jq`, `sunshine-match-client` (from [`pc-setup/`](pc-setup/)) | **KDE Plasma only** |
-| Virtual monitor without a real screen | DRM debugfs `edid_override` / `force` on a free connector | **Tested on AMD only** |
+| Screen follows the Deck's resolution | `kscreen-doctor`, `sunshine-match-client` (from [`pc-setup/`](pc-setup/)) | **KDE Plasma only** |
+| … on the main monitor | nothing more | Any GPU |
+| … on a dummy plug | an HDMI/DP dummy plug (headless display emulator) in a free port | Any GPU, **recommended for NVIDIA** |
+| … on a virtual connector without a plug | DRM debugfs `edid_override` / `force` on a free connector | **Tested on AMD only** |
 
 What exactly depends on what:
 
-- **KDE Plasma.** The companion reads the modes of the streaming monitor with `kscreen-doctor -j`,
-  and the games it adds run `sunshine-match-client` before the stream (saves your screen layout,
-  then switches to the virtual monitor with `kscreen-doctor`) and `sunshine-match-client --restore`
-  after it (puts the saved layout back). On GNOME, Sway, Hyprland or X11 those steps fail; the stream still starts, but at whatever
-  resolution the PC screen has.
-- **AMD GPU.** The virtual monitor is a real but unused connector (`DP-3` on the test machine)
-  that is forced to *connected* with a custom EDID through
-  `/sys/kernel/debug/dri/*/<connector>/edid_override` and `force`. This is a kernel DRM feature; it is
-  tested with `amdgpu` only. Intel may work, the proprietary NVIDIA driver most likely doesn't
-  offer it. If you already have a dummy plug or another virtual display solution, you don't need
-  this part.
-- **Connector name.** You pick the free connector during setup; it is stored in
-  `~/.config/sunshine-match-client.conf`, which the script and the companion read.
+- **KDE Plasma.** The companion reads the outputs and modes with `kscreen-doctor -j`, and the
+  games it adds run `sunshine-match-client` before the stream (Albedo Companion saves your screen
+  layout, then switches with `kscreen-doctor`) and `sunshine-match-client --restore` after it (puts
+  the saved layout back). On GNOME, Sway, Hyprland or X11 nothing switches; the stream still starts,
+  but at whatever resolution the PC screen has. The switching lives in one place
+  ([`companion/src/display_backend.rs`](companion/src/display_backend.rs)), so other desktops can be added.
+- **Main monitor.** Needs no extra hardware: the primary monitor (or `MAIN_OUTPUT=` in
+  `~/.config/sunshine-match-client.conf`) switches to the closest mode it has – the exact one, else
+  one with the same aspect ratio, else the largest that fits – and back afterwards. Your other
+  monitors stay on. The profile editor shows which mode it will be.
+- **Dummy plug.** A few-euro HDMI or DisplayPort plug that pretends to be a monitor. Works with every
+  GPU and driver, so it is the way to go on **NVIDIA**. Your real monitors turn off for the stream.
+  Its modes come from the plug's own EDID; buy one that has the Deck's 1280×800 (often listed as
+  "4K/1440p/1080p … with 16:10"), because Albedo can't add modes to it.
+- **Virtual connector (AMD).** A real but unused connector (`DP-3` on the test machine) is forced
+  to *connected* with a custom EDID through `/sys/kernel/debug/dri/*/<connector>/edid_override`
+  and `force`. This is a kernel DRM feature; it is tested with `amdgpu` only. Intel may work, the
+  proprietary NVIDIA driver most likely doesn't offer it. Missing modes can be added from the Deck.
+- **Connector names.** You pick them during setup; they are stored in
+  `~/.config/sunshine-match-client.conf` (`VIRTUAL_OUTPUT=`, `DUMMY_OUTPUT=`), which Albedo Companion reads.
 
 The *Desktop (ohne Profilwechsel)* preset and games you add to Sunshine yourself skip all of this
 and work on any setup.
@@ -300,11 +313,23 @@ Check that it runs:
 curl -s localhost:47995/api/health
 ```
 
-### 3. Virtual monitor & resolution switching (KDE + AMD)
+### 3. Resolution switching (KDE)
 
-For KDE Plasma (Wayland) with an AMD GPU. The PC gets a virtual monitor on a free connector, and
-every stream switches the PC to it at the resolution and FPS of the Deck's profile. Your real
-monitors turn off for the stream and come back exactly as they were when it ends.
+Step 2 already installed `sunshine-match-client`, so profiles set to *Main monitor* work right
+away. For a separate streaming monitor (your real monitors turn off for the stream and come back
+exactly as they were), set up one of these:
+
+**Dummy plug (any GPU, recommended for NVIDIA).** Plug it in, find its connector with
+`kscreen-doctor -o` (the new output, e.g. `HDMI-A-1`), then:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/Albedo/main/pc-setup/install.sh | bash -s -- --dummy-plug HDMI-A-1
+```
+
+It writes `DUMMY_OUTPUT=HDMI-A-1` to `~/.config/sunshine-match-client.conf` and lists the plug's
+modes. No sudo.
+
+**Virtual connector (AMD, no plug).** The PC gets a virtual monitor on a free connector:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/Albedo/main/pc-setup/install.sh | bash -s -- --virtual-monitor --dry-run   # shows what it would do
@@ -341,6 +366,9 @@ SUNSHINE_CLIENT_WIDTH=1280 SUNSHINE_CLIENT_HEIGHT=800 SUNSHINE_CLIENT_FPS=90 sun
 `sunshine-match-client` logs to `~/.local/state/sunshine-match-client.log`. If the PC ever stays
 on the virtual monitor (crash during a stream), `sunshine-match-client --restore` brings your
 screens back.
+
+Both can be set up at once (`--dummy-plug HDMI-A-1 --virtual-monitor`); each profile on the Deck
+picks one under *Screen on the PC*.
 
 To remove everything: `… | bash -s -- --uninstall` (Albedo Companion with its autostart, old companion
 services and the virtual monitor; the config in `~/.config/albedo-companion/` with the Sunshine

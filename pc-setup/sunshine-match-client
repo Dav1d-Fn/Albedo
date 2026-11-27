@@ -1,179 +1,19 @@
 #!/bin/bash
-# Sunshine prep command: switches the virtual monitor to the client's resolution/FPS and turns
-# every other monitor off. Before switching it saves the current layout; --restore puts it back.
+# Sunshine prep command of every app Albedo creates: switches the stream's monitor to the client's
+# resolution/FPS before the stream and puts the saved layout back after it. The work happens in
+# Albedo Companion (`albedo-companion display`, companion/src/stream_display_switcher.rs), which
+# knows the route the Deck profile picked: virtual connector, dummy plug, main monitor or none.
 #   sunshine-match-client                      (do: uses SUNSHINE_CLIENT_WIDTH/HEIGHT/FPS from Sunshine)
 #   sunshine-match-client --restore            (undo: restores the saved layout)
 #   sunshine-match-client --dry-run            (only prints the chosen mode and command)
 #   sunshine-match-client --restore --dry-run  (only prints the restore command)
-# The virtual monitor's name comes from ~/.config/sunshine-match-client.conf (VIRTUAL_OUTPUT=…),
-# written by pc-setup/install.sh. Its modes come from the EDID (make-virtual-edid.py); a missing
-# mode falls back to the closest one instead of aborting the whole switch.
-config_file="$HOME/.config/sunshine-match-client.conf"
-state_dir="$HOME/.local/state"
-log_file="$state_dir/sunshine-match-client.log"
-saved_layout_file="$state_dir/sunshine-match-client-layout.json"
-mkdir -p "$state_dir"
-
-restore=false
-dry_run=false
-for argument in "$@"
-do
-    case "$argument" in
-        --restore) restore=true ;;
-        --dry-run) dry_run=true ;;
-        *) echo "Unknown option: $argument" >&2; exit 2 ;;
-    esac
-done
-
-log()
-{
-    echo "$(date '+%F %T') $*" | tee -a "$log_file"
-}
-
-# Sunshine's service may lack the Wayland environment
-export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
-export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
-export QT_QPA_PLATFORM=wayland
-
-# Runs a kscreen-doctor command, or only prints it with --dry-run
-apply()
-{
-    if $dry_run
-    then
-        echo "$*"
-        return 0
-    fi
-    if ! timeout 60 "$@" >> "$log_file" 2>&1
-    then
-        log "kscreen-doctor failed: $*"
-        return 1
-    fi
-}
-
-if ! outputs_json=$(timeout 20 kscreen-doctor -j)
+# The outputs come from ~/.config/sunshine-match-client.conf (VIRTUAL_OUTPUT=…, DUMMY_OUTPUT=…,
+# optional MAIN_OUTPUT=…), written by pc-setup/install.sh. ALBEDO_COMPANION overrides the program.
+companion="${ALBEDO_COMPANION:-$HOME/Applications/Albedo-Companion-x86_64.AppImage}"
+if [ ! -x "$companion" ]
 then
-    log "kscreen-doctor -j failed or timed out (KWin hanging?), nothing changed"
+    mkdir -p "$HOME/.local/state"
+    echo "$(date '+%F %T') $companion missing, run pc-setup/install.sh" | tee -a "$HOME/.local/state/sunshine-match-client.log"
     exit 1
 fi
-
-# ---------------------------------------------------------------------------
-# Undo: restore the layout saved before the switch
-# ---------------------------------------------------------------------------
-if $restore
-then
-    if [ ! -f "$saved_layout_file" ]
-    then
-        log "restore: no saved layout, nothing changed"
-        exit 0
-    fi
-
-    # Per saved output: enable/disable, mode, scale, rotation, position. The mode is matched by
-    # size and closest refresh rate among the live modes, because mode ids change when the set of
-    # connected outputs changes (reboot, new monitor). Outputs that are gone are skipped, outputs
-    # that are new get disabled, like before the switch nothing else was on.
-    mapfile -t restore_arguments < <(jq -r --slurpfile saved "$saved_layout_file" '
-        def rotation_name: {"1": "none", "2": "left", "4": "inverted", "8": "right"}[tostring] // "none";
-        (.outputs | map({key: .name, value: .}) | from_entries) as $live
-        | ($saved[0].outputs | map(.name)) as $saved_names
-        | ($saved[0].outputs[] | select($live[.name] != null and $live[.name].connected)
-            | . as $old
-            | if .enabled then
-                (.modes[] | select(.id == $old.currentModeId)) as $old_mode
-                | ($live[.name].modes
-                   | map(select(.size == $old_mode.size))
-                   | sort_by((.refreshRate - $old_mode.refreshRate) | fabs) | first) as $new_mode
-                | "output.\(.name).enable",
-                  (if $new_mode then "output.\(.name).mode.\($new_mode.id)" else empty end),
-                  "output.\(.name).scale.\(.scale)",
-                  "output.\(.name).rotation.\(.rotation | rotation_name)",
-                  "output.\(.name).position.\(.pos.x),\(.pos.y)"
-              else
-                "output.\(.name).disable"
-              end),
-          (.outputs[] | select(.enabled and (.name | IN($saved_names[]) | not)) | "output.\(.name).disable")
-        ' <<< "$outputs_json")
-
-    enabled_count=$(printf '%s\n' "${restore_arguments[@]}" | grep -c '\.enable$')
-    if [ "$enabled_count" -eq 0 ]
-    then
-        log "restore: saved layout has no monitor that is still connected, refusing an all-off state"
-        exit 1
-    fi
-
-    # Setting priority together with enable/mode/position doesn't reliably stick, so it gets its
-    # own follow-up call (lowest number = primary).
-    mapfile -t priority_arguments < <(jq -r '
-        .outputs[] | select(.enabled) | "output.\(.name).priority.\(.priority)"
-        ' "$saved_layout_file")
-
-    log "restore: ${restore_arguments[*]}"
-    apply kscreen-doctor "${restore_arguments[@]}" || exit 1
-    apply kscreen-doctor "${priority_arguments[@]}" || exit 1
-    if ! $dry_run
-    then
-        rm -f "$saved_layout_file"
-    fi
-    log "restore done"
-    exit 0
-fi
-
-# ---------------------------------------------------------------------------
-# Do: switch to the virtual monitor
-# ---------------------------------------------------------------------------
-if [ ! -f "$config_file" ]
-then
-    log "$config_file missing, run pc-setup/install.sh first"
-    exit 1
-fi
-# shellcheck source=/dev/null
-source "$config_file"
-virtual_output="${VIRTUAL_OUTPUT:?VIRTUAL_OUTPUT missing in $config_file}"
-
-width="${SUNSHINE_CLIENT_WIDTH:-1920}"
-height="${SUNSHINE_CLIENT_HEIGHT:-1080}"
-fps="${SUNSHINE_CLIENT_FPS:-60}"
-
-log "client ${SUNSHINE_CLIENT_NAME:-?} wants ${width}x${height}@${fps} (hdr=${SUNSHINE_CLIENT_HDR:-?})"
-
-# Closest mode: smallest pixel-count difference first, then the closest refresh rate.
-# Ties prefer the higher refresh rate.
-mode=$(echo "$outputs_json" | jq -r --arg out "$virtual_output" \
-    --argjson w "$width" --argjson h "$height" --argjson f "$fps" '
-    .outputs[] | select(.name == $out) | .modes
-    | map(. + {pixel_diff: ((.size.width * .size.height) - ($w * $h) | fabs),
-               rate_diff: ((.refreshRate - $f) | fabs)})
-    | sort_by(.pixel_diff, .rate_diff, -.refreshRate) | first
-    | "\(.id) \(.size.width)x\(.size.height)@\(.refreshRate | round)"')
-
-if [ -z "$mode" ] || [ "$mode" = "null" ]
-then
-    log "$virtual_output has no modes, nothing changed"
-    exit 1
-fi
-mode_id="${mode%% *}"
-log "chosen mode ${mode#* } (id $mode_id)"
-
-# Save the layout, unless it already is the streaming layout (only the virtual monitor on):
-# then a previous stream ended without its undo, and the saved file still holds the real layout.
-only_virtual_enabled=$(echo "$outputs_json" | jq --arg out "$virtual_output" \
-    '[.outputs[] | select(.enabled) | .name] == [$out]')
-if [ "$only_virtual_enabled" = "true" ] && [ -f "$saved_layout_file" ]
-then
-    log "already in streaming layout, keeping the saved layout"
-elif $dry_run
-then
-    echo "would save the current layout to $saved_layout_file"
-else
-    echo "$outputs_json" > "$saved_layout_file"
-fi
-
-switch_command=(kscreen-doctor "output.$virtual_output.enable" "output.$virtual_output.mode.$mode_id"
-     "output.$virtual_output.position.0,0" "output.$virtual_output.priority.1")
-for other in $(echo "$outputs_json" | jq -r --arg out "$virtual_output" \
-    '.outputs[] | select(.enabled and .name != $out) | .name')
-do
-    switch_command+=("output.$other.disable")
-done
-
-apply "${switch_command[@]}" || exit 1
-log "done"
+exec "$companion" display "$@"

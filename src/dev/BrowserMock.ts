@@ -281,10 +281,23 @@ export class BrowserMock
           {
             return Promise.reject(pick("PC-Helfer nicht erreichbar (Port 47995).", "PC companion unreachable (port 47995)."));
           }
-          // DP-3 as of 2026-11-21 (12 modes from the EDID).
-          return [[1920, 1080, 120], [1920, 1080, 60], [1280, 800, 90], [1280, 800, 60], [1280, 720, 60], [1280, 720, 40], [1920, 1080, 100],
-            [3840, 2160, 100], [3840, 2160, 60], [2560, 1440, 120], [2560, 1440, 100], [2560, 1440, 60]]
-            .map(([width, height, refreshRate]) => ({ width, height, refreshRate }));
+          {
+            const modeList = (modes: number[][]) => modes.map(([width, height, refreshRate]) => ({ width, height, refreshRate }));
+            // DP-3 as of 2026-11-21 (12 modes from the EDID), HDMI-A-1 as a dummy plug, DP-2 an ultrawide monitor.
+            return {
+              defaultTarget: "virtual",
+              routes: [
+                { target: "virtual", output: "DP-3", connected: true, canAddModes: true, modes: modeList([[1920, 1080, 120], [1920, 1080, 60], [1280, 800, 90], [1280, 800, 60],
+                  [1280, 720, 60], [1280, 720, 40], [1920, 1080, 100], [3840, 2160, 100], [3840, 2160, 60], [2560, 1440, 120], [2560, 1440, 100], [2560, 1440, 60]]) },
+                { target: "dummy", output: "HDMI-A-1", connected: true, canAddModes: false, modes: modeList([[1920, 1200, 60], [1920, 1080, 60]]) },
+                { target: "main", output: "DP-2", connected: true, canAddModes: false, modes: modeList([[3440, 1440, 165], [3440, 1440, 100], [2560, 1440, 144],
+                  [1920, 1080, 120], [1920, 1080, 60], [1280, 1024, 60], [1280, 720, 60], [640, 480, 60]]) },
+              ],
+            };
+          }
+        case "companion_set_stream_display":
+          console.info("[mock] stream display", args.target);
+          return null;
         case "companion_library":
           // `?companionOffline` in the dev URL: as if the companion were not running on the PC.
           if (new URLSearchParams(window.location.search).has("companionOffline"))

@@ -7,7 +7,8 @@ use std::time::Duration;
 use serde_json::{json, Value};
 
 use crate::companion_config::home_directory;
-use crate::display_mode_reader::DisplayModeReader;
+use crate::display_backend::DisplayBackend;
+use crate::display_setup::DisplaySetup;
 use crate::host_environment::HostEnvironment;
 use crate::request_language::RequestLanguage;
 
@@ -53,7 +54,9 @@ impl VirtualEdidWriter
         {
             return Err((409, RequestLanguage::pick("Am PC wartet schon eine Bestätigung", "A confirmation is already waiting on the PC")));
         }
-        let output_name = DisplayModeReader::virtual_output().map_err(|message| (409, message))?;
+        let output_name = DisplaySetup::load()
+            .virtual_output
+            .ok_or_else(|| (409, RequestLanguage::pick("Virtueller Monitor nicht eingerichtet (pc-setup/install.sh --virtual-monitor)", "Virtual monitor not set up (pc-setup/install.sh --virtual-monitor)")))?;
         let installed_edid = std::fs::read(Self::INSTALLED_EDID)
             .map_err(|_| (409, RequestLanguage::pick("Kein EDID installiert (pc-setup/install.sh --virtual-monitor)", "No EDID installed (pc-setup/install.sh --virtual-monitor)")))?;
 
@@ -152,11 +155,30 @@ impl VirtualEdidWriter
         for _attempt in 0..5
         {
             std::thread::sleep(Duration::from_secs(2));
-            if DisplayModeReader::read(output_name).map(|modes| modes.contains(&wanted_mode)).unwrap_or(false)
+            if Self::output_modes(output_name).contains(&wanted_mode)
             {
                 return json!({ "state": "done" });
             }
         }
         json!({ "state": "reboot" })
+    }
+
+    /// The output's modes in the API's form, empty when they can't be read.
+    fn output_modes(output_name: &str) -> Vec<Value>
+    {
+        let Ok(backend) = <dyn DisplayBackend>::for_this_desktop() else
+        {
+            return Vec::new();
+        };
+        let Ok(layout) = backend.read_layout() else
+        {
+            return Vec::new();
+        };
+        backend
+            .outputs(&layout)
+            .into_iter()
+            .find(|output| output.name == output_name)
+            .map(|output| output.modes_json())
+            .unwrap_or_default()
     }
 }

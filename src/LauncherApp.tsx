@@ -6,7 +6,7 @@ import { PcModeMatcher } from "./model/PcModeMatcher";
 import { DefaultSettings } from "./model/DefaultSettings";
 import { DevicePalette } from "./model/DevicePalette";
 import { GameArt } from "./model/GameArt";
-import { AfterStreamAction, ArtKind, BackdropKind, DeviceId, UiLanguage, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, PcDisplayMode, PcModeRequest, Settings, StreamMode, SunshineLoginDraft, SteamGridDbKeyCheck, ImageDialogState, ImageDialogRow, RunningHostApp } from "./model/Types";
+import { AfterStreamAction, ArtKind, BackdropKind, DeviceId, UiLanguage, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, PcDisplays, PcModeRequest, Settings, StreamMode, SunshineLoginDraft, SteamGridDbKeyCheck, ImageDialogState, ImageDialogRow, RunningHostApp } from "./model/Types";
 import { AvailableUpdate, Backend } from "./services/Backend";
 import { CompanionArt } from "./services/CompanionArt";
 import { AfterStreamDialog } from "./views/AfterStreamDialog";
@@ -91,7 +91,7 @@ export interface LauncherState
   editRow: number;
   bumps: Record<string, number>;
   /** Modes of the PC's virtual monitor, for the "no matching mode" hint; null = unknown (no companion). */
-  pcDisplayModes: PcDisplayMode[] | null;
+  pcDisplays: PcDisplays | null;
   /** Last "add this mode to the PC" request, shown under the PC mode hint. */
   pcModeRequest: PcModeRequest | null;
   /** Connection screen: found hosts on the left, pairing and Moonlight on the right. */
@@ -240,7 +240,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       editConfirmDelete: "",
       editRow: 0,
       bumps: {},
-      pcDisplayModes: null,
+      pcDisplays: null,
       pcModeRequest: null,
       discoveredHosts: [],
       searchingHosts: false,
@@ -1753,6 +1753,9 @@ export default class LauncherApp extends React.Component<object, LauncherState>
           return;
         }
         this.setState({ activeHost: host });
+        // Which monitor the PC streams from; Sunshine's prep command picks it up moments later.
+        // Without a companion the PC simply does what it is set up for.
+        await this.backend.companionSetStreamDisplay(host, mode.displayTarget).catch((displayError) => console.info("Display target not sent:", displayError));
         await this.backend.startStream(this.settings, host, gameName, profile, mode);
         if (launchAttempt !== this.launchAttempt)
         {
@@ -2107,7 +2110,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     this.loadPcDisplayModes();
   }
 
-  /** The edited profile has a mode the PC's virtual monitor lacks and no request for it is waiting. */
+  /** The edited profile has a mode the PC's virtual monitor lacks (only its EDID can grow) and no request for it is waiting. */
   public canAddEditModeToPc(): boolean
   {
     const state = this.state;
@@ -2116,7 +2119,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       return false;
     }
     const editMode = this.profile(state.editDevice).modes[state.editModeIndex];
-    if (editMode === undefined || PcModeMatcher.hint(state.pcDisplayModes, editMode) === null)
+    if (editMode === undefined || !PcModeMatcher.isInexact(state.pcDisplays, editMode) || PcModeMatcher.route(state.pcDisplays, editMode)?.canAddModes !== true)
     {
       return false;
     }
@@ -2161,19 +2164,19 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }
   }
 
-  /** Asks the companion which modes the PC's virtual monitor has; without companion there is simply no hint. */
+  /** Asks the companion which streaming outputs and modes the PC has; without companion there is simply no hint. */
   private async loadPcDisplayModes(): Promise<void>
   {
     try
     {
       const host = await this.resolveHost();
-      const pcDisplayModes = await this.backend.companionDisplayModes(host);
-      this.setState({ pcDisplayModes });
+      const pcDisplays = await this.backend.companionDisplayModes(host);
+      this.setState({ pcDisplays });
     }
     catch (modesError)
     {
       console.info("PC display modes unknown:", modesError);
-      this.setState({ pcDisplayModes: null });
+      this.setState({ pcDisplays: null });
     }
   }
 
@@ -2436,7 +2439,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       return;
     }
     const profile = this.profile(this.state.editDevice);
-    const nextValue = EditorRows.step(rowIndex, profile, this.state.editModeIndex, direction, wrap, this.state.pcDisplayModes);
+    const nextValue = EditorRows.step(rowIndex, profile, this.state.editModeIndex, direction, wrap, this.state.pcDisplays);
     this.setValue(rowIndex, nextValue);
   }
 
@@ -2444,7 +2447,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   {
     const { editDevice, editModeIndex } = this.state;
     const bumpKey = editDevice + editModeIndex + EditorRows.rows[rowIndex].key;
-    const pcModes = this.state.pcDisplayModes;
+    const pcDisplays = this.state.pcDisplays;
     this.updateProfile(editDevice, (profile) =>
     {
       const changed = EditorRows.apply(rowIndex, profile, editModeIndex, value);
@@ -2454,7 +2457,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       }
       // A new resolution keeps an FPS the PC's monitor has there.
       const fpsRow = EditorRows.rows.findIndex((row) => row.key === "fps");
-      return EditorRows.apply(fpsRow, changed, editModeIndex, EditorRows.fittingFps(changed.modes[editModeIndex], pcModes));
+      return EditorRows.apply(fpsRow, changed, editModeIndex, EditorRows.fittingFps(changed.modes[editModeIndex], pcDisplays));
     });
     this.setState((state) => ({
       editRow: rowIndex,

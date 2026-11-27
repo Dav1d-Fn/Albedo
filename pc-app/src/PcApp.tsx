@@ -200,7 +200,9 @@ export default class PcApp extends Component<PcAppProps, PcAppState>
   {
     try
     {
-      this.setState({ displayModes: await Companion.displayModes() });
+      // Without a virtual connector or dummy plug the companion answers with an empty output.
+      const displayModes = await Companion.displayModes();
+      this.setState({ displayModes: displayModes.output ? displayModes : null });
     }
     catch
     {

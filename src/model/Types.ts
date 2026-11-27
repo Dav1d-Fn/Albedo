@@ -31,6 +31,14 @@ export type AfterStreamAction = "ask" | "keep" | "quit";
 export type AutoRule = "Deck ohne Dock" | "Dock mit Bildschirm" | "Dieser Bildschirm" | "Nur manuell";
 
 /**
+ * Which monitor the PC streams from (companion `POST /api/stream-display`, sent right before the stream):
+ * "auto" = what the PC is set up for (virtual connector, else dummy plug, else nothing), "virtual" = connector
+ * with a forced EDID, "dummy" = connector with an HDMI/DP dummy plug, "main" = the main monitor only changes
+ * its mode, "none" = nothing switches.
+ */
+export type DisplayTarget = "auto" | "virtual" | "dummy" | "main" | "none";
+
+/**
  * Stream settings of a device, called "Profil" in the UI. The code and settings.json keep the old
  * name ("modes", "defaultModeIndex", "rememberedModes"), so existing settings files load unchanged.
  */
@@ -42,6 +50,8 @@ export interface StreamMode
   bitrateMbps: number;
   hdr: boolean;
   codec: VideoCodec;
+  /** Missing in older settings files, filled with "auto" when they load. */
+  displayTarget: DisplayTarget;
 }
 
 export interface DeviceProfile
@@ -217,7 +227,6 @@ export interface DiscoveredHost
   address: string;
 }
 
-/** One mode of the PC's virtual streaming monitor (companion `GET /api/display-modes`). */
 /** Outcome of "add this mode to the PC" (companion `GET /api/display-modes/request`). */
 export interface PcModeRequest
 {
@@ -227,10 +236,30 @@ export interface PcModeRequest
   message?: string;
 }
 
+/** One mode of a PC monitor output (companion `GET /api/display-modes`). */
 export interface PcDisplayMode
 {
   width: number;
   height: number;
   /** Rounded to whole Hz. */
   refreshRate: number;
+}
+
+/** One way the PC can show a stream, with the modes of its output (companion `GET /api/display-modes`). */
+export interface PcDisplayRoute
+{
+  target: "virtual" | "dummy" | "main";
+  /** Connector name, e.g. "DP-3". */
+  output: string;
+  connected: boolean;
+  /** Only the virtual connector's EDID can get new modes; a dummy plug or a monitor has its own. */
+  canAddModes: boolean;
+  modes: PcDisplayMode[];
+}
+
+/** The PC's streaming outputs. `defaultTarget` is what "auto" means there. */
+export interface PcDisplays
+{
+  defaultTarget: DisplayTarget;
+  routes: PcDisplayRoute[];
 }

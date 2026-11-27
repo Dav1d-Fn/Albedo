@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { DefaultSettings } from "../model/DefaultSettings";
 import { ModeText } from "../model/ModeText";
-import { UiLanguage, ArtKind, ArtSearchResult, CompanionLibrary, UploadToken, DeviceProfile, DiscoveredHost, PadButton, PcDisplayMode, PcModeRequest, RunningHostApp, Settings, StreamMode, SteamGridDbKeyCheck } from "../model/Types";
+import { UiLanguage, ArtKind, ArtSearchResult, CompanionLibrary, UploadToken, DeviceProfile, DiscoveredHost, PadButton, DisplayTarget, PcDisplays, PcModeRequest, RunningHostApp, Settings, StreamMode, SteamGridDbKeyCheck } from "../model/Types";
 
 export interface StreamEnded
 {
@@ -121,10 +121,16 @@ export class Backend
     return invoke<CompanionLibrary>("companion_library", { host });
   }
 
-  /** Modes of the PC's virtual streaming monitor; rejects when the companion is not reachable. */
-  public companionDisplayModes(host: string): Promise<PcDisplayMode[]>
+  /** Streaming outputs of the PC and their modes; rejects when the companion is not reachable. */
+  public companionDisplayModes(host: string): Promise<PcDisplays>
   {
-    return invoke<PcDisplayMode[]>("companion_display_modes", { host });
+    return invoke<PcDisplays>("companion_display_modes", { host });
+  }
+
+  /** The monitor the next stream uses on the PC (companion `POST /api/stream-display`). */
+  public companionSetStreamDisplay(host: string, target: DisplayTarget): Promise<void>
+  {
+    return invoke<void>("companion_set_stream_display", { host, target });
   }
 
   /** Asks the PC to add a mode to its virtual monitor; the PC user confirms with the root password there. */

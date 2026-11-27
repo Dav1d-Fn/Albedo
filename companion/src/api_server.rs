@@ -9,7 +9,10 @@ use crate::client_address_filter::ClientAddressFilter;
 use crate::companion_config::CompanionConfig;
 use crate::cover_converter::CoverConverter;
 use crate::cover_source::CoverSource;
-use crate::display_mode_reader::DisplayModeReader;
+use crate::display_backend::DisplayBackend;
+use crate::display_setup::DisplaySetup;
+use crate::display_target::DisplayTarget;
+use crate::stream_display_request::StreamDisplayRequest;
 use crate::group_override_store::GroupOverrideStore;
 use crate::library_entry::LibraryEntry;
 use crate::library_scanner::LibraryScanner;
@@ -127,6 +130,7 @@ impl ApiServer
             (Method::Get, "/api/display-modes") => Self::display_modes(),
             (Method::Post, "/api/display-modes") => Self::read_body(request).and_then(|body| self.add_display_mode(&body)),
             (Method::Get, "/api/display-modes/request") => Ok(Self::json(200, self.virtual_edid.status())),
+            (Method::Post, "/api/stream-display") => Self::read_body(request).and_then(|body| Self::set_stream_display(&body)),
             (Method::Post, "/api/apps") => Self::read_body(request).and_then(|body| self.add_app(&body)),
             (Method::Delete, "/api/apps") => Self::read_body(request).and_then(|body| self.delete_app(&body)),
             (Method::Put, "/api/sunshine-login") => Self::read_body(request).and_then(|body| self.set_sunshine_login(&body)),
@@ -202,9 +206,22 @@ impl ApiServer
 
     fn display_modes() -> Result<ApiAnswer, (u16, String)>
     {
-        let output_name = DisplayModeReader::virtual_output().map_err(|message| (502, message))?;
-        let modes = DisplayModeReader::read(&output_name).map_err(|message| (502, message))?;
-        Ok(Self::json(200, json!({ "output": output_name, "modes": modes })))
+        let backend = <dyn DisplayBackend>::for_this_desktop().map_err(|message| (502, message))?;
+        let layout = backend.read_layout().map_err(|message| (502, message))?;
+        let description = DisplaySetup::load().describe(backend.name(), &backend.outputs(&layout));
+        Ok(Self::json(200, description))
+    }
+
+    /// Body { "target": "auto" | "virtual" | "dummy" | "main" | "none" }: the monitor the stream
+    /// that starts next uses (the Deck profile's choice), taken by Sunshine's prep command.
+    fn set_stream_display(body: &Value) -> Result<ApiAnswer, (u16, String)>
+    {
+        let target = body["target"]
+            .as_str()
+            .and_then(DisplayTarget::from_name)
+            .ok_or_else(|| (400, format!("{} „target“", RequestLanguage::pick("Feld fehlt oder unbekannt:", "Field missing or unknown:"))))?;
+        StreamDisplayRequest::save(target).map_err(|message| (500, message))?;
+        Ok(Self::json(200, json!({ "target": target.name() })))
     }
 
     /// Body { "width", "height", "refreshRate" }: puts the mode into the virtual monitor's EDID

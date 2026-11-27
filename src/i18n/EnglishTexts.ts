@@ -59,6 +59,15 @@ export const englishTexts: TextTable =
     "Nur manuell": "Manual only",
   },
 
+  displayTargetNames:
+  {
+    auto: "Automatic",
+    virtual: "Virtual connector",
+    dummy: "Dummy plug",
+    main: "Main monitor",
+    none: "Don't switch",
+  },
+
   colorNames:
   {
     blue: "Blue",
@@ -234,6 +243,8 @@ export const englishTexts: TextTable =
     rowBitrate: "Bitrate",
     rowHdr: "HDR",
     rowCodec: "Codec",
+    rowDisplayTarget: "Screen on the PC",
+    autoDisplayTarget: (targetName: string) => "Automatic: " + targetName,
     rowName: "Name",
     rowColor: "Color",
     rowIcon: "Icon",
@@ -241,7 +252,17 @@ export const englishTexts: TextTable =
     rowPerformanceOverlay: "Performance overlay",
     rowAutoRule: "Auto-select when",
     rowScreen: "Screen",
-    pcModeInexact: (modeText: string) => "The PC's virtual monitor can't do this exactly and uses " + modeText + ".",
+    pcRouteNames:
+    {
+      virtual: (output: string) => "The PC's virtual monitor (" + output + ")",
+      dummy: (output: string) => "The PC's dummy plug (" + output + ")",
+      main: (output: string) => "The PC's main monitor (" + output + ")",
+    },
+    pcModeInexact: (outputText: string, modeText: string) => outputText + " can't do this exactly and uses " + modeText + ".",
+    pcModeExact: (outputText: string, modeText: string) => outputText + " switches to " + modeText + " for the stream and back afterwards.",
+    pcModesFromPlug: " The modes come from the plug, adding one isn't possible there.",
+    pcNoSwitch: "Nothing switches on the PC, the stream shows the desktop as it is.",
+    pcOutputWithoutModes: (outputText: string) => outputText + " reports no modes. Is it connected?",
     pcModeMatching: (rates: string) => " Matching would be " + rates + " FPS.",
     addModeToPc: "Add to PC",
     pcModeWaiting: "Confirm on the PC: a password prompt is open there now.",

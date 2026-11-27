@@ -3,7 +3,13 @@
 #
 # Default: Albedo Companion (~/Applications/Albedo-Companion-x86_64.AppImage, menu entry,
 # autostart at login in the tray) from the latest GitHub release, checked against SHA256SUMS.
-# It serves the API the Deck talks to. Running the script again updates it. No sudo.
+# It serves the API the Deck talks to, and ~/.local/bin/sunshine-match-client, the Sunshine prep
+# command that switches the stream's monitor (KDE Plasma). Running the script again updates it. No sudo.
+#
+# The monitor a stream uses is picked per profile on the Deck. Three routes on the PC:
+#   main monitor     needs nothing more: it only changes its resolution for the stream
+#   --dummy-plug     a connector with an HDMI/DP dummy plug (any GPU, recommended for NVIDIA)
+#   --virtual-monitor  a free connector with a forced EDID, no plug needed (AMD, Intel may work)
 #
 #   curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/Albedo/main/pc-setup/install.sh | bash
 #   … | bash -s -- --uninstall           remove everything again (keeps ~/.config/albedo-companion/)
@@ -15,6 +21,7 @@
 #   - ~/.config/sunshine-match-client.conf (which connector is the virtual monitor)
 #   - optional: Sunshine global_prep_cmd that stops xwaylandvideobridge during a stream
 #
+#   --dummy-plug HDMI-A-1         use the connector with a dummy plug for streaming (no sudo)
 #   --virtual-monitor             also the virtual monitor (helper files come from GitHub when piped)
 #   --connector DP-3              skip the connector question (implies --virtual-monitor)
 #   --mode 3440x1440@100          add a mode to the EDID, repeatable (implies --virtual-monitor)
@@ -64,6 +71,7 @@ old_app_files=(
 xwayland_prep_command="{\"do\":\"systemctl --user stop $xwayland_unit\",\"undo\":\"systemctl --user start --no-block $xwayland_unit\"}"
 
 connector=""
+dummy_connector=""
 extra_modes=()
 dry_run=false
 uninstall=false
@@ -74,6 +82,7 @@ do
     case "$1" in
         --virtual-monitor) virtual_monitor=true ;;
         --connector) connector="${2:?--connector needs a name, e.g. DP-3}"; virtual_monitor=true; shift ;;
+        --dummy-plug) dummy_connector="${2:?--dummy-plug needs a connector name, e.g. HDMI-A-1}"; shift ;;
         --mode) extra_modes+=("${2:?--mode needs WIDTHxHEIGHT@FPS}"); virtual_monitor=true; shift ;;
         --dry-run) dry_run=true ;;
         --uninstall) uninstall=true ;;
@@ -82,7 +91,7 @@ do
         -h|--help)
             if [ -n "$script_dir" ]
             then
-                sed -n '2,25p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+                sed -n '2,33p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
             else
                 echo "See https://github.com/Dav1d-Fn/Albedo/blob/main/pc-setup/install.sh"
             fi
@@ -116,6 +125,44 @@ run()
 run_as_root()
 {
     run sudo "$@"
+}
+
+# Sets KEY=value in sunshine-match-client.conf, keeping the other lines (virtual monitor and
+# dummy plug can both be set up).
+set_config_value()
+{
+    local key="$1"
+    local value="$2"
+    if $dry_run
+    then
+        echo "    [dry-run] write $config_file: $key=$value"
+        return
+    fi
+    mkdir -p "$(dirname "$config_file")"
+    if [ ! -f "$config_file" ]
+    then
+        printf '# Written by pc-setup/install.sh. Read by sunshine-match-client and the companion.\n' > "$config_file"
+    fi
+    local other_lines
+    other_lines=$(grep -v "^$key=" "$config_file" || true)
+    printf '%s\n%s=%s\n' "$other_lines" "$key" "$value" > "$config_file"
+}
+
+# Fetches a helper file of pc-setup/ into $script_dir: next to the script in a checkout, else from GitHub
+fetch_helper_file()
+{
+    local helper_file="$1"
+    if [ -n "$script_dir" ] && [ -f "$script_dir/$helper_file" ]
+    then
+        return
+    fi
+    if [ -z "$script_dir" ] || [ "$script_dir" != "$work_dir/pc-setup" ]
+    then
+        script_dir="$work_dir/pc-setup"
+        mkdir -p "$script_dir"
+    fi
+    info "Downloading $helper_file"
+    curl -fsSL -o "$script_dir/$helper_file" "$raw_url/$helper_file"
 }
 
 ask_yes_no()
@@ -358,24 +405,57 @@ else
     fi
 fi
 
+# ---------------------------------------------------------------------------
+# Monitor switching for the stream (every route, the Deck profile picks one)
+# ---------------------------------------------------------------------------
+# A checkout without the helpers (e.g. only install.sh copied somewhere) also fetches from GitHub.
+if [ -n "$script_dir" ] && [ ! -f "$script_dir/sunshine-match-client" ]
+then
+    script_dir=""
+fi
+for helper_file in "${helper_files[@]}"
+do
+    if [ "$helper_file" = "sunshine-match-client" ] || $virtual_monitor
+    then
+        fetch_helper_file "$helper_file"
+    fi
+done
+info "Installing sunshine-match-client to $match_client_target"
+run install -Dm 755 "$script_dir/sunshine-match-client" "$match_client_target"
+if [[ "${XDG_CURRENT_DESKTOP:-}" != *KDE* ]]
+then
+    warn "Desktop is '${XDG_CURRENT_DESKTOP:-unknown}', not KDE Plasma: switching monitors for the stream only works on KDE so far."
+fi
+
+if [ -n "$dummy_connector" ]
+then
+    if ! compgen -G "/sys/class/drm/card*-$dummy_connector" > /dev/null
+    then
+        warn "Connector $dummy_connector doesn't exist (see /sys/class/drm/)."
+        exit 1
+    fi
+    dummy_status=$(cat /sys/class/drm/card*-"$dummy_connector"/status | head -1)
+    if [ "$dummy_status" != "connected" ]
+    then
+        warn "$dummy_connector is '$dummy_status': plug the dummy plug in there (it must show up as a monitor)."
+    fi
+    info "Dummy plug: $dummy_connector"
+    set_config_value DUMMY_OUTPUT "$dummy_connector"
+    dummy_modes=$(kscreen-doctor -j 2>/dev/null | jq -r --arg out "$dummy_connector" \
+        '.outputs[] | select(.name == $out) | [.modes[].name] | unique | join(" ")' || true)
+    if [ -n "$dummy_modes" ]
+    then
+        info "$dummy_connector has the modes: $dummy_modes"
+        echo "    They come from the plug's own EDID, so Albedo can't add modes there."
+    fi
+fi
+
 if ! $virtual_monitor
 then
     info "Done. Open port 47995/tcp in the firewall so the Deck reaches it."
-    info "Virtual monitor and resolution switching (KDE + AMD): run again with --virtual-monitor."
+    info "Streams use your main monitor (or the dummy plug) as picked in the Deck profile."
+    info "Virtual monitor without a plug (KDE + AMD): run again with --virtual-monitor."
     exit 0
-fi
-
-# Helper files of the virtual monitor: next to the script in a checkout, else from GitHub
-if [ -z "$script_dir" ] || [ ! -f "$script_dir/make-virtual-edid.py" ]
-then
-    require_command curl "Please install it first."
-    script_dir="$work_dir/pc-setup"
-    mkdir -p "$script_dir"
-    for helper_file in "${helper_files[@]}"
-    do
-        info "Downloading $helper_file"
-        curl -fsSL -o "$script_dir/$helper_file" "$raw_url/$helper_file"
-    done
 fi
 
 # ---------------------------------------------------------------------------
@@ -434,7 +514,7 @@ then
         then
             continue
         fi
-        if [ "$(cat "$status_file")" = "disconnected" ] || [ "$connector_name" = "$configured_connector" ]
+        if { [ "$(cat "$status_file")" = "disconnected" ] || [ "$connector_name" = "$configured_connector" ]; } && [ "$connector_name" != "$dummy_connector" ]
         then
             free_connectors+=("$connector_name")
         fi
@@ -511,15 +591,7 @@ run_as_root systemctl restart "$service_name"
 # ---------------------------------------------------------------------------
 # User part
 # ---------------------------------------------------------------------------
-info "Installing sunshine-match-client to $match_client_target"
-run install -Dm 755 "$script_dir/sunshine-match-client" "$match_client_target"
-if $dry_run
-then
-    echo "    [dry-run] write $config_file: VIRTUAL_OUTPUT=$connector"
-else
-    mkdir -p "$(dirname "$config_file")"
-    printf '# Written by pc-setup/install.sh. Read by sunshine-match-client and the companion.\nVIRTUAL_OUTPUT=%s\n' "$connector" > "$config_file"
-fi
+set_config_value VIRTUAL_OUTPUT "$connector"
 
 # ---------------------------------------------------------------------------
 # Optional: xwaylandvideobridge workaround

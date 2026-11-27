@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-/// One mode of the PC's virtual streaming monitor, from the companion's `GET /api/display-modes`.
+/// One mode of a PC monitor output, from the companion's `GET /api/display-modes`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PcDisplayMode

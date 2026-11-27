@@ -8,12 +8,18 @@ mod companion_config;
 mod cover_converter;
 mod cover_source;
 mod desktop_file_source;
-mod display_mode_reader;
+mod display_backend;
+mod display_mode;
+mod display_mode_chooser;
+mod display_output;
+mod display_setup;
+mod display_target;
 mod group_override_store;
 mod heroic_source;
 // Shared with the Deck launcher: strips the AppImage's environment from host programs.
 #[path = "../../src-tauri/src/host_environment.rs"]
 mod host_environment;
+mod kde_display_backend;
 mod library_entry;
 mod library_entry_response;
 mod library_scanner;
@@ -29,6 +35,8 @@ mod prism_source;
 mod steam_grid_db_client;
 mod steam_shortcut_source;
 mod steam_source;
+mod stream_display_request;
+mod stream_display_switcher;
 mod sunshine_app_builder;
 mod sunshine_client;
 mod upload_page;
@@ -40,4 +48,5 @@ mod companion_service;
 
 pub use companion_service::CompanionService;
 pub use process_quitter::ProcessQuitter;
+pub use stream_display_switcher::StreamDisplaySwitcher;
 

@@ -39,9 +39,9 @@ export class DefaultSettings
           defaultModeIndex: 0,
           modes:
           [
-            { resolution: "1280x800", fps: 90, bitrateMbps: 25, hdr: false, codec: "HEVC" },
-            { resolution: "1280x800", fps: 60, bitrateMbps: 15, hdr: false, codec: "HEVC" },
-            { resolution: "1280x720", fps: 40, bitrateMbps: 10, hdr: false, codec: "HEVC" },
+            { resolution: "1280x800", fps: 90, bitrateMbps: 25, hdr: false, codec: "HEVC", displayTarget: "auto" },
+            { resolution: "1280x800", fps: 60, bitrateMbps: 15, hdr: false, codec: "HEVC", displayTarget: "auto" },
+            { resolution: "1280x720", fps: 40, bitrateMbps: 10, hdr: false, codec: "HEVC", displayTarget: "auto" },
           ],
         },
         tv:
@@ -56,10 +56,10 @@ export class DefaultSettings
           defaultModeIndex: 1,
           modes:
           [
-            { resolution: "3840x2160", fps: 60, bitrateMbps: 80, hdr: true, codec: "HEVC" },
-            { resolution: "2560x1440", fps: 120, bitrateMbps: 60, hdr: true, codec: "HEVC" },
-            { resolution: "1920x1080", fps: 120, bitrateMbps: 40, hdr: false, codec: "HEVC" },
-            { resolution: "1920x1080", fps: 60, bitrateMbps: 25, hdr: false, codec: "HEVC" },
+            { resolution: "3840x2160", fps: 60, bitrateMbps: 80, hdr: true, codec: "HEVC", displayTarget: "auto" },
+            { resolution: "2560x1440", fps: 120, bitrateMbps: 60, hdr: true, codec: "HEVC", displayTarget: "auto" },
+            { resolution: "1920x1080", fps: 120, bitrateMbps: 40, hdr: false, codec: "HEVC", displayTarget: "auto" },
+            { resolution: "1920x1080", fps: 60, bitrateMbps: 25, hdr: false, codec: "HEVC", displayTarget: "auto" },
           ],
         },
       },
@@ -117,7 +117,7 @@ export class DefaultSettings
       color: stored.color ?? fallback.color,
       icon: stored.icon ?? fallback.icon,
       displayName: stored.displayName ?? "",
-      modes: stored.modes !== undefined && stored.modes.length > 0 ? stored.modes : fallback.modes,
+      modes: (stored.modes !== undefined && stored.modes.length > 0 ? stored.modes : fallback.modes).map((mode) => ({ ...mode, displayTarget: mode.displayTarget ?? "auto" })),
     };
   }
 }

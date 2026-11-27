@@ -25,12 +25,6 @@ struct SunshineAppsResponse
 }
 
 #[derive(Deserialize)]
-struct DisplayModesResponse
-{
-    modes: Vec<PcDisplayMode>,
-}
-
-#[derive(Deserialize)]
 struct AddedAppResponse
 {
     name: String,
@@ -99,12 +93,34 @@ impl CompanionClient
         Ok(sunshine_apps.apps)
     }
 
-    /// Modes the PC's virtual streaming monitor can switch to (`GET /api/display-modes`).
-    pub async fn display_modes(&self) -> Result<Vec<PcDisplayMode>, String>
+    /// The PC's streaming outputs with their modes (`GET /api/display-modes`):
+    /// `{ "defaultTarget", "routes": [{ "target", "output", "connected", "canAddModes", "modes" }] }`.
+    /// A companion from before the routes only knows the virtual monitor (`output`, `modes`).
+    pub async fn display_modes(&self) -> Result<Value, String>
     {
         let response = self.send(self.http_client.get(self.url(&["api", "display-modes"]))).await?;
-        let display_modes: DisplayModesResponse = response.json().await.map_err(|error| error.to_string())?;
-        Ok(display_modes.modes)
+        let display_modes: Value = response.json().await.map_err(|error| error.to_string())?;
+        if display_modes["routes"].is_array()
+        {
+            return Ok(display_modes);
+        }
+        let modes: Vec<PcDisplayMode> = serde_json::from_value(display_modes["modes"].clone()).map_err(|error| error.to_string())?;
+        Ok(json!({
+            "defaultTarget": "virtual",
+            "routes": [{ "target": "virtual", "output": display_modes["output"], "connected": true, "canAddModes": true, "modes": modes }]
+        }))
+    }
+
+    /// The monitor the next stream uses on the PC (`POST /api/stream-display`). Short timeout: the
+    /// stream waits for this, and a PC without companion must not hold it up.
+    pub async fn set_stream_display(&self, target: &str) -> Result<(), String>
+    {
+        let request = self
+            .http_client
+            .post(self.url(&["api", "stream-display"]))
+            .timeout(Duration::from_secs(3))
+            .json(&json!({ "target": target }));
+        self.send(request).await.map(|_| ())
     }
 
     /// Asks the PC to put a mode into its virtual monitor's EDID (`POST /api/display-modes`).
