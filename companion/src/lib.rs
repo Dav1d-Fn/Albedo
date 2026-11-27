@@ -13,6 +13,7 @@ mod display_mode;
 mod display_mode_chooser;
 mod display_output;
 mod display_setup;
+mod display_step;
 mod display_target;
 mod group_override_store;
 mod heroic_source;

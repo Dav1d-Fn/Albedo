@@ -260,6 +260,7 @@ export const englishTexts: TextTable =
     },
     pcModeInexact: (outputText: string, modeText: string) => outputText + " can't do this exactly and uses " + modeText + ".",
     pcModeExact: (outputText: string, modeText: string) => outputText + " switches to " + modeText + " for the stream and back afterwards.",
+    pcMainKeepsMode: (outputText: string) => outputText + " has no mode with this aspect ratio and stays as it is; Sunshine scales the picture.",
     pcModesFromPlug: " The modes come from the plug, adding one isn't possible there.",
     pcNoSwitch: "Nothing switches on the PC, the stream shows the desktop as it is.",
     pcOutputWithoutModes: (outputText: string) => outputText + " reports no modes. Is it connected?",

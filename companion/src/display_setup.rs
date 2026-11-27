@@ -129,7 +129,7 @@ mod tests
     fn output(name: &str, primary: bool) -> DisplayOutput
     {
         let mode = DisplayMode { id: "1".into(), width: 1920, height: 1080, refresh_rate: 59.94 };
-        DisplayOutput { name: name.into(), connected: true, enabled: primary, primary, current_mode_id: "1".into(), modes: vec![mode] }
+        DisplayOutput { name: name.into(), connected: true, enabled: primary, primary, current_mode_id: "1".into(), right_edge: 1920, modes: vec![mode] }
     }
 
     #[test]

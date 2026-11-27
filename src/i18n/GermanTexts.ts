@@ -265,6 +265,7 @@ export const germanTexts =
     } satisfies Record<PcDisplayRoute["target"], (output: string) => string>,
     pcModeInexact: (outputText: string, modeText: string) => outputText + " kann das nicht genau und nimmt " + modeText + ".",
     pcModeExact: (outputText: string, modeText: string) => outputText + " schaltet für den Stream auf " + modeText + " und danach zurück.",
+    pcMainKeepsMode: (outputText: string) => outputText + " hat keinen Modus in diesem Seitenverhältnis und bleibt, wie er ist; Sunshine skaliert das Bild.",
     pcModesFromPlug: " Die Modi kommen aus dem Stecker, hinzufügen geht dort nicht.",
     pcNoSwitch: "Am PC wird nichts umgeschaltet, der Stream zeigt den Desktop, wie er ist.",
     pcOutputWithoutModes: (outputText: string) => outputText + " meldet keine Modi. Ist er angeschlossen?",

@@ -1,11 +1,16 @@
 use std::io::Write;
+
+use serde_json::Value;
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 
 use crate::companion_config::home_directory;
 use crate::display_backend::DisplayBackend;
 use crate::display_mode_chooser::DisplayModeChooser;
 use crate::display_setup::DisplaySetup;
+use crate::display_step::DisplayStep;
 use crate::display_target::DisplayTarget;
+use crate::host_environment::HostEnvironment;
 use crate::stream_display_request::StreamDisplayRequest;
 
 /// Sunshine's prep command for the stream's monitor (`albedo-companion display`, called by
@@ -26,6 +31,9 @@ impl StreamDisplaySwitcher
     /// Same names as the shell script before, so a layout saved by it is still restored.
     const LOG_FILE: &'static str = "sunshine-match-client.log";
     const SAVED_LAYOUT_FILE: &'static str = "sunshine-match-client-layout.json";
+    /// How long a step may take until the desktop reports the expected state.
+    const STEP_WAIT: Duration = Duration::from_secs(10);
+    const POLL_INTERVAL: Duration = Duration::from_millis(500);
 
     /// Runs the command line after `display`; the process exit code.
     pub fn run_command_line(arguments: &[String]) -> i32
@@ -99,6 +107,13 @@ impl StreamDisplaySwitcher
             .find(|output| output.name == output_name && output.connected)
             .ok_or_else(|| format!("{} is not connected, nothing changed", output_name))?;
         let mode = DisplayModeChooser::choose(&output.modes, width, height, fps).ok_or_else(|| format!("{} has no modes, nothing changed", output_name))?;
+        if target == DisplayTarget::MainMonitor && !DisplayModeChooser::keeps_picture_shape(mode, width, height)
+        {
+            // An ultrawide or HDR monitor dropped to a small mode of another shape looks worse
+            // than its native mode scaled by Sunshine, and the mode change itself is the risk.
+            Self::log(&format!("{}: no mode with the shape of {}x{} (closest {}), keeping its mode", output_name, width, height, mode.text()));
+            return Ok(());
+        }
         Self::log(&format!("{}: chosen mode {} (id {})", output_name, mode.text(), mode.id));
 
         // A layout that already is the streaming layout means a stream ended without its undo:
@@ -109,8 +124,9 @@ impl StreamDisplaySwitcher
         if already_switched && saved_layout_file.exists()
         {
             Self::log("already in streaming layout, keeping the saved layout");
+            return Ok(());
         }
-        else if self.dry_run
+        if self.dry_run
         {
             println!("would save the current layout to {}", saved_layout_file.display());
         }
@@ -119,17 +135,47 @@ impl StreamDisplaySwitcher
             std::fs::write(&saved_layout_file, layout.to_string()).map_err(|error| format!("cannot save the layout: {}", error))?;
         }
 
-        let commands = if target.is_exclusive()
+        let steps = if target.is_exclusive()
         {
-            self.backend.show_only_commands(output, mode, &outputs)
+            self.backend.show_only_steps(output, mode, &outputs)
         }
         else
         {
-            self.backend.set_mode_commands(output, mode)
+            self.backend.set_mode_steps(output, mode)
         };
-        self.run_all(&commands)?;
+        self.run_extras(&self.backend.before_switch_commands());
+        if let Err(message) = self.run_steps(&steps)
+        {
+            Self::log(&format!("{}, rolling back", message));
+            self.roll_back(&layout);
+            return Err("switch failed, layout rolled back".into());
+        }
         Self::log("done");
         Ok(())
+    }
+
+    /// After a failed step: back to the layout from before the switch. When the desktop doesn't
+    /// answer any more, the saved layout itself stands in for the live one (ids are unchanged).
+    fn roll_back(&self, saved_layout: &Value)
+    {
+        let live_layout = self.backend.read_layout().unwrap_or_else(|_| saved_layout.clone());
+        let result = self
+            .backend
+            .restore_steps(saved_layout, &live_layout)
+            .and_then(|steps| self.run_steps(&steps));
+        match result
+        {
+            Ok(()) =>
+            {
+                if !self.dry_run
+                {
+                    let _ = std::fs::remove_file(Self::state_file(Self::SAVED_LAYOUT_FILE));
+                }
+                Self::log("rollback done");
+            }
+            Err(message) => Self::log(&format!("rollback failed: {} (sunshine-match-client --restore tries again)", message)),
+        }
+        self.run_extras(&self.backend.after_restore_commands());
     }
 
     fn restore(&self) -> Result<(), String>
@@ -140,10 +186,12 @@ impl StreamDisplaySwitcher
             Self::log("restore: no saved layout, nothing changed");
             return Ok(());
         };
-        let saved_layout = serde_json::from_str(&saved_text).map_err(|error| format!("restore: saved layout unreadable: {}", error))?;
+        let saved_layout: Value = serde_json::from_str(&saved_text).map_err(|error| format!("restore: saved layout unreadable: {}", error))?;
         let live_layout = self.backend.read_layout().map_err(|message| format!("restore: {}, nothing changed", message))?;
-        let commands = self.backend.restore_commands(&saved_layout, &live_layout).map_err(|message| format!("restore: {}", message))?;
-        self.run_all(&commands)?;
+        let steps = self.backend.restore_steps(&saved_layout, &live_layout).map_err(|message| format!("restore: {}", message))?;
+        let result = self.run_steps(&steps);
+        self.run_extras(&self.backend.after_restore_commands());
+        result.map_err(|message| format!("restore: {}", message))?;
         if !self.dry_run
         {
             let _ = std::fs::remove_file(&saved_layout_file);
@@ -152,7 +200,54 @@ impl StreamDisplaySwitcher
         Ok(())
     }
 
-    fn run_all(&self, commands: &[Vec<String>]) -> Result<(), String>
+    /// Runs the steps one by one; after each it waits until the desktop reports the expected
+    /// state (which also proves it still answers). Err at the first step that fails or times out.
+    fn run_steps(&self, steps: &[DisplayStep]) -> Result<(), String>
+    {
+        for step in steps
+        {
+            if self.dry_run
+            {
+                println!("{}", step.text());
+                continue;
+            }
+            Self::log(&format!("run: {}", step.text()));
+            self.backend.run(&step.command)?;
+            self.wait_for(step)?;
+        }
+        Ok(())
+    }
+
+    fn wait_for(&self, step: &DisplayStep) -> Result<(), String>
+    {
+        let started = Instant::now();
+        loop
+        {
+            let layout = self.backend.read_layout()?;
+            let outputs = self.backend.outputs(&layout);
+            let reached = step.expected.iter().all(|(name, enabled, mode_id)|
+            {
+                outputs.iter().any(|output|
+                {
+                    output.name == *name
+                        && output.enabled == *enabled
+                        && mode_id.as_ref().map(|mode_id| output.current_mode_id == *mode_id).unwrap_or(true)
+                })
+            });
+            if reached
+            {
+                return Ok(());
+            }
+            if started.elapsed() > Self::STEP_WAIT
+            {
+                return Err(format!("{} didn't take effect within {} s", step.text(), Self::STEP_WAIT.as_secs()));
+            }
+            std::thread::sleep(Self::POLL_INTERVAL);
+        }
+    }
+
+    /// Helpers around the switch (pausing programs); a failure is only logged.
+    fn run_extras(&self, commands: &[Vec<String>])
     {
         for command in commands
         {
@@ -162,9 +257,14 @@ impl StreamDisplaySwitcher
                 continue;
             }
             Self::log(&format!("run: {}", command.join(" ")));
-            self.backend.run(command)?;
+            let mut process = std::process::Command::new(&command[0]);
+            process.args(&command[1..]);
+            HostEnvironment::apply_to(&mut process);
+            if let Err(error) = process.status()
+            {
+                Self::log(&format!("{} failed: {}", command.join(" "), error));
+            }
         }
-        Ok(())
     }
 
     fn client_number(variable: &str, fallback: u32) -> u32

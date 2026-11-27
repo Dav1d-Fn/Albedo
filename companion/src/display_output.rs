@@ -13,6 +13,8 @@ pub struct DisplayOutput
     /// The main monitor of the desktop (KDE: the enabled output with the lowest priority).
     pub primary: bool,
     pub current_mode_id: String,
+    /// Where the output ends on the right in desktop coordinates (x + its larger side).
+    pub right_edge: i64,
     pub modes: Vec<DisplayMode>,
 }
 

@@ -5,6 +5,7 @@ use serde_json::Value;
 use crate::display_backend::DisplayBackend;
 use crate::display_mode::DisplayMode;
 use crate::display_output::DisplayOutput;
+use crate::display_step::DisplayStep;
 use crate::host_environment::HostEnvironment;
 use crate::request_language::RequestLanguage;
 
@@ -14,10 +15,15 @@ pub struct KdeDisplayBackend;
 
 impl KdeDisplayBackend
 {
-    /// KWin sometimes hangs on monitor changes, kscreen-doctor then never answers.
-    const READ_TIMEOUT_SECONDS: &'static str = "20";
-    const SWITCH_TIMEOUT_SECONDS: &'static str = "60";
+    /// KWin sometimes hangs on monitor changes, kscreen-doctor then never answers. Short limits,
+    /// so a hanging KWin is noticed and the layout rolled back instead of waiting a minute.
+    const READ_TIMEOUT_SECONDS: &'static str = "10";
+    const SWITCH_TIMEOUT_SECONDS: &'static str = "15";
     const PROGRAM: &'static str = "kscreen-doctor";
+    /// Holds a screen cast open; with it running, KWin and Xwayland can deadlock while monitors
+    /// change (seen 2026-11-21 and 2026-11-27). Sunshine's global_prep_cmd from pc-setup stops it
+    /// during streams, the switcher does it too so a switch outside Sunshine is just as safe.
+    const VIDEO_BRIDGE_UNIT: &'static str = "app-org.kde.xwaylandvideobridge@autostart.service";
 
     /// kscreen-doctor wrapped in `timeout`, with the Wayland environment Sunshine's service and
     /// the companion's user service may lack, and without the AppImage's libraries.
@@ -58,6 +64,41 @@ impl KdeDisplayBackend
             height: mode_value["size"]["height"].as_u64().unwrap_or(0) as u32,
             refresh_rate: mode_value["refreshRate"].as_f64().unwrap_or(0.0),
         }
+    }
+
+    fn step(arguments: Vec<String>, expected: Vec<(String, bool, Option<String>)>) -> DisplayStep
+    {
+        DisplayStep { command: Self::with_program(arguments), expected }
+    }
+
+    /// An x position right of every enabled output in these layouts: an output turned on there
+    /// overlaps nothing while the others are still on.
+    fn free_x_position(layouts: &[&Value]) -> i64
+    {
+        layouts
+            .iter()
+            .flat_map(|layout| layout["outputs"].as_array().cloned().unwrap_or_default())
+            .filter(|output| output["enabled"] == true)
+            .map(|output| Self::right_edge(&output))
+            .max()
+            .unwrap_or(0)
+    }
+
+    /// x + the larger side of the current mode, so a rotated monitor is covered too.
+    fn right_edge(output: &Value) -> i64
+    {
+        let current_mode = output["modes"].as_array().into_iter().flatten().find(|mode| mode["id"] == output["currentModeId"]);
+        let mode_width = current_mode.and_then(|mode| mode["size"]["width"].as_i64()).unwrap_or(0);
+        let mode_height = current_mode.and_then(|mode| mode["size"]["height"].as_i64()).unwrap_or(0);
+        output["pos"]["x"].as_i64().unwrap_or(0) + mode_width.max(mode_height)
+    }
+
+    fn systemctl(arguments: &[&str]) -> bool
+    {
+        let mut command = Command::new("systemctl");
+        command.arg("--user").args(arguments);
+        HostEnvironment::apply_to(&mut command);
+        command.output().map(|output| output.status.success()).unwrap_or(false)
     }
 
     fn rotation_name(rotation: &Value) -> &'static str
@@ -130,86 +171,118 @@ impl DisplayBackend for KdeDisplayBackend
                     enabled,
                     primary: enabled && primary_priority.is_some() && output["priority"].as_u64() == primary_priority,
                     current_mode_id: output["currentModeId"].as_str().unwrap_or_default().to_string(),
+                    right_edge: Self::right_edge(output),
                     modes: output["modes"].as_array().map(|modes| modes.iter().map(Self::mode_of).collect()).unwrap_or_default(),
                 }
             })
             .collect()
     }
 
-    fn show_only_commands(&self, output: &DisplayOutput, mode: &DisplayMode, outputs: &[DisplayOutput]) -> Vec<Vec<String>>
+    /// 1. the stream output on, right of the others (nothing overlaps, nothing goes dark yet),
+    /// 2. the others off, the stream output to 0,0, 3. it becomes primary.
+    fn show_only_steps(&self, output: &DisplayOutput, mode: &DisplayMode, outputs: &[DisplayOutput]) -> Vec<DisplayStep>
     {
         let name = &output.name;
-        let mut arguments = vec![
-            format!("output.{}.enable", name),
-            format!("output.{}.mode.{}", name, mode.id),
-            format!("output.{}.position.0,0", name),
-            format!("output.{}.priority.1", name),
-        ];
-        for other in outputs.iter().filter(|other| other.enabled && other.name != *name)
-        {
-            arguments.push(format!("output.{}.disable", other.name));
-        }
-        vec![Self::with_program(arguments)]
+        let others: Vec<&DisplayOutput> = outputs.iter().filter(|other| other.enabled && other.name != *name).collect();
+        let mut steps = Vec::new();
+        let free_x = outputs.iter().filter(|other| other.enabled).map(|other| other.right_edge).max().unwrap_or(0);
+        steps.push(Self::step(
+            vec![format!("output.{}.enable", name), format!("output.{}.mode.{}", name, mode.id), format!("output.{}.position.{},0", name, free_x)],
+            vec![(name.clone(), true, Some(mode.id.clone()))],
+        ));
+        let mut off_arguments: Vec<String> = others.iter().map(|other| format!("output.{}.disable", other.name)).collect();
+        off_arguments.push(format!("output.{}.position.0,0", name));
+        let off_expected = others.iter().map(|other| (other.name.clone(), false, None)).collect();
+        steps.push(Self::step(off_arguments, off_expected));
+        steps.push(Self::step(vec![format!("output.{}.priority.1", name)], Vec::new()));
+        steps
     }
 
-    fn set_mode_commands(&self, output: &DisplayOutput, mode: &DisplayMode) -> Vec<Vec<String>>
+    fn set_mode_steps(&self, output: &DisplayOutput, mode: &DisplayMode) -> Vec<DisplayStep>
     {
-        vec![Self::with_program(vec![format!("output.{}.mode.{}", output.name, mode.id)])]
+        vec![Self::step(vec![format!("output.{}.mode.{}", output.name, mode.id)], vec![(output.name.clone(), true, Some(mode.id.clone()))])]
     }
 
-    /// Per saved output: enable/disable, mode, scale, rotation, position. Outputs that are gone
-    /// are skipped, outputs that are new get disabled (before the switch nothing else was on).
-    /// Priority goes into a second call: together with enable/mode/position it doesn't reliably
-    /// stick (lowest number = primary).
-    fn restore_commands(&self, saved: &Value, live: &Value) -> Result<Vec<Vec<String>>, String>
+    /// 1. every saved monitor on with its mode, scale, rotation and position; outputs that go off
+    /// later move out of their way first, 2. the stream output (and any new one) off,
+    /// 3. priorities (together with the rest they don't reliably stick; lowest = primary).
+    /// Outputs that are gone are skipped.
+    fn restore_steps(&self, saved: &Value, live: &Value) -> Result<Vec<DisplayStep>, String>
     {
         let saved_outputs = saved["outputs"].as_array().cloned().unwrap_or_default();
         let live_outputs = live["outputs"].as_array().cloned().unwrap_or_default();
-        let mut arguments = Vec::new();
-        let mut priority_arguments = Vec::new();
-        let mut enabled_count = 0;
+        let saved_enabled = |name: &str| saved_outputs.iter().any(|output| output["name"] == name && output["enabled"] == true);
+        let free_x = Self::free_x_position(&[saved, live]);
 
-        for saved_output in &saved_outputs
+        let mut on_arguments = Vec::new();
+        let mut on_expected = Vec::new();
+        let mut priority_arguments = Vec::new();
+        for saved_output in saved_outputs.iter().filter(|output| output["enabled"] == true)
         {
             let name = saved_output["name"].as_str().unwrap_or_default();
-            let Some(live_output) = live_outputs.iter().find(|output| output["name"] == name) else
+            let Some(live_output) = live_outputs.iter().find(|output| output["name"] == name && output["connected"] == true) else
             {
                 continue;
             };
-            if live_output["connected"] != true
+            on_arguments.push(format!("output.{}.enable", name));
+            let live_mode_id = Self::matching_live_mode(saved_output, live_output).and_then(|mode| mode["id"].as_str()).map(String::from);
+            if let Some(mode_id) = &live_mode_id
             {
-                continue;
+                on_arguments.push(format!("output.{}.mode.{}", name, mode_id));
             }
-            if saved_output["enabled"] != true
-            {
-                arguments.push(format!("output.{}.disable", name));
-                continue;
-            }
-            enabled_count += 1;
-            arguments.push(format!("output.{}.enable", name));
-            if let Some(live_mode) = Self::matching_live_mode(saved_output, live_output)
-            {
-                arguments.push(format!("output.{}.mode.{}", name, live_mode["id"].as_str().unwrap_or_default()));
-            }
-            arguments.push(format!("output.{}.scale.{}", name, saved_output["scale"]));
-            arguments.push(format!("output.{}.rotation.{}", name, Self::rotation_name(&saved_output["rotation"])));
-            arguments.push(format!("output.{}.position.{},{}", name, saved_output["pos"]["x"], saved_output["pos"]["y"]));
+            on_arguments.push(format!("output.{}.scale.{}", name, saved_output["scale"]));
+            on_arguments.push(format!("output.{}.rotation.{}", name, Self::rotation_name(&saved_output["rotation"])));
+            on_arguments.push(format!("output.{}.position.{},{}", name, saved_output["pos"]["x"], saved_output["pos"]["y"]));
+            on_expected.push((name.to_string(), true, live_mode_id));
             priority_arguments.push(format!("output.{}.priority.{}", name, saved_output["priority"]));
         }
-        for live_output in &live_outputs
-        {
-            let is_new = !saved_outputs.iter().any(|saved_output| saved_output["name"] == live_output["name"]);
-            if live_output["enabled"] == true && is_new
-            {
-                arguments.push(format!("output.{}.disable", live_output["name"].as_str().unwrap_or_default()));
-            }
-        }
-
-        if enabled_count == 0
+        if on_expected.is_empty()
         {
             return Err("saved layout has no monitor that is still connected, refusing an all-off state".into());
         }
-        Ok(vec![Self::with_program(arguments), Self::with_program(priority_arguments)])
+
+        let mut off_arguments = Vec::new();
+        let mut off_expected = Vec::new();
+        for live_output in live_outputs.iter().filter(|output| output["enabled"] == true && output["connected"] == true)
+        {
+            let name = live_output["name"].as_str().unwrap_or_default();
+            if saved_enabled(name)
+            {
+                continue;
+            }
+            // Out of the way while the saved monitors come back, off in the next step.
+            on_arguments.push(format!("output.{}.position.{},0", name, free_x));
+            off_arguments.push(format!("output.{}.disable", name));
+            off_expected.push((name.to_string(), false, None));
+        }
+
+        let mut steps = vec![Self::step(on_arguments, on_expected)];
+        if !off_arguments.is_empty()
+        {
+            steps.push(Self::step(off_arguments, off_expected));
+        }
+        steps.push(Self::step(priority_arguments, Vec::new()));
+        Ok(steps)
+    }
+
+    fn before_switch_commands(&self) -> Vec<Vec<String>>
+    {
+        if Self::systemctl(&["is-active", "--quiet", Self::VIDEO_BRIDGE_UNIT])
+        {
+            return vec![vec!["systemctl".into(), "--user".into(), "stop".into(), Self::VIDEO_BRIDGE_UNIT.into()]];
+        }
+        Vec::new()
+    }
+
+    /// Starts it again when the login's autostart has it (the unit exists) and it isn't running.
+    fn after_restore_commands(&self) -> Vec<Vec<String>>
+    {
+        let unit_exists = Self::systemctl(&["cat", Self::VIDEO_BRIDGE_UNIT]);
+        if unit_exists && !Self::systemctl(&["is-active", "--quiet", Self::VIDEO_BRIDGE_UNIT])
+        {
+            return vec![vec!["systemctl".into(), "--user".into(), "start".into(), "--no-block".into(), Self::VIDEO_BRIDGE_UNIT.into()]];
+        }
+        Vec::new()
     }
 
     fn run(&self, command: &[String]) -> Result<(), String>
@@ -254,18 +327,31 @@ mod tests
         assert_eq!(outputs[1].modes[0].text(), "1280x800@90");
     }
 
-    #[test]
-    fn shows_only_the_stream_output()
+    fn texts(steps: &[DisplayStep]) -> Vec<String>
     {
-        let outputs = KdeDisplayBackend.outputs(&layout());
-        let commands = KdeDisplayBackend.show_only_commands(&outputs[1], &outputs[1].modes[0], &outputs);
-        assert_eq!(commands[0].join(" "), "kscreen-doctor output.DP-3.enable output.DP-3.mode.12 output.DP-3.position.0,0 output.DP-3.priority.1 output.HDMI-A-1.disable output.DP-2.disable");
-        let mode_only = KdeDisplayBackend.set_mode_commands(&outputs[2], &outputs[2].modes[0]);
-        assert_eq!(mode_only[0].join(" "), "kscreen-doctor output.DP-2.mode.17");
+        steps.iter().map(|step| step.text()).collect()
     }
 
     #[test]
-    fn restores_the_saved_layout_with_new_mode_ids()
+    fn turns_the_stream_output_on_before_the_others_off()
+    {
+        let outputs = KdeDisplayBackend.outputs(&layout());
+        let steps = KdeDisplayBackend.show_only_steps(&outputs[1], &outputs[1].modes[0], &outputs);
+        assert_eq!(texts(&steps), vec![
+            // DP-2 ends at 1200 + 3440: the stream output starts right of it.
+            "kscreen-doctor output.DP-3.enable output.DP-3.mode.12 output.DP-3.position.4640,0",
+            "kscreen-doctor output.HDMI-A-1.disable output.DP-2.disable output.DP-3.position.0,0",
+            "kscreen-doctor output.DP-3.priority.1",
+        ]);
+        assert_eq!(steps[0].expected, vec![("DP-3".to_string(), true, Some("12".to_string()))]);
+        assert_eq!(steps[1].expected, vec![("HDMI-A-1".to_string(), false, None), ("DP-2".to_string(), false, None)]);
+
+        let mode_only = KdeDisplayBackend.set_mode_steps(&outputs[2], &outputs[2].modes[0]);
+        assert_eq!(texts(&mode_only), vec!["kscreen-doctor output.DP-2.mode.17"]);
+    }
+
+    #[test]
+    fn restores_the_saved_monitors_before_turning_the_stream_output_off()
     {
         let saved = layout();
         let mut live = layout();
@@ -274,15 +360,19 @@ mod tests
         live["outputs"][2]["modes"].as_array_mut().unwrap().push(json!({ "id": "24", "size": { "width": 3440, "height": 1440 }, "refreshRate": 60.0 }));
         live["outputs"][1]["enabled"] = json!(true);
         live["outputs"][0]["enabled"] = json!(false);
-        live["outputs"].as_array_mut().unwrap().push(json!({ "name": "HDMI-A-2", "enabled": true, "connected": true, "modes": [] }));
+        live["outputs"][2]["enabled"] = json!(false);
+        live["outputs"].as_array_mut().unwrap().push(json!({ "name": "HDMI-A-2", "enabled": true, "connected": true, "modes": [], "pos": { "x": 0, "y": 0 } }));
 
-        let commands = KdeDisplayBackend.restore_commands(&saved, &live).unwrap();
-        assert_eq!(commands[0].join(" "), "kscreen-doctor \
+        let steps = KdeDisplayBackend.restore_steps(&saved, &live).unwrap();
+        assert_eq!(texts(&steps), vec![
+            "kscreen-doctor \
             output.HDMI-A-1.enable output.HDMI-A-1.mode.1 output.HDMI-A-1.scale.1 output.HDMI-A-1.rotation.left output.HDMI-A-1.position.0,0 \
-            output.DP-3.disable \
             output.DP-2.enable output.DP-2.mode.23 output.DP-2.scale.1.25 output.DP-2.rotation.none output.DP-2.position.1200,0 \
-            output.HDMI-A-2.disable");
-        assert_eq!(commands[1].join(" "), "kscreen-doctor output.HDMI-A-1.priority.2 output.DP-2.priority.1");
+            output.DP-3.position.4640,0 output.HDMI-A-2.position.4640,0",
+            "kscreen-doctor output.DP-3.disable output.HDMI-A-2.disable",
+            "kscreen-doctor output.HDMI-A-1.priority.2 output.DP-2.priority.1",
+        ]);
+        assert_eq!(steps[0].expected, vec![("HDMI-A-1".to_string(), true, Some("1".to_string())), ("DP-2".to_string(), true, Some("23".to_string()))]);
     }
 
     #[test]
@@ -292,6 +382,6 @@ mod tests
         let mut live = layout();
         live["outputs"][0]["connected"] = json!(false);
         live["outputs"][2]["connected"] = json!(false);
-        assert!(KdeDisplayBackend.restore_commands(&saved, &live).is_err());
+        assert!(KdeDisplayBackend.restore_steps(&saved, &live).is_err());
     }
 }

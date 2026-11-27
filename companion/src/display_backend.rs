@@ -2,6 +2,7 @@ use serde_json::Value;
 
 use crate::display_mode::DisplayMode;
 use crate::display_output::DisplayOutput;
+use crate::display_step::DisplayStep;
 use crate::kde_display_backend::KdeDisplayBackend;
 use crate::request_language::RequestLanguage;
 
@@ -10,8 +11,8 @@ use crate::request_language::RequestLanguage;
 /// (`wlr-randr`) or X11 (`xrandr`) would each be one more file implementing this trait, picked in
 /// `for_this_desktop`.
 ///
-/// Commands are returned as argument lists (program first) instead of being run right away, so
-/// a dry run can print exactly what would happen.
+/// Steps are returned as argument lists (program first) instead of being run right away, so a
+/// dry run can print exactly what would happen; `StreamDisplaySwitcher` runs them one by one.
 pub trait DisplayBackend
 {
     /// Short name for the API and the log, e.g. "kde".
@@ -23,14 +24,28 @@ pub trait DisplayBackend
 
     fn outputs(&self, layout: &Value) -> Vec<DisplayOutput>;
 
-    /// Turns `output` on in `mode` as the only (and primary) monitor, every other output off.
-    fn show_only_commands(&self, output: &DisplayOutput, mode: &DisplayMode, outputs: &[DisplayOutput]) -> Vec<Vec<String>>;
+    /// Steps that turn `output` on in `mode` as the only (and primary) monitor and every other
+    /// output off. The first step only turns the stream output on, the others go off after it.
+    fn show_only_steps(&self, output: &DisplayOutput, mode: &DisplayMode, outputs: &[DisplayOutput]) -> Vec<DisplayStep>;
 
     /// Only changes the mode of `output`, everything else stays.
-    fn set_mode_commands(&self, output: &DisplayOutput, mode: &DisplayMode) -> Vec<Vec<String>>;
+    fn set_mode_steps(&self, output: &DisplayOutput, mode: &DisplayMode) -> Vec<DisplayStep>;
 
-    /// Puts the `saved` layout back, matched against the `live` one (outputs may have come or gone).
-    fn restore_commands(&self, saved: &Value, live: &Value) -> Result<Vec<Vec<String>>, String>;
+    /// Steps that put the `saved` layout back, matched against the `live` one (outputs may have
+    /// come or gone): the saved monitors come on first, the stream output goes off after them.
+    fn restore_steps(&self, saved: &Value, live: &Value) -> Result<Vec<DisplayStep>, String>;
+
+    /// Commands to run before a switch (e.g. pause programs known to deadlock the desktop while
+    /// monitors change) and after the restore (start them again). Failures there don't matter.
+    fn before_switch_commands(&self) -> Vec<Vec<String>>
+    {
+        Vec::new()
+    }
+
+    fn after_restore_commands(&self) -> Vec<Vec<String>>
+    {
+        Vec::new()
+    }
 
     fn run(&self, command: &[String]) -> Result<(), String>;
 }

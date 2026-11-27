@@ -69,6 +69,18 @@ export class PcModeMatcher
     return sizes[0] ?? null;
   }
 
+  /** Exact size or the same aspect ratio (within 1 %), as `DisplayModeChooser::keeps_picture_shape`. */
+  private static keepsPictureShape(pcMode: PcDisplayMode, mode: StreamMode): boolean
+  {
+    const wanted = ModeText.size(mode.resolution);
+    if (pcMode.width === wanted.width && pcMode.height === wanted.height)
+    {
+      return true;
+    }
+    const wantedRatio = wanted.width / wanted.height;
+    return Math.abs(pcMode.width / pcMode.height - wantedRatio) <= wantedRatio * 0.01;
+  }
+
   /** The target that really applies, like the companion: "auto" and a route the PC isn't set up for become its default. */
   public static resolvedTarget(displays: PcDisplays, target: DisplayTarget): DisplayTarget
   {
@@ -136,6 +148,11 @@ export class PcModeMatcher
       return texts.pcOutputWithoutModes(outputText);
     }
     const closestMode = PcModeMatcher.closest(route.modes, mode)!;
+    if (route.target === "main" && !PcModeMatcher.keepsPictureShape(closestMode, mode))
+    {
+      // Like the companion: the main monitor only switches to a mode with the stream's shape.
+      return texts.pcMainKeepsMode(outputText);
+    }
     if (!PcModeMatcher.isInexact(displays, mode))
     {
       return route.target === "main" ? texts.pcModeExact(outputText, PcModeMatcher.text(closestMode)) : null;

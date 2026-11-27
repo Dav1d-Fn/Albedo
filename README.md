@@ -238,9 +238,10 @@ What exactly depends on what:
   but at whatever resolution the PC screen has. The switching lives in one place
   ([`companion/src/display_backend.rs`](companion/src/display_backend.rs)), so other desktops can be added.
 - **Main monitor.** Needs no extra hardware: the primary monitor (or `MAIN_OUTPUT=` in
-  `~/.config/sunshine-match-client.conf`) switches to the closest mode it has – the exact one, else
-  one with the same aspect ratio, else the largest that fits – and back afterwards. Your other
-  monitors stay on. The profile editor shows which mode it will be.
+  `~/.config/sunshine-match-client.conf`) switches to the exact mode, else one with the same
+  aspect ratio, and back afterwards. If it has neither (an ultrawide for the Deck's 16:10), it
+  keeps its own mode and Sunshine scales the picture. Your other monitors stay on. The profile
+  editor shows what will happen.
 - **Dummy plug.** A few-euro HDMI or DisplayPort plug that pretends to be a monitor. Works with every
   GPU and driver, so it is the way to go on **NVIDIA**. Your real monitors turn off for the stream.
   Its modes come from the plug's own EDID; buy one that has the Deck's 1280×800 (often listed as

@@ -58,6 +58,12 @@ impl DisplayModeChooser
         sizes.first().copied()
     }
 
+    /// The mode shows the client's picture without bars: exact size or the same aspect ratio.
+    pub fn keeps_picture_shape(mode: &DisplayMode, width: u32, height: u32) -> bool
+    {
+        (mode.width == width && mode.height == height) || Self::same_aspect_ratio(mode.width, mode.height, width, height)
+    }
+
     /// Within 1 %, so 1366x768 counts as 16:9.
     fn same_aspect_ratio(first_width: u32, first_height: u32, second_width: u32, second_height: u32) -> bool
     {
@@ -119,5 +125,14 @@ mod tests
         assert_eq!(chosen(&monitor, 1280, 800, 60), "1280x720@60");
         assert_eq!(chosen(&["3440x1440@100", "2560x1080@60"], 1280, 800, 60), "2560x1080@60");
         assert!(DisplayModeChooser::choose(&[], 1280, 800, 60).is_none());
+    }
+
+    #[test]
+    fn tells_whether_the_picture_keeps_its_shape()
+    {
+        let ultrawide_modes = modes(&["3440x1440@165", "1280x720@60", "1920x1200@60"]);
+        assert!(!DisplayModeChooser::keeps_picture_shape(&ultrawide_modes[0], 1280, 800));
+        assert!(!DisplayModeChooser::keeps_picture_shape(&ultrawide_modes[1], 1280, 800));
+        assert!(DisplayModeChooser::keeps_picture_shape(&ultrawide_modes[2], 1280, 800));
     }
 }

@@ -95,7 +95,11 @@ The routes this PC can show a stream on, with the modes of their outputs (from t
 KDE: `kscreen-doctor -j`, 20 s time limit because KWin sometimes hangs). When a client connects,
 `sunshine-match-client` switches the profile's route to the closest mode
 (`companion/src/display_mode_chooser.rs`: exact size, else same aspect ratio, else the largest
-that fits; then the closest refresh rate), so the launcher shows what the PC will really use.
+that fits; then the closest refresh rate; the main monitor only switches to an exact or
+same-aspect mode and otherwise keeps its own), so the launcher shows what the PC will really use.
+Switching runs in steps (stream output on, wait until KWin reports it, then the others off;
+restore the other way round) with 10–15 s limits and a rollback to the saved layout when a step
+fails. `xwaylandvideobridge` is paused around the switch.
 
 ```json
 {
