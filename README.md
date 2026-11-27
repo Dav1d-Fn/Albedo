@@ -16,6 +16,13 @@
   <img src="docs/media/hero.gif" alt="Albedo's home screen: browsing games, then X switches from Handheld (blue) to TV (orange) and back" width="720">
 </p>
 
+**Not just a client.** On the Linux gaming PC, Albedo gives every stream its **own virtual
+monitor** in the Deck's resolution and refresh rate (1280×800 @ 90, or whatever the profile asks
+for): a free connector of the graphics card becomes a monitor through an EDID override, **no dummy
+plug needed** (AMD). Your real monitors go dark while you play and come back exactly as they were
+when the stream ends. On Windows, Apollo is known for this; Sunshine on Linux has nothing like it
+built in. Details in [A Virtual Screen on the PC](#️-a-virtual-screen-on-the-pc).
+
 ---
 
 ## Installation 💻
@@ -85,6 +92,8 @@ entirely with the gamepad.
   digging through the settings every time.
 - **[MoonDeck](https://github.com/FrogTheFrog/moondeck)** solved a lot of this, but it is no longer
   developed.
+- **A screen for the stream** on a Linux PC meant a dummy plug or switching monitors by hand.
+  Albedo does it for every stream, with a virtual monitor and no plug.
 
 Albedo keeps Moonlight for what it is great at and replaces only the menu: one tap on **X**
 switches between Handheld and TV, and the whole UI tints with the device (blue / orange) so you
@@ -113,6 +122,25 @@ resolution, FPS, bitrate, codec (H.264 / HEVC / AV1) and HDR.
 <p align="center">
   <img src="docs/media/devices.gif" alt="The device editor: device settings, a profile's values, then the TV device" width="720">
 </p>
+
+### 🖥️ A Virtual Screen on the PC
+
+When a stream starts, the PC switches to a screen made for the Deck, and back when it ends:
+
+- **Virtual connector (AMD, no plug).** A free connector of the graphics card is forced on with
+  its own EDID and shows up as a monitor in exactly the Deck's modes. Your real monitors turn off
+  for the stream, nothing on the desk has to change. A mode is missing? **Y** (*Add on PC*) in the
+  Deck's profile editor or *Display* in Albedo Companion puts it into the EDID; the PC asks for
+  your password first, so nothing changes without you.
+- **Dummy plug.** The same with a few-euro HDMI/DP plug: the way to go on NVIDIA or Intel, or
+  when no connector is free.
+- **Main monitor.** No second screen: it only changes its resolution for the stream.
+
+Which one a stream uses, you pick per profile (*Screen on the PC*); *Automatic* takes the virtual
+connector, else the dummy plug, else nothing switches. The resolution and refresh rate follow the
+profile, and if the PC's screen can't do it exactly, Albedo tells you what you will actually get.
+Albedo Companion's *Display* area shows all three and tests each one with a 10-second switch.
+Setup: [Resolution switching](#3-resolution-switching-kde).
 
 ### 🔌 Automatic Device Detection
 
@@ -163,19 +191,6 @@ shows the PC's stream screens, lets you pick the dummy plug and main monitor and
 <p align="center">
   <img src="docs/media/pc-app-library.png" alt="Albedo Companion: the library by group with covers, a selected game and its group menu" width="900">
 </p>
-
-### 🖥️ The PC Screen Follows the Deck
-
-Each game added through the companion switches the PC's streaming monitor to the resolution and
-refresh rate the Deck asked for, and back when the stream ends. Which monitor that is, you pick
-per profile (*Screen on the PC*): a **virtual connector** (no plug needed, AMD), a **dummy plug**
-(any GPU), the **main monitor** (it only changes its resolution for the stream), or *don't switch*.
-*Automatic* takes the virtual connector, else the dummy plug, else nothing. If the PC's screen
-can't do a profile exactly, Albedo tells you what you will actually get.
-
-With the virtual connector set up, a missing mode can be added right from the profile editor on the
-Deck: **Y** (*Add on PC*) asks Albedo Companion to put it into the virtual monitor's EDID. The PC
-shows a password prompt first, so nothing changes without you.
 
 ### ⏰ Wake-on-LAN
 
