@@ -91,6 +91,7 @@ export const englishTexts: TextTable =
 
   home:
   {
+    searchingCached: "Looking for the PC · games from last time",
     loadingGames: "Loading games …",
     online: (gameCount: number) => "Online · " + gameCount + " games · Sunshine ready",
     unreachable: "Unreachable · Y to retry",

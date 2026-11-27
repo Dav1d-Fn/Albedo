@@ -3,7 +3,8 @@ use std::path::PathBuf;
 
 use tauri::{AppHandle, Manager};
 
-/// Persists the settings JSON (profiles, host, remembered modes) in the app config dir.
+/// Persists the settings JSON (profiles, host, remembered modes) in the app config dir, and the
+/// home screen's last game list with its pictures in the cache dir (`home_cache`).
 /// The frontend owns the structure; this side only reads and writes the file.
 pub struct SettingsStore
 {
@@ -16,6 +17,13 @@ impl SettingsStore
     {
         let config_directory = app_handle.path().app_config_dir().map_err(|error| error.to_string())?;
         Ok(Self { file_path: config_directory.join("settings.json") })
+    }
+
+    /// Games, covers and logos from the last visit, so the home screen shows them before the PC answers.
+    pub fn home_cache(app_handle: &AppHandle) -> Result<Self, String>
+    {
+        let cache_directory = app_handle.path().app_cache_dir().map_err(|error| error.to_string())?;
+        Ok(Self { file_path: cache_directory.join("home-cache.json") })
     }
 
     /// Returns None when no settings were saved yet.

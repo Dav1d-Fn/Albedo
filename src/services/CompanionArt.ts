@@ -25,9 +25,9 @@ export class CompanionArt
 
   /**
    * Game name -> cover and logo `data:` URLs from the companion, for every game it has one for.
-   * The companion's cover wins over Moonlight's cache, so a cover set by hand shows. Empty when it is not reachable.
+   * The companion's cover wins over Moonlight's cache, so a cover set by hand shows. Null when it is not reachable.
    */
-  public async coversAndLogos(host: string, gameNames: string[]): Promise<{ covers: Record<string, string>; logos: Record<string, string> }>
+  public async coversAndLogos(host: string, gameNames: string[]): Promise<{ covers: Record<string, string>; logos: Record<string, string> } | null>
   {
     const covers: Record<string, string> = {};
     const logos: Record<string, string> = {};
@@ -61,10 +61,28 @@ export class CompanionArt
     }
     catch (companionError)
     {
-      // The companion is optional; without it the placeholders stay.
+      // The companion is optional; without it the placeholders (or the cached pictures) stay.
       console.warn("no companion covers", companionError);
+      return null;
     }
     return { covers, logos };
+  }
+
+  /** What the home cache keeps: entries and the backdrop pictures loaded so far. */
+  public snapshot(): { entries: LibraryEntry[]; images: Record<string, string | null> }
+  {
+    return { entries: [...this.entriesByName.values()], images: Object.fromEntries(this.imageCache) };
+  }
+
+  /** Start without the PC: entries and pictures from the home cache, replaced by the next library load. */
+  public restore(entries: LibraryEntry[], images: Record<string, string | null>): void
+  {
+    this.entriesByName = new Map(entries.map((entry) => [entry.name, entry]));
+    this.imageCache.clear();
+    for (const [cacheKey, image] of Object.entries(images))
+    {
+      this.remember(cacheKey, image);
+    }
   }
 
   /** Companion entry id of a home game, undefined when the companion does not know it. */

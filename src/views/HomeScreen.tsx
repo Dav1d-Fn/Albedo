@@ -18,7 +18,8 @@ export function HomeScreen(props: { app: LauncherApp })
   const hasHost = app.settings.host !== "";
   const hostSubtitle = !hasHost ? t.home.notSetUp :
   {
-    loading: t.home.loadingGames,
+    // Games from the cache are shown meanwhile: the PC has not confirmed them yet.
+    loading: state.games.length > 0 ? t.home.searchingCached : t.home.loadingGames,
     online: t.home.online(state.games.length),
     waking: t.home.waking(state.wakeSeconds),
     error: state.hostReachable ? t.home.listFailed : (app.canWakeHost() ? t.home.unreachableWake : t.home.unreachable),

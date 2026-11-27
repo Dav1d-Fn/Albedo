@@ -6,7 +6,7 @@ import { PcModeMatcher } from "./model/PcModeMatcher";
 import { DefaultSettings } from "./model/DefaultSettings";
 import { DevicePalette } from "./model/DevicePalette";
 import { GameArt } from "./model/GameArt";
-import { AfterStreamAction, ArtKind, BackdropKind, DeviceId, UiLanguage, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, PcDisplays, PcModeRequest, CompanionUpdateStatus, Settings, StreamMode, SunshineLoginDraft, SteamGridDbKeyCheck, ImageDialogState, ImageDialogRow, RunningHostApp } from "./model/Types";
+import { AfterStreamAction, ArtKind, BackdropKind, DeviceId, UiLanguage, DeviceProfile, DiscoveredHost, LibraryEntry, PadButton, PcDisplays, PcModeRequest, CompanionUpdateStatus, HomeCache, Settings, StreamMode, SunshineLoginDraft, SteamGridDbKeyCheck, ImageDialogState, ImageDialogRow, RunningHostApp } from "./model/Types";
 import { AvailableUpdate, Backend } from "./services/Backend";
 import { CompanionArt } from "./services/CompanionArt";
 import { AfterStreamDialog } from "./views/AfterStreamDialog";
@@ -183,6 +183,11 @@ export default class LauncherApp extends React.Component<object, LauncherState>
   /** Rotates the screenshot backdrop. */
   private backdropTimer = 0;
 
+  /** Saving the home cache waits a moment, so a few backdrops loaded in a row are written once. */
+  private homeCacheTimer = 0;
+
+  private static readonly homeCacheDelayMilliseconds = 5000;
+
   /** Counts backdrop loads, so a slow answer for a game that is no longer selected is dropped. */
   private backdropRequest = 0;
 
@@ -335,6 +340,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     }
     else
     {
+      await this.restoreHomeCache(settings);
       this.searchForHost(settings);
     }
     this.displayPollTimer = window.setInterval(() => this.pollDisplay(), LauncherApp.displayPollMilliseconds);
@@ -363,6 +369,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     window.clearInterval(this.displayPollTimer);
     window.clearInterval(this.hostRecheckTimer);
     window.clearTimeout(this.searchRetryTimer);
+    window.clearTimeout(this.homeCacheTimer);
     this.unlistenStreamEnded?.();
     this.clearTimers();
     this.toastTimers.forEach((timer) => window.clearTimeout(timer));
@@ -843,13 +850,65 @@ export default class LauncherApp extends React.Component<object, LauncherState>
     {
       console.warn("no cover art", artError);
     }
-    this.setState({ boxArt });
+    // Pictures from the cache stay until the companion answers, so nothing flickers back to Moonlight's.
+    this.setState((state) => ({ boxArt: { ...boxArt, ...state.boxArt } }));
 
     const companionArt = await this.companionArt.coversAndLogos(host, games);
-    // The companion's cover wins: it may be one set by hand.
-    this.setState((state) => ({ boxArt: { ...state.boxArt, ...companionArt.covers }, logos: companionArt.logos }));
+    if (companionArt !== null)
+    {
+      // The companion's cover wins: it may be one set by hand.
+      this.setState({ boxArt: { ...boxArt, ...companionArt.covers }, logos: companionArt.logos });
+    }
     // The companion's library is known now, so the selected game can get its backdrop.
     this.updateBackdrop(host);
+    this.scheduleHomeCacheSave();
+  }
+
+  /** Start: the games and pictures of the last visit, until the PC answers (see `HomeCache`). */
+  private async restoreHomeCache(settings: Settings): Promise<void>
+  {
+    let cache: HomeCache | null = null;
+    try
+    {
+      cache = await this.backend.loadHomeCache();
+    }
+    catch (cacheError)
+    {
+      console.warn("home cache not readable", cacheError);
+    }
+    if (cache === null || cache.host !== settings.host || this.state.hostState !== "loading")
+    {
+      return;
+    }
+    this.companionArt.restore(cache.companionEntries ?? [], cache.companionImages ?? {});
+    this.setState({ games: cache.games, boxArt: cache.boxArt, logos: cache.logos }, () => this.updateBackdrop(settings.host));
+  }
+
+  private scheduleHomeCacheSave(): void
+  {
+    window.clearTimeout(this.homeCacheTimer);
+    this.homeCacheTimer = window.setTimeout(() => this.saveHomeCache(), LauncherApp.homeCacheDelayMilliseconds);
+  }
+
+  /** Only what the PC confirmed: an online list, never the cached one again. */
+  private saveHomeCache(): void
+  {
+    const state = this.state;
+    if (state.settings === null || state.hostState !== "online")
+    {
+      return;
+    }
+    const companion = this.companionArt.snapshot();
+    const cache: HomeCache =
+    {
+      host: state.settings.host,
+      games: state.games,
+      boxArt: state.boxArt,
+      logos: state.logos,
+      companionEntries: companion.entries,
+      companionImages: companion.images,
+    };
+    this.backend.saveHomeCache(cache).catch((saveError) => console.warn("home cache not saved", saveError));
   }
 
   /**
@@ -2048,6 +2107,7 @@ export default class LauncherApp extends React.Component<object, LauncherState>
       const layer = { id: this.backdropLayerCounter, gameName, image };
       // Keep the previous picture underneath while the new one fades in.
       this.setState((state) => ({ backdropLayers: [...state.backdropLayers.slice(-1), layer] }));
+      this.scheduleHomeCacheSave();
     }
     if (this.companionArt.backdropCount(gameName, kind) > 1)
     {

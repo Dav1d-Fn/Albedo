@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { DefaultSettings } from "../model/DefaultSettings";
 import { ModeText } from "../model/ModeText";
-import { UiLanguage, ArtKind, ArtSearchResult, CompanionLibrary, UploadToken, DeviceProfile, DiscoveredHost, PadButton, DisplayTarget, PcDisplays, PcModeRequest, CompanionUpdateStatus, RunningHostApp, Settings, StreamMode, SteamGridDbKeyCheck } from "../model/Types";
+import { UiLanguage, ArtKind, ArtSearchResult, CompanionLibrary, UploadToken, DeviceProfile, DiscoveredHost, PadButton, DisplayTarget, PcDisplays, PcModeRequest, CompanionUpdateStatus, HomeCache, RunningHostApp, Settings, StreamMode, SteamGridDbKeyCheck } from "../model/Types";
 
 export interface StreamEnded
 {
@@ -45,6 +45,18 @@ export class Backend
   public saveSettings(settings: Settings): Promise<string>
   {
     return invoke<string>("save_settings", { settingsJson: JSON.stringify(settings, null, 2) });
+  }
+
+  /** The home screen of the last visit, null when there is none or it cannot be read. */
+  public async loadHomeCache(): Promise<HomeCache | null>
+  {
+    const stored = await invoke<string | null>("load_home_cache");
+    return stored === null ? null : JSON.parse(stored) as HomeCache;
+  }
+
+  public saveHomeCache(cache: HomeCache): Promise<void>
+  {
+    return invoke<void>("save_home_cache", { cacheJson: JSON.stringify(cache) });
   }
 
   /** Language of the Rust side's messages and of the companion's answers (sent as Accept-Language). */

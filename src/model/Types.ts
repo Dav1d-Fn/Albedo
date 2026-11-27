@@ -275,3 +275,19 @@ export interface PcDisplays
   defaultTarget: DisplayTarget;
   routes: PcDisplayRoute[];
 }
+
+/**
+ * The home screen of the last visit, kept in the Deck's cache dir: shown at once on the next start,
+ * then replaced by what the PC answers. Only used while `host` is still the PC in the settings.
+ */
+export interface HomeCache
+{
+  host: string;
+  games: string[];
+  /** Game name -> cover `data:` URL (Moonlight's and the companion's). */
+  boxArt: Record<string, string>;
+  logos: Record<string, string>;
+  /** The companion's home games and backdrop pictures, for the backdrop behind the menu. */
+  companionEntries: LibraryEntry[];
+  companionImages: Record<string, string | null>;
+}

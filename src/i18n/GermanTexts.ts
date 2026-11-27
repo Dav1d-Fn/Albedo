@@ -94,6 +94,7 @@ export const germanTexts =
 
   home:
   {
+    searchingCached: "Suche den PC · Spiele vom letzten Mal",
     loadingGames: "Lade Spieleliste …",
     online: (gameCount: number) => "Online · " + gameCount + " Spiele · Sunshine bereit",
     unreachable: "Nicht erreichbar · Y lädt neu",

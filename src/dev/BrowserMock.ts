@@ -194,6 +194,11 @@ export class BrowserMock
         case "save_settings":
           storedSettings = args.settingsJson as string;
           return "(browser mock)";
+        case "load_home_cache":
+          return window.localStorage.getItem("mockHomeCache");
+        case "save_home_cache":
+          window.localStorage.setItem("mockHomeCache", args.cacheJson as string);
+          return null;
         case "external_display_names":
           // "?tv=Name": a TV with that EDID name is plugged in.
           return urlParameters.has("tv") ? [urlParameters.get("tv") || "LG TV SSCR2"] : [];

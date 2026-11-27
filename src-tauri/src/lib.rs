@@ -76,6 +76,18 @@ fn save_settings(app_handle: AppHandle, settings_json: String) -> Result<String,
 }
 
 #[tauri::command]
+fn load_home_cache(app_handle: AppHandle) -> Result<Option<String>, String>
+{
+    Ok(SettingsStore::home_cache(&app_handle)?.load())
+}
+
+#[tauri::command]
+fn save_home_cache(app_handle: AppHandle, cache_json: String) -> Result<(), String>
+{
+    SettingsStore::home_cache(&app_handle)?.save(&cache_json)
+}
+
+#[tauri::command]
 fn has_external_display() -> bool
 {
     DisplayDetector::has_external_display()
@@ -437,6 +449,8 @@ pub fn run()
             set_language,
             load_settings,
             save_settings,
+            load_home_cache,
+            save_home_cache,
             has_external_display,
             external_display_names,
             fetch_games,
