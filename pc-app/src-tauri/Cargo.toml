@@ -1,6 +1,6 @@
 [package]
 name = "albedo-companion"
-version = "0.2.2"
+version = "0.2.3"
 description = "Albedo Companion: runs the companion API for the Deck in the tray and manages it (library, groups, pictures, pairing, Sunshine login)"
 authors = ["David F"]
 license = "GPL-3.0-or-later"

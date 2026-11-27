@@ -19,7 +19,7 @@ dependencies = [
 
 [[package]]
 name = "albedo-companion"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "albedo-companion-core",
  "libc",
@@ -35,7 +35,7 @@ dependencies = [
 
 [[package]]
 name = "albedo-companion-core"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "libc",
  "percent-encoding",

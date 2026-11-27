@@ -1,6 +1,6 @@
 [package]
 name = "albedo"
-version = "0.2.2"
+version = "0.2.3"
 description = "Controller-friendly launcher for Moonlight"
 authors = ["David F"]
 license = "GPL-3.0-or-later"
