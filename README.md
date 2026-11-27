@@ -21,7 +21,7 @@
 
 ### Steam Deck 🕹️
 
-Switch to **Desktop Mode**, open **Konsole** and run:
+Switch to **Desktop Mode**, open **Konsole** (the terminal) and run:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/Albedo/main/deck/install.sh | bash
@@ -37,7 +37,7 @@ The script
 Running it again updates the entry instead of adding a second one (a hand-made entry for the
 AppImage is picked up, too). `shortcuts.vdf` is backed up first (`shortcuts.vdf.bak-…`).
 
-Back in **Game Mode**, start Albedo and **pair** it once: pick your PC, press *Koppeln* and type the
+Back in **Game Mode**, start Albedo and **pair** it once: pick your PC, press *Pair* and type the
 PIN it shows into Sunshine's web UI under *PIN*.
 
 To remove it again:
@@ -114,8 +114,8 @@ resolution, FPS, bitrate, codec (H.264 / HEVC / AV1) and HDR.
 
 ### 🔌 Automatic Device Detection
 
-Albedo watches the Deck's display outputs. Undocked it picks the device with the rule *Deck ohne
-Dock*, docked with a screen the one with *Dock mit Bildschirm*. A device can also be tied to **one
+Albedo watches the Deck's display outputs. Undocked it picks the device with the rule *Deck
+undocked*, docked with a screen the one with *Docked with screen*. A device can also be tied to **one
 specific screen** by its name (read from the screen's EDID, e.g. `LG TV SSCR2`), so the living
 room TV and the desk monitor each get their own settings.
 
@@ -174,7 +174,7 @@ shows a password prompt first, so nothing changes without you.
 ### ⏰ Wake-on-LAN
 
 When the PC is asleep or off, the home screen says so in the middle of the screen and offers
-**PC aufwecken** (A, or Y anywhere on the home screen): Albedo sends a magic packet and shows the
+**Wake PC** (A, or Y anywhere on the home screen): Albedo sends a magic packet and shows the
 seconds until Sunshine answers, then the games load by themselves. A PC that starts on its own is
 noticed too, Albedo checks every few seconds. It works on the home network once Albedo has
 connected to the PC there once (until then the screen says why it can't wake the PC yet);
