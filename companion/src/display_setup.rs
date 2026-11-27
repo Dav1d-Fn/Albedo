@@ -28,6 +28,37 @@ impl DisplaySetup
         Self::from_text(&config_text)
     }
 
+    /// Sets (or with None removes) one key of the config file, every other line stays as it is.
+    /// The value must already be checked: the installer reads the file with sed.
+    pub fn save_value(key: &str, value: Option<&str>) -> Result<(), String>
+    {
+        let config_path = home_directory().join(Self::CONFIG_FILE);
+        let config_text = std::fs::read_to_string(&config_path)
+            .unwrap_or_else(|_| "# Written by pc-setup/install.sh. Read by sunshine-match-client and the companion.\n".into());
+        if let Some(config_directory) = config_path.parent()
+        {
+            std::fs::create_dir_all(config_directory).map_err(|error| error.to_string())?;
+        }
+        std::fs::write(&config_path, Self::text_with_value(&config_text, key, value)).map_err(|error| error.to_string())
+    }
+
+    fn text_with_value(config_text: &str, key: &str, value: Option<&str>) -> String
+    {
+        let prefix = format!("{}=", key);
+        let mut lines: Vec<String> = config_text
+            .lines()
+            .filter(|line| !line.trim().starts_with(prefix.as_str()))
+            .map(|line| line.to_string())
+            .collect();
+        if let Some(value) = value
+        {
+            lines.push(format!("{}{}", prefix, value));
+        }
+        let mut new_text = lines.join("\n");
+        new_text.push('\n');
+        new_text
+    }
+
     fn from_text(config_text: &str) -> DisplaySetup
     {
         let value_of = |key: &str| -> Option<String>
@@ -110,10 +141,23 @@ impl DisplaySetup
         }
         let default_target = self.default_target();
         let default_route = routes.iter().find(|route| route["target"] == default_target.name());
+        // Every output, for picking the dummy plug and the main monitor in Albedo Companion.
+        let all_outputs: Vec<Value> = outputs
+            .iter()
+            .map(|output| json!({
+                "name": output.name,
+                "connected": output.connected,
+                "enabled": output.enabled,
+                "primary": output.primary,
+                "modes": output.modes_json()
+            }))
+            .collect();
         json!({
             "backend": backend_name,
             "defaultTarget": default_target.name(),
             "routes": routes,
+            "setup": { "virtual": self.virtual_output, "dummy": self.dummy_output, "main": self.main_output },
+            "outputs": all_outputs,
             "output": default_route.map(|route| route["output"].clone()).unwrap_or(json!("")),
             "modes": default_route.map(|route| route["modes"].clone()).unwrap_or(json!([]))
         })
@@ -139,6 +183,20 @@ mod tests
         assert_eq!(setup.virtual_output.as_deref(), Some("DP-3"));
         assert_eq!(setup.dummy_output.as_deref(), Some("HDMI-A-2"));
         assert_eq!(setup.main_output, None);
+    }
+
+    #[test]
+    fn writes_one_key_and_keeps_the_other_lines()
+    {
+        let config_text = "# Written by pc-setup/install.sh\nVIRTUAL_OUTPUT=DP-3\nDUMMY_OUTPUT=HDMI-A-1\n";
+        let with_new_dummy = DisplaySetup::text_with_value(config_text, "DUMMY_OUTPUT", Some("HDMI-A-2"));
+        assert_eq!(with_new_dummy, "# Written by pc-setup/install.sh\nVIRTUAL_OUTPUT=DP-3\nDUMMY_OUTPUT=HDMI-A-2\n");
+        let with_main = DisplaySetup::text_with_value(&with_new_dummy, "MAIN_OUTPUT", Some("DP-2"));
+        assert_eq!(DisplaySetup::from_text(&with_main).main_output.as_deref(), Some("DP-2"));
+        assert_eq!(DisplaySetup::from_text(&with_main).virtual_output.as_deref(), Some("DP-3"));
+        let without_dummy = DisplaySetup::text_with_value(&with_main, "DUMMY_OUTPUT", None);
+        assert_eq!(without_dummy, "# Written by pc-setup/install.sh\nVIRTUAL_OUTPUT=DP-3\nMAIN_OUTPUT=DP-2\n");
+        assert_eq!(DisplaySetup::text_with_value("", "MAIN_OUTPUT", Some("DP-2")), "MAIN_OUTPUT=DP-2\n");
     }
 
     #[test]
@@ -176,6 +234,10 @@ mod tests
         assert_eq!(description["routes"][1]["target"], "main");
         assert_eq!(description["routes"][1]["output"], "DP-2");
         assert_eq!(description["routes"][1]["canAddModes"], false);
+        assert_eq!(description["setup"]["virtual"], "DP-3");
+        assert_eq!(description["setup"]["main"], Value::Null);
+        assert_eq!(description["outputs"][1]["name"], "DP-2");
+        assert_eq!(description["outputs"][1]["primary"], true);
         assert_eq!(DisplaySetup::default().describe("kde", &outputs)["modes"], json!([]));
     }
 }

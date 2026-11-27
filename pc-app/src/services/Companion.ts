@@ -4,7 +4,10 @@ import {
   ArtKind,
   ArtSearchResult,
   DisplayModes,
+  DisplayRouteTarget,
+  DisplayTestStatus,
   Health,
+  ModeRequestStatus,
   UpdateStatus,
   Library,
   PairedClient,
@@ -70,6 +73,34 @@ export class Companion
   public static displayModes(): Promise<DisplayModes>
   {
     return Companion.request("GET", "api/display-modes");
+  }
+
+  /** Saves the dummy plug's connector or the main monitor (null = none / the primary one). */
+  public static setDisplayOutput(field: "dummy" | "main", outputName: string | null): Promise<DisplayModes>
+  {
+    return Companion.request("PUT", "api/display-setup", { [field]: outputName });
+  }
+
+  /** Puts the mode into the virtual monitor's EDID; the KDE password prompt opens on this PC. */
+  public static addVirtualMode(width: number, height: number, refreshRate: number): Promise<ModeRequestStatus>
+  {
+    return Companion.request("POST", "api/display-modes", { width, height, refreshRate });
+  }
+
+  public static modeRequestStatus(): Promise<ModeRequestStatus>
+  {
+    return Companion.request("GET", "api/display-modes/request");
+  }
+
+  /** Switches the route once, back after 10 s. */
+  public static startDisplayTest(target: DisplayRouteTarget, width: number, height: number, refreshRate: number): Promise<DisplayTestStatus>
+  {
+    return Companion.request("POST", "api/display-test", { target, width, height, refreshRate });
+  }
+
+  public static displayTestStatus(): Promise<DisplayTestStatus>
+  {
+    return Companion.request("GET", "api/display-test");
   }
 
   public static async addApp(entryId: string): Promise<string>

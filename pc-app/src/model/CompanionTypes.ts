@@ -45,10 +45,60 @@ export interface DisplayMode
   refreshRate: number;
 }
 
+export type DisplayRouteTarget = "virtual" | "dummy" | "main";
+
+/** One way a stream can show on the PC (`routes` of GET /api/display-modes). */
+export interface DisplayRoute
+{
+  target: DisplayRouteTarget;
+  output: string;
+  connected: boolean;
+  canAddModes: boolean;
+  modes: DisplayMode[];
+}
+
+/** One connector the desktop reports, with or without monitor. */
+export interface DisplayOutputInfo
+{
+  name: string;
+  connected: boolean;
+  enabled: boolean;
+  primary: boolean;
+  modes: DisplayMode[];
+}
+
 export interface DisplayModes
 {
+  backend: string;
+  /** What "Automatic" picks right now. */
+  defaultTarget: DisplayRouteTarget | "none";
+  routes: DisplayRoute[];
+  /** The connectors in ~/.config/sunshine-match-client.conf, null = not set. */
+  setup: { virtual: string | null; dummy: string | null; main: string | null };
+  outputs: DisplayOutputInfo[];
+  /** The default route's output and modes, "" / [] without one. */
   output: string;
   modes: DisplayMode[];
+}
+
+/** GET /api/display-test: the switch test of one route. */
+export interface DisplayTestStatus
+{
+  state: "idle" | "switching" | "showing" | "restoring" | "done" | "unchanged" | "failed";
+  target?: DisplayRouteTarget;
+  mode?: string;
+  output?: string;
+  secondsLeft?: number;
+  message?: string;
+  dryRun?: boolean;
+}
+
+/** GET /api/display-modes/request: adding a mode to the virtual monitor's EDID. */
+export interface ModeRequestStatus
+{
+  state: "idle" | "waiting" | "done" | "reboot" | "cancelled" | "failed" | "dryRun";
+  mode?: string;
+  message?: string;
 }
 
 export interface PairedClient

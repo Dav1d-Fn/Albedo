@@ -17,7 +17,16 @@ mouse and keyboard, so you can do at the desk what the launcher on the Deck does
   SteamGridDB with a key) or from a file (file picker or drag & drop), and reset them. The
   dialog stays open after setting one, so cover, title art and logo are done in one go.
 - **Devices:** pair a Moonlight device with the PIN it shows; list and unpair paired devices.
-- **Status & login:** companion running, Sunshine reachable, modes of the virtual monitor;
+- **Display:** the three routes a stream can take on this PC (virtual connector, dummy plug,
+  main monitor): set up or not, connector, connected, and what *Automatic* picks. Pick the dummy
+  plug's connector and the main monitor (saved in `~/.config/sunshine-match-client.conf`, the
+  other lines stay). Modes of each route; the virtual connector can get new ones (KDE password
+  prompt), a dummy plug or real monitor only has what its own EDID reports. *Test* switches a
+  route once with the stream's code (steps, rollback), comes back after 10 s and shows the
+  result; a warning comes first, since the other monitors go dark meanwhile. Setting the virtual
+  connector up or removing it shows the installer command to copy (root, connector choice, KWin
+  sees the connector come and go: better in a terminal than behind a click).
+- **Status & login:** companion running, Sunshine reachable, the stream screen *Automatic* uses;
   Sunshine login; language (system, German, English) and SteamGridDB key (with a link to the
   key page; the companion stores it for this app and the Deck and checks it with a real
   SteamGridDB request).
@@ -63,7 +72,13 @@ PATH=../node_modules/.bin:$PATH nice -n 19 tauri dev
 
 Dev port is **1440** (1420/1430 are taken). `npm run dev` alone shows the UI in a browser at
 `http://localhost:1440` with the data of the companion running on 47995 (Vite forwards
-`/companion` to it); the picture search needs the Tauri app.
+`/companion` to it; `ALBEDO_COMPANION_PORT=47996` points it at a test companion); the picture
+search needs the Tauri app.
+
+A test companion that never touches the monitors or your config: a test `HOME` with its own
+`config.json` (`"port": 47996`) and `sunshine-match-client.conf`, started with
+`HOME=… ALBEDO_DRY_RUN=1 src-tauri/target/debug/albedo-companion --headless`. With
+`ALBEDO_DRY_RUN` a display test only logs the steps and a new mode skips the root prompt.
 
 Build an AppImage / RPM:
 
@@ -75,7 +90,8 @@ PATH=../node_modules/.bin:$PATH CARGO_BUILD_JOBS=4 nice -n 19 tauri build
 ## Layout
 
 - `src/PcApp.tsx` – root class component, owns all state and every action
-- `src/views/` – one file per screen or part, pure rendering
+- `src/views/` – one file per screen or part, pure rendering (`DisplayScreen` with
+  `DisplayRouteCard`, `DisplayTestPanel`, `ModeList`, `CommandBox` for the display area)
 - `src/services/Companion.ts` – every call to the companion and the Rust side
 - `src/i18n/` – `UiText`, `GermanTexts`, `EnglishTexts` (every visible text in both)
 - `src/model/` – API types, placeholder tint

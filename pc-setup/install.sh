@@ -28,6 +28,7 @@
 #   --build                       build Albedo Companion from this checkout (needs Rust, Node)
 #   --dry-run                     only print what would be done
 #   --uninstall                   remove everything again (keeps ~/.config/albedo-companion/)
+#   --remove-virtual-monitor      remove only the virtual monitor (EDID, boot service, VIRTUAL_OUTPUT)
 #   ALBEDO_RELEASE_URL=file:///some/dir   download the release from another place (testing)
 #   ALBEDO_RAW_URL=file:///repo/pc-setup  fetch the helper files from another place (testing)
 set -euo pipefail
@@ -75,6 +76,7 @@ dummy_connector=""
 extra_modes=()
 dry_run=false
 uninstall=false
+remove_virtual=false
 virtual_monitor=false
 build_locally=false
 while [ $# -gt 0 ]
@@ -86,6 +88,7 @@ do
         --mode) extra_modes+=("${2:?--mode needs WIDTHxHEIGHT@FPS}"); virtual_monitor=true; shift ;;
         --dry-run) dry_run=true ;;
         --uninstall) uninstall=true ;;
+        --remove-virtual-monitor) remove_virtual=true ;;
         --companion-only|--pc-app) ;; # the default now, kept so old command lines still work
         --build) build_locally=true ;;
         -h|--help)
@@ -148,6 +151,46 @@ set_config_value()
     printf '%s\n%s=%s\n' "$other_lines" "$key" "$value" > "$config_file"
 }
 
+# Removes the virtual monitor's system part (needs sudo): boot service, apply script, EDID.
+remove_virtual_monitor()
+{
+    local installed_connector
+    if [ -f "$service_target" ]
+    then
+        installed_connector=$(sed -n 's|^ExecStart=[^ ]* \([^ ]*\)$|\1|p' "$service_target")
+        if [ -z "$installed_connector" ] && [ -f "$config_file" ]
+        then
+            installed_connector=$(sed -n 's/^VIRTUAL_OUTPUT=//p' "$config_file")
+        fi
+        info "Removing the virtual monitor ($installed_connector, needs sudo)"
+        run_as_root systemctl disable --now "$service_name"
+        if [ -n "$installed_connector" ] && [ -x "$apply_script_target" ]
+        then
+            run_as_root "$apply_script_target" "$installed_connector" off || true
+        fi
+        run_as_root rm -f "$service_target" "$apply_script_target" "$edid_target"
+        run_as_root systemctl daemon-reload
+    fi
+}
+
+# Removes KEY= from sunshine-match-client.conf, keeping the other lines.
+remove_config_value()
+{
+    local key="$1"
+    if [ ! -f "$config_file" ]
+    then
+        return
+    fi
+    if $dry_run
+    then
+        echo "    [dry-run] remove $key from $config_file"
+        return
+    fi
+    local other_lines
+    other_lines=$(grep -v "^$key=" "$config_file" || true)
+    printf '%s\n' "$other_lines" > "$config_file"
+}
+
 # Fetches a helper file of pc-setup/ into $script_dir: next to the script in a checkout, else from GitHub
 fetch_helper_file()
 {
@@ -202,6 +245,21 @@ remove_old_companion_services()
 }
 
 # ---------------------------------------------------------------------------
+# Remove only the virtual monitor (Albedo Companion shows this command)
+# ---------------------------------------------------------------------------
+if $remove_virtual
+then
+    if [ ! -f "$service_target" ]
+    then
+        info "No virtual monitor installed ($service_target missing)"
+    fi
+    remove_virtual_monitor
+    remove_config_value VIRTUAL_OUTPUT
+    info "Done. Streams use the dummy plug or the main monitor now, as picked in the Deck profile."
+    exit 0
+fi
+
+# ---------------------------------------------------------------------------
 # Uninstall
 # ---------------------------------------------------------------------------
 if $uninstall
@@ -212,22 +270,7 @@ then
         run "$match_client_target" --restore || warn "Restore failed, set your screens up in the system settings"
     fi
 
-    if [ -f "$service_target" ]
-    then
-        installed_connector=$(sed -n 's|^ExecStart=[^ ]* \([^ ]*\)$|\1|p' "$service_target")
-        if [ -z "$installed_connector" ] && [ -f "$config_file" ]
-        then
-            installed_connector=$(sed -n 's/^VIRTUAL_OUTPUT=//p' "$config_file")
-        fi
-        info "Removing the virtual monitor ($installed_connector, needs sudo)"
-        run_as_root systemctl disable --now "$service_name"
-        if [ -n "$installed_connector" ] && [ -x "$apply_script_target" ]
-        then
-            run_as_root "$apply_script_target" "$installed_connector" off || true
-        fi
-        run_as_root rm -f "$service_target" "$apply_script_target" "$edid_target"
-        run_as_root systemctl daemon-reload
-    fi
+    remove_virtual_monitor
 
     remove_old_companion_services
     if [ -x "$app_target" ]

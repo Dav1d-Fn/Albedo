@@ -13,6 +13,7 @@ use crate::cover_source::CoverSource;
 use crate::display_backend::DisplayBackend;
 use crate::display_setup::DisplaySetup;
 use crate::display_target::DisplayTarget;
+use crate::display_test_runner::DisplayTestRunner;
 use crate::stream_display_request::StreamDisplayRequest;
 use crate::group_override_store::GroupOverrideStore;
 use crate::library_entry::LibraryEntry;
@@ -37,6 +38,7 @@ pub struct ApiServer
     /// Goes up with every override change, so the launcher knows when to reload pictures.
     art_version: u64,
     virtual_edid: VirtualEdidWriter,
+    display_test: DisplayTestRunner,
     /// None when the host program can't update itself (headless).
     self_update: Option<Arc<dyn SelfUpdate>>,
 }
@@ -53,7 +55,7 @@ impl ApiServer
 
     pub fn new(config: CompanionConfig, self_update: Option<Arc<dyn SelfUpdate>>) -> ApiServer
     {
-        ApiServer { config, upload_tokens: UploadTokenStore::new(), art_version: 0, virtual_edid: VirtualEdidWriter::new(), self_update }
+        ApiServer { config, upload_tokens: UploadTokenStore::new(), art_version: 0, virtual_edid: VirtualEdidWriter::new(), display_test: DisplayTestRunner::new(), self_update }
     }
 
     pub fn run(&mut self) -> Result<(), String>
@@ -141,6 +143,9 @@ impl ApiServer
             (Method::Get, "/api/display-modes") => Self::display_modes(),
             (Method::Post, "/api/display-modes") => Self::read_body(request).and_then(|body| self.add_display_mode(&body)),
             (Method::Get, "/api/display-modes/request") => Ok(Self::json(200, self.virtual_edid.status())),
+            (Method::Put, "/api/display-setup") => Self::read_body(request).and_then(|body| Self::set_display_setup(&body)),
+            (Method::Get, "/api/display-test") => Ok(Self::json(200, self.display_test.status())),
+            (Method::Post, "/api/display-test") => Self::read_body(request).and_then(|body| self.start_display_test(&body)),
             (Method::Post, "/api/stream-display") => Self::read_body(request).and_then(|body| Self::set_stream_display(&body)),
             (Method::Post, "/api/apps") => Self::read_body(request).and_then(|body| self.add_app(&body)),
             (Method::Delete, "/api/apps") => Self::read_body(request).and_then(|body| self.delete_app(&body)),
@@ -250,6 +255,75 @@ impl ApiServer
         let layout = backend.read_layout().map_err(|message| (502, message))?;
         let description = DisplaySetup::load().describe(backend.name(), &backend.outputs(&layout));
         Ok(Self::json(200, description))
+    }
+
+    /// Body { "dummy"?: "HDMI-A-1" | null, "main"?: "DP-2" | null }: the dummy plug's connector and
+    /// the main monitor (null = none / the desktop's primary one), saved in
+    /// ~/.config/sunshine-match-client.conf. Fields left out stay. Answers like GET /api/display-modes.
+    fn set_display_setup(body: &Value) -> Result<ApiAnswer, (u16, String)>
+    {
+        let backend = <dyn DisplayBackend>::for_this_desktop().map_err(|message| (502, message))?;
+        let layout = backend.read_layout().map_err(|message| (502, message))?;
+        let outputs = backend.outputs(&layout);
+        let setup = DisplaySetup::load();
+        let mut changes: Vec<(&str, Option<String>)> = Vec::new();
+        for (field, key) in [("dummy", "DUMMY_OUTPUT"), ("main", "MAIN_OUTPUT")]
+        {
+            let Some(value) = body.get(field) else
+            {
+                continue;
+            };
+            if value.is_null()
+            {
+                changes.push((key, None));
+                continue;
+            }
+            // Only a connector the desktop reports: the value goes into a file the installer reads with sed.
+            let output_name = value.as_str().unwrap_or_default();
+            if !outputs.iter().any(|output| output.name == output_name)
+            {
+                return Err((400, format!("{} „{}“: {}", RequestLanguage::pick("Unbekannter Ausgang für", "Unknown output for"), field, output_name)));
+            }
+            if setup.virtual_output.as_deref() == Some(output_name)
+            {
+                return Err((400, RequestLanguage::pick("Das ist der Anschluss des virtuellen Monitors", "That is the virtual monitor's connector")));
+            }
+            changes.push((key, Some(output_name.to_string())));
+        }
+        for (key, value) in changes
+        {
+            DisplaySetup::save_value(key, value.as_deref()).map_err(|message| (500, message))?;
+        }
+        Ok(Self::json(200, DisplaySetup::load().describe(backend.name(), &outputs)))
+    }
+
+    /// Body { "target": "virtual" | "dummy" | "main", "width"?, "height"?, "refreshRate"? }: switches
+    /// that route once (default 1280×800@60) and back after 10 s; outcome from GET /api/display-test.
+    fn start_display_test(&self, body: &Value) -> Result<ApiAnswer, (u16, String)>
+    {
+        let target = body["target"]
+            .as_str()
+            .and_then(DisplayTarget::from_name)
+            .filter(|target| matches!(target, DisplayTarget::Virtual | DisplayTarget::DummyPlug | DisplayTarget::MainMonitor))
+            .ok_or_else(|| (400, format!("{} „target“", RequestLanguage::pick("Feld fehlt oder unbekannt:", "Field missing or unknown:"))))?;
+        let number = |field: &str, fallback: u64, range: std::ops::RangeInclusive<u64>| -> Result<u32, (u16, String)>
+        {
+            let value = body.get(field).and_then(Value::as_u64).unwrap_or(fallback);
+            if range.contains(&value)
+            {
+                Ok(value as u32)
+            }
+            else
+            {
+                Err((400, format!("{} „{}“", RequestLanguage::pick("Wert außerhalb des Bereichs:", "Value out of range:"), field)))
+            }
+        };
+        let width = number("width", 1280, 320..=8192)?;
+        let height = number("height", 800, 200..=8192)?;
+        let refresh_rate = number("refreshRate", 60, 1..=500)?;
+        let status = self.display_test.start(target, width, height, refresh_rate)?;
+        eprintln!("Bildschirmtest: {} {}x{}@{}", target.name(), width, height, refresh_rate);
+        Ok(Self::json(202, status))
     }
 
     /// Body { "target": "auto" | "virtual" | "dummy" | "main" | "none" }: the monitor the stream

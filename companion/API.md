@@ -155,11 +155,51 @@ fails. `xwaylandvideobridge` is paused around the switch.
 }
 ```
 
+`setup` holds the connectors of the config file as they are (`null` = not set; `main` `null` =
+the desktop's primary monitor). `outputs` lists every connector the desktop reports, with or
+without monitor (Albedo Companion picks the dummy plug and the main monitor from it):
+
+```json
+"setup": { "virtual": "DP-3", "dummy": "HDMI-A-1", "main": null },
+"outputs": [{ "name": "DP-2", "connected": true, "enabled": true, "primary": true, "modes": [ … ] }]
+```
+
 `virtual` and `dummy` are there when `~/.config/sunshine-match-client.conf` has `VIRTUAL_OUTPUT=…`
 / `DUMMY_OUTPUT=…` (written by `pc-setup/install.sh`), `main` is the primary monitor (or
 `MAIN_OUTPUT=…`). `defaultTarget` is what `auto` means: virtual, else dummy, else `none`. `output`
 and `modes` repeat the default route for launchers from before the routes (empty without one).
 Refresh rates are rounded. `502` when there is no display backend for this desktop or it fails.
+
+### `PUT /api/display-setup`
+
+Body `{ "dummy": "HDMI-A-1", "main": null }`: the dummy plug's connector and the main monitor,
+saved as `DUMMY_OUTPUT` / `MAIN_OUTPUT` in `~/.config/sunshine-match-client.conf`; every other
+line stays. `null` removes the key (no dummy plug / the primary monitor), a field left out stays
+as it is. Only connectors the desktop reports are taken, and not the virtual connector's (`400`).
+The virtual connector itself needs root and is set up with `pc-setup/install.sh --virtual-monitor`
+(removed with `--remove-virtual-monitor`). Answers like `GET /api/display-modes`. `502` when there
+is no display backend.
+
+### `POST /api/display-test`
+
+Body `{ "target": "virtual" | "dummy" | "main", "width": 1280, "height": 800, "refreshRate": 60 }`
+(the mode is optional, 1280×800@60 by default): switches that route once like a stream would
+(same chooser, steps and rollback, xwaylandvideobridge paused), keeps it for 10 seconds and
+restores the layout. Answers `202` with the status below right away. `409` when a test runs,
+the route isn't set up, or a stream has the monitors switched (its saved layout exists);
+`400` for an unknown target or a mode out of range. `ALBEDO_DRY_RUN=1` only logs the steps.
+
+### `GET /api/display-test`
+
+```json
+{ "state": "showing", "target": "dummy", "mode": "1280x800@60", "output": "HDMI-A-1 1280x800@60", "secondsLeft": 7, "dryRun": false }
+```
+
+`state`: `idle`, `switching`, `showing` (`secondsLeft` until the restore), `restoring`, `done`
+(switched and back), `unchanged` (nothing to switch: the main monitor has no mode of that shape
+and keeps its own, or it is set like that already), `failed` (`message` says why: a failed
+switch is rolled back, a failed restore is tried again by `sunshine-match-client --restore`).
+`message` is in the language of the `POST`.
 
 ### `POST /api/stream-display`
 

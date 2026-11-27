@@ -15,6 +15,7 @@ mod display_output;
 mod display_setup;
 mod display_step;
 mod display_target;
+mod display_test_runner;
 mod group_override_store;
 mod heroic_source;
 // Shared with the Deck launcher: strips the AppImage's environment from host programs.

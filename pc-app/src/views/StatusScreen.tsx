@@ -2,14 +2,12 @@ import { UiText, UiLanguage } from "../i18n/UiText";
 import PcApp, { PcAppState } from "../PcApp";
 import { Icon } from "./Icon";
 
-/** Companion, Sunshine and monitor at a glance, the Sunshine login, the monitor's modes and the app settings. */
+/** Companion, Sunshine and the stream monitor at a glance (details in the display screen), the Sunshine login and the app settings. */
 export function StatusScreen({ app, state }: { app: PcApp; state: PcAppState })
 {
   const texts = UiText.current.status;
   const sunshineProblem = state.library?.sunshineProblem ?? null;
-  const modes = [...(state.displayModes?.modes ?? [])].sort((first, second) =>
-    first.width * first.height - second.width * second.height || first.refreshRate - second.refreshRate);
-  const resolutions = [...new Set(modes.map((mode) => `${mode.width}×${mode.height}`))];
+  const modes = state.displayModes?.modes ?? [];
   const largestMode = modes.reduce<typeof modes[number] | null>((largest, mode) =>
     !largest || mode.width * mode.height * mode.refreshRate > largest.width * largest.height * largest.refreshRate ? mode : largest, null);
   const languageChoices: { value: UiLanguage | ""; label: string }[] =
@@ -29,14 +27,14 @@ export function StatusScreen({ app, state }: { app: PcApp; state: PcAppState })
           <div className="tv">{sunshineProblem ? texts.problem : texts.connected}</div>
           <div className="ts">{sunshineProblem ?? ""}</div>
         </div>
-        <div className="tile">
-          <div className="tk"><span className={"dot " + (state.displayModes ? "ok" : "")} />{texts.monitor}</div>
-          <div className="tv">{state.displayModes?.output ?? texts.unknown}</div>
+        <button type="button" className="tile" onClick={() => app.showScreen("display")}>
+          <div className="tk"><span className={"dot " + (state.displayModes?.output ? "ok" : "")} />{texts.monitor}</div>
+          <div className="tv">{state.displayModes?.output || texts.unknown}</div>
           <div className="ts">
             {texts.modesCount(modes.length)}
             {largestMode && ` · ${texts.upTo(`${largestMode.width}×${largestMode.height} @ ${largestMode.refreshRate} Hz`)}`}
           </div>
-        </div>
+        </button>
       </div>
 
       <div className="cols">
@@ -54,22 +52,6 @@ export function StatusScreen({ app, state }: { app: PcApp; state: PcAppState })
         </form>
 
         <div className="stack grow">
-          {state.displayModes && (
-            <section className="card" aria-label={texts.modesTitle(state.displayModes.output)}>
-              <h2 className="h2 between">{texts.modesTitle(state.displayModes.output)}<span className="ts">{texts.modesLead}</span></h2>
-              <div className="modes">
-                {resolutions.map((resolution) => (
-                  <div key={resolution} className="mrow">
-                    <span className="res">{resolution}</span>
-                    <div className="hz">
-                      {modes.filter((mode) => `${mode.width}×${mode.height}` === resolution)
-                        .map((mode) => <span key={mode.refreshRate}>{mode.refreshRate}</span>)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
           <section className="card" aria-label={texts.settings}>
             <h2 className="h2">{texts.settings}</h2>
             <div className="field">

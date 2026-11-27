@@ -75,6 +75,12 @@ impl StreamDisplaySwitcher
         }
     }
 
+    /// For the display test of Albedo Companion: the same switch and restore as a stream.
+    pub fn new(backend: Box<dyn DisplayBackend>, dry_run: bool) -> StreamDisplaySwitcher
+    {
+        StreamDisplaySwitcher { backend, dry_run }
+    }
+
     fn switch(&self) -> Result<(), String>
     {
         let width = Self::client_number("SUNSHINE_CLIENT_WIDTH", 1920);
@@ -93,10 +99,17 @@ impl StreamDisplaySwitcher
             wanted_target.name(),
             target.name()
         ));
+        self.switch_to(&setup, target, width, height, fps).map(|_| ())
+    }
+
+    /// Switches a resolved target to the mode closest to width×height@fps. Ok(Some("DP-3 1280x800@60"))
+    /// when it switched, Ok(None) when nothing needed to (or should) change, Err after a rollback.
+    pub fn switch_to(&self, setup: &DisplaySetup, target: DisplayTarget, width: u32, height: u32, fps: u32) -> Result<Option<String>, String>
+    {
         if target == DisplayTarget::None
         {
             Self::log("nothing to switch");
-            return Ok(());
+            return Ok(None);
         }
 
         let layout = self.backend.read_layout().map_err(|message| format!("{}, nothing changed", message))?;
@@ -112,7 +125,7 @@ impl StreamDisplaySwitcher
             // An ultrawide or HDR monitor dropped to a small mode of another shape looks worse
             // than its native mode scaled by Sunshine, and the mode change itself is the risk.
             Self::log(&format!("{}: no mode with the shape of {}x{} (closest {}), keeping its mode", output_name, width, height, mode.text()));
-            return Ok(());
+            return Ok(None);
         }
         Self::log(&format!("{}: chosen mode {} (id {})", output_name, mode.text(), mode.id));
 
@@ -124,7 +137,7 @@ impl StreamDisplaySwitcher
         if already_switched && saved_layout_file.exists()
         {
             Self::log("already in streaming layout, keeping the saved layout");
-            return Ok(());
+            return Ok(None);
         }
         if self.dry_run
         {
@@ -151,7 +164,7 @@ impl StreamDisplaySwitcher
             return Err("switch failed, layout rolled back".into());
         }
         Self::log("done");
-        Ok(())
+        Ok(Some(format!("{} {}", output_name, mode.text())))
     }
 
     /// After a failed step: back to the layout from before the switch. When the desktop doesn't
@@ -178,7 +191,13 @@ impl StreamDisplaySwitcher
         self.run_extras(&self.backend.after_restore_commands());
     }
 
-    fn restore(&self) -> Result<(), String>
+    /// A layout saved before a switch that wasn't put back yet: a stream (or a test) is on.
+    pub fn has_saved_layout() -> bool
+    {
+        Self::state_file(Self::SAVED_LAYOUT_FILE).exists()
+    }
+
+    pub fn restore(&self) -> Result<(), String>
     {
         let saved_layout_file = Self::state_file(Self::SAVED_LAYOUT_FILE);
         let Ok(saved_text) = std::fs::read_to_string(&saved_layout_file) else

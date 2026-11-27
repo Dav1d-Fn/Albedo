@@ -4,7 +4,10 @@ import {
   ArtKind,
   ArtSearchResult,
   DisplayModes,
+  DisplayRouteTarget,
+  DisplayTestStatus,
   Health,
+  ModeRequestStatus,
   UpdateStatus,
   Library,
   LibraryEntry,
@@ -14,12 +17,16 @@ import {
 import { Companion } from "./services/Companion";
 import { ArtDialog } from "./views/ArtDialog";
 import { DevicesScreen } from "./views/DevicesScreen";
+import { DisplayScreen } from "./views/DisplayScreen";
 import { LibraryScreen } from "./views/LibraryScreen";
 import { Sidebar } from "./views/Sidebar";
 import { StatusScreen } from "./views/StatusScreen";
 import { Toast } from "./views/Toast";
 
-export type Screen = "library" | "devices" | "status";
+export type Screen = "library" | "devices" | "display" | "status";
+
+/** Test mode when none is picked: the Steam Deck's own screen. */
+export const STANDARD_TEST_MODE = "1280x800@60";
 
 /** Chip filters besides the groups. */
 export const FILTER_ALL = "\u0000all";
@@ -61,7 +68,18 @@ export interface PcAppState
   update: UpdateStatus | null;
   companionDown: boolean;
   library: Library | null;
+  /** Routes, outputs and modes; null when the monitors can't be read (`displayProblem` says why). */
   displayModes: DisplayModes | null;
+  displayProblem: string | null;
+  displayTest: DisplayTestStatus | null;
+  /** The route whose test warning is open. */
+  displayTestConfirm: DisplayRouteTarget | null;
+  /** Picked test mode per route, "1280x800@60" form. */
+  displayTestModes: Partial<Record<DisplayRouteTarget, string>>;
+  newVirtualMode: string;
+  modeRequest: ModeRequestStatus | null;
+  /** The virtual card shows its remove command. */
+  showVirtualRemove: boolean;
   groupFilter: string;
   searchText: string;
   selectedId: string | null;
@@ -102,6 +120,7 @@ export default class PcApp extends Component<PcAppProps, PcAppState>
   private keyCheckTimer: number | undefined;
   private toastTimer: number | undefined;
   private updatePollTimer: number | undefined;
+  private displayPollTimer: number | undefined;
 
   public constructor(props: PcAppProps)
   {
@@ -117,6 +136,13 @@ export default class PcApp extends Component<PcAppProps, PcAppState>
       companionDown: false,
       library: null,
       displayModes: null,
+      displayProblem: null,
+      displayTest: null,
+      displayTestConfirm: null,
+      displayTestModes: {},
+      newVirtualMode: "",
+      modeRequest: null,
+      showVirtualRemove: false,
       groupFilter: FILTER_ALL,
       searchText: "",
       selectedId: null,
@@ -150,6 +176,7 @@ export default class PcApp extends Component<PcAppProps, PcAppState>
     window.clearTimeout(this.toastTimer);
     window.clearTimeout(this.keyCheckTimer);
     window.clearTimeout(this.updatePollTimer);
+    window.clearTimeout(this.displayPollTimer);
   }
 
   public render()
@@ -160,6 +187,7 @@ export default class PcApp extends Component<PcAppProps, PcAppState>
         <Sidebar app={this} state={this.state} />
         {this.state.screen === "library" && <LibraryScreen app={this} state={this.state} />}
         {this.state.screen === "devices" && <DevicesScreen app={this} state={this.state} />}
+        {this.state.screen === "display" && <DisplayScreen app={this} state={this.state} />}
         {this.state.screen === "status" && <StatusScreen app={this} state={this.state} />}
         {this.state.artDialog && <ArtDialog app={this} state={this.state} dialog={this.state.artDialog} />}
         {this.state.toast && <Toast text={this.state.toast.text} error={this.state.toast.error} />}
@@ -236,17 +264,15 @@ export default class PcApp extends Component<PcAppProps, PcAppState>
     }
   }
 
-  private async reloadDisplayModes(): Promise<void>
+  public async reloadDisplayModes(): Promise<void>
   {
     try
     {
-      // Without a virtual connector or dummy plug the companion answers with an empty output.
-      const displayModes = await Companion.displayModes();
-      this.setState({ displayModes: displayModes.output ? displayModes : null });
+      this.setState({ displayModes: await Companion.displayModes(), displayProblem: null });
     }
-    catch
+    catch (error)
     {
-      this.setState({ displayModes: null });
+      this.setState({ displayModes: null, displayProblem: String(error) });
     }
   }
 
@@ -260,11 +286,154 @@ export default class PcApp extends Component<PcAppProps, PcAppState>
     {
       void this.reloadSteamGridDbKey().then((keyHint) => this.checkSteamGridDbKey(keyHint));
     }
+    if (screen === "display")
+    {
+      void this.reloadDisplayModes();
+      void this.pollDisplayStatus();
+    }
     if (screen === "devices")
     {
       void this.reloadDevices();
       this.pairingPollTimer = window.setInterval(() => void this.reloadPairings(), PcApp.PAIRING_POLL_MILLISECONDS);
     }
+  }
+
+  // ------------------------------------------------------------ display routes
+
+  /** The route as the companion describes it, null when it isn't set up. */
+  public displayRoute(target: DisplayRouteTarget)
+  {
+    return this.state.displayModes?.routes.find((route) => route.target === target) ?? null;
+  }
+
+  /** Dummy plug or main monitor; null = none / the primary monitor. Saved in sunshine-match-client.conf. */
+  public async setDisplayOutput(field: "dummy" | "main", outputName: string | null): Promise<void>
+  {
+    await this.runBusy(async () =>
+    {
+      const displayModes = await Companion.setDisplayOutput(field, outputName);
+      this.setState({ displayModes, displayProblem: null });
+      const texts = UiText.current.display;
+      const routeName = texts.routeNames[field];
+      this.showToast(outputName ? texts.savedOutput(routeName, outputName) : texts.removedOutput(routeName));
+    });
+  }
+
+  public chooseTestMode(target: DisplayRouteTarget, modeText: string): void
+  {
+    this.setState({ displayTestModes: { ...this.state.displayTestModes, [target]: modeText } });
+  }
+
+  public askDisplayTest(target: DisplayRouteTarget): void
+  {
+    this.setState({ displayTestConfirm: target });
+  }
+
+  public cancelDisplayTest(): void
+  {
+    this.setState({ displayTestConfirm: null });
+  }
+
+  public async startDisplayTest(): Promise<void>
+  {
+    const target = this.state.displayTestConfirm;
+    if (!target)
+    {
+      return;
+    }
+    const mode = PcApp.parseMode(this.state.displayTestModes[target] ?? STANDARD_TEST_MODE);
+    this.setState({ displayTestConfirm: null });
+    if (!mode)
+    {
+      return;
+    }
+    try
+    {
+      this.setState({ displayTest: await Companion.startDisplayTest(target, mode.width, mode.height, mode.refreshRate) });
+      this.displayPollTimer = window.setTimeout(() => void this.pollDisplayStatus(), 1000);
+    }
+    catch (error)
+    {
+      this.showError(error);
+    }
+  }
+
+  public setNewVirtualMode(newVirtualMode: string): void
+  {
+    this.setState({ newVirtualMode });
+  }
+
+  public async addVirtualMode(): Promise<void>
+  {
+    const mode = PcApp.parseMode(this.state.newVirtualMode);
+    if (!mode)
+    {
+      this.showToast(UiText.current.display.badMode, true);
+      return;
+    }
+    try
+    {
+      this.setState({ modeRequest: await Companion.addVirtualMode(mode.width, mode.height, mode.refreshRate), newVirtualMode: "" });
+      this.displayPollTimer = window.setTimeout(() => void this.pollDisplayStatus(), 1000);
+    }
+    catch (error)
+    {
+      this.showError(error);
+    }
+  }
+
+  public toggleVirtualRemove(): void
+  {
+    this.setState({ showVirtualRemove: !this.state.showVirtualRemove });
+  }
+
+  public copyCommand(command: string): void
+  {
+    navigator.clipboard.writeText(command)
+      .then(() => this.showToast(UiText.current.display.copied))
+      .catch((error) => this.showError(error));
+  }
+
+  /** Test and mode request status; asks again every second while one of them runs, reloads the routes when it ends. */
+  private async pollDisplayStatus(): Promise<void>
+  {
+    window.clearTimeout(this.displayPollTimer);
+    const wasRunning = this.displayWorkRunning();
+    try
+    {
+      const [displayTest, modeRequest] = await Promise.all([Companion.displayTestStatus(), Companion.modeRequestStatus()]);
+      this.setState({ displayTest, modeRequest });
+    }
+    catch
+    {
+      // The companion is down or older; the screen shows what it had.
+      return;
+    }
+    if (this.displayWorkRunning())
+    {
+      this.displayPollTimer = window.setTimeout(() => void this.pollDisplayStatus(), 1000);
+    }
+    else if (wasRunning)
+    {
+      await this.reloadDisplayModes();
+    }
+  }
+
+  private displayWorkRunning(): boolean
+  {
+    const testState = this.state.displayTest?.state;
+    return testState === "switching" || testState === "showing" || testState === "restoring" || this.state.modeRequest?.state === "waiting";
+  }
+
+  /** "2560x1600@90" (also with ×, spaces or "Hz") → the numbers, null when it isn't a mode. */
+  public static parseMode(modeText: string): { width: number; height: number; refreshRate: number } | null
+  {
+    const match = /^\s*(\d{3,4})\s*[x×]\s*(\d{3,4})\s*@\s*(\d{2,3})\s*(hz)?\s*$/i.exec(modeText);
+    if (!match)
+    {
+      return null;
+    }
+    return { width: Number(match[1]), height: Number(match[2]), refreshRate: Number(match[3]) };
   }
 
   // ------------------------------------------------------------ library

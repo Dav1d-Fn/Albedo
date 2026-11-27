@@ -22,7 +22,7 @@ function updateText(update: UpdateStatus): string
   return texts.update.states[update.state];
 }
 
-/** Left column: name, the three screens, and the short status of companion, Sunshine and monitor. */
+/** Left column: name, the four screens, and the short status of companion, Sunshine and monitor. */
 export function Sidebar({ app, state }: { app: PcApp; state: PcAppState })
 {
   const texts = UiText.current;
@@ -30,6 +30,7 @@ export function Sidebar({ app, state }: { app: PcApp; state: PcAppState })
   [
     { screen: "library", icon: "library", label: texts.nav.library, count: state.library?.entries.length },
     { screen: "devices", icon: "gamepad", label: texts.nav.devices, count: state.clients?.length },
+    { screen: "display", icon: "monitor", label: texts.nav.display },
     { screen: "status", icon: "pulse", label: texts.nav.status },
   ];
   const sunshineOk = state.library !== null && state.library.sunshineProblem === null;
@@ -59,8 +60,8 @@ export function Sidebar({ app, state }: { app: PcApp; state: PcAppState })
         )}
         {!state.companionDown && (
           <div className="srow">
-            <span className={"dot " + (state.displayModes ? "ok" : "")} />
-            {state.displayModes
+            <span className={"dot " + (state.displayModes?.output ? "ok" : "")} />
+            {state.displayModes?.output
               ? `${state.displayModes.output} · ${state.displayModes.modes.length} ${texts.sidebar.modes}`
               : texts.sidebar.noModes}
           </div>

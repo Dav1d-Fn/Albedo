@@ -331,10 +331,17 @@ curl -s localhost:47995/api/health
 
 Step 2 already installed `sunshine-match-client`, so profiles set to *Main monitor* work right
 away. For a separate streaming monitor (your real monitors turn off for the stream and come back
-exactly as they were), set up one of these:
+exactly as they were), set up one of these.
 
-**Dummy plug (any GPU, recommended for NVIDIA).** Plug it in, find its connector with
-`kscreen-doctor -o` (the new output, e.g. `HDMI-A-1`), then:
+The **Display** area in Albedo Companion shows all three routes (set up or not, connector,
+connected, what *Automatic* picks right now) with their modes. There you pick the dummy plug's
+connector and, if it isn't the primary one, the main monitor, add modes to the virtual connector
+and **test** each route: it switches once like a stream would (1280×800@60 or a mode you pick),
+comes back after 10 seconds by itself and shows the result. Don't test during a stream.
+
+**Dummy plug (any GPU, recommended for NVIDIA).** Plug it in and pick it under *Display* in
+Albedo Companion, or find its connector with `kscreen-doctor -o` (the new output, e.g.
+`HDMI-A-1`) and run:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/Albedo/main/pc-setup/install.sh | bash -s -- --dummy-plug HDMI-A-1
@@ -368,8 +375,18 @@ It installs or updates Albedo Companion first, fetches its helper files from Git
 
 The EDID has 1280×720 (40/60), 1280×800 (60/90), 1920×1080, 2560×1440 (60/100/120) and
 3840×2160 (60/100). Add your own with `--mode`, e.g. `… | bash -s -- --mode 3440x1440@100`; the
-profile editor in Albedo marks values the PC doesn't have. Run the installer again to change the
-connector or the modes.
+profile editor in Albedo marks values the PC doesn't have. Modes can also be added later under
+*Display* in Albedo Companion or from the Deck's profile editor (KDE asks for your password on the
+PC). Run the installer again to change the connector.
+
+Setting the virtual connector up and removing it stay in the terminal: they need root, pick a
+connector and change files in `/etc`, and the connector appears or disappears for KWin while it
+runs, so it is better watched than started by a click. Albedo Companion shows the command to copy.
+Removing only the virtual connector (the dummy plug and Albedo Companion stay):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Dav1d-Fn/Albedo/main/pc-setup/install.sh | bash -s -- --remove-virtual-monitor
+```
 
 Test the switch without a stream (prints the command only):
 
